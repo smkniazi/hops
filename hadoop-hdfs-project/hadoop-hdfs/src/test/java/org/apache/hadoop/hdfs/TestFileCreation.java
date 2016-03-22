@@ -1626,7 +1626,8 @@ public class TestFileCreation {
     MiniDFSCluster cluster = null;
     try {
       Configuration conf = new HdfsConfiguration();
-      final int BLOCK_SIZE = 1024;
+      final int BLOCK_SIZE = 64;
+      conf.setInt(DFS_BYTES_PER_CHECKSUM_KEY, 32);
       conf.setInt(DFSConfigKeys.DFS_BLOCK_SIZE_KEY, BLOCK_SIZE); // 4 byte
       cluster = new MiniDFSCluster.Builder(conf).numDataNodes(1).build();
       cluster.waitActive();
@@ -1634,12 +1635,20 @@ public class TestFileCreation {
       DistributedFileSystem dfs = cluster.getFileSystem();
       
       FSDataOutputStream out = dfs.create(new Path("/test.file"), (short)3);
-      for(int i = 0; i < 1000; i++){
-        byte data[] = new byte[BLOCK_SIZE];
+      for(int i = 0; i < 1; i++){
+        byte data[] = new byte[129];
+        System.out.println("Before Writing the data");
         out.write(data);
+        Thread.sleep(5000);
+        System.out.println("After Writing the data");
+
       }
+      System.out.println("Before Closing the file.");
       out.close();
+      System.out.println("After Closing the file.");
       
+    } catch (InterruptedException e) {
+      e.printStackTrace();
     } finally {
       if (cluster != null) {
         cluster.shutdown();

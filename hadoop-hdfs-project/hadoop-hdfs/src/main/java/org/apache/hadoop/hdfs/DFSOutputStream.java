@@ -1596,6 +1596,24 @@ public class DFSOutputStream extends FSOutputSummer implements Syncable {
     }
   }
 
+  class SmallFileBuffer{
+    final boolean isAppend;
+    final int existingDataLen;
+    int dataLen;
+    List<Packet> packets;
+
+    protected SmallFileBuffer(boolean isAppend, int existingDataLen){
+      this.isAppend = isAppend;
+      this.existingDataLen = existingDataLen;
+      dataLen = 0;
+      packets = new LinkedList<Packet>();
+    }
+
+    //xxx
+
+
+  }
+
   private void queueCurrentPacket() {
     synchronized (dataQueue) {
       if (currentPacket == null) {

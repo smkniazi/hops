@@ -173,6 +173,13 @@ abstract public class FSOutputSummer extends OutputStream {
     }
     int2byte(tempChecksum, checksum);
     writeChunk(b, off, len, checksum);
+//
+//
+////
+//    for (StackTraceElement ste : Thread.currentThread().getStackTrace()) {
+//      System.out.println(ste);
+//    }
+
   }
 
   /**
