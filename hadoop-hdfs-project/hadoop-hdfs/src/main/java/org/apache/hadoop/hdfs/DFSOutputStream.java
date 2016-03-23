@@ -162,6 +162,10 @@ public class DFSOutputStream extends FSOutputSummer implements Syncable {
   private List<DatanodeInfo> stripeNodes = new LinkedList<DatanodeInfo>();
   private List<DatanodeInfo> parityStripeNodes = new LinkedList<DatanodeInfo>();
 
+  private final LinkedList<Packet> smallFileDataQueue = new LinkedList<Packet>();
+  private final boolean saveSmallFilesInDB;
+  private final int dbFileMaxSize;
+
   private class Packet {
     long seqno;               // sequencenumber of buffer in block
     long offsetInBlock;       // offset in block
@@ -1446,7 +1450,8 @@ public class DFSOutputStream extends FSOutputSummer implements Syncable {
   }
 
   private DFSOutputStream(DFSClient dfsClient, String src, long blockSize,
-      Progressable progress, DataChecksum checksum, short replication)
+      Progressable progress, DataChecksum checksum, short replication, boolean saveSmallFilesInDB,
+      final int dbFileMaxSize)
       throws IOException {
     super(checksum, checksum.getBytesPerChecksum(), checksum.getChecksumSize());
     int bytesPerChecksum = checksum.getBytesPerChecksum();
@@ -1455,6 +1460,8 @@ public class DFSOutputStream extends FSOutputSummer implements Syncable {
     this.blockSize = blockSize;
     this.blockReplication = replication;
     this.progress = progress;
+    this.saveSmallFilesInDB = saveSmallFilesInDB;
+    this.dbFileMaxSize = dbFileMaxSize;
     if ((progress != null) && DFSClient.LOG.isDebugEnabled()) {
       DFSClient.LOG
           .debug("Set non-null progress callback on DFSOutputStream " + src);
@@ -1476,8 +1483,9 @@ public class DFSOutputStream extends FSOutputSummer implements Syncable {
   private DFSOutputStream(DFSClient dfsClient, String src, FsPermission masked,
       EnumSet<CreateFlag> flag, boolean createParent, short replication,
       long blockSize, Progressable progress, int buffersize,
-      DataChecksum checksum, EncodingPolicy policy) throws IOException {
-    this(dfsClient, src, blockSize, progress, checksum, replication);
+      DataChecksum checksum, EncodingPolicy policy, boolean saveSmallFilesInDB, final int dbFileMaxSize)
+          throws IOException {
+    this(dfsClient, src, blockSize, progress, checksum, replication,saveSmallFilesInDB, dbFileMaxSize);
     this.shouldSyncBlock = flag.contains(CreateFlag.SYNC_BLOCK);
 
     if (policy != null) {
@@ -1508,18 +1516,19 @@ public class DFSOutputStream extends FSOutputSummer implements Syncable {
   static DFSOutputStream newStreamForCreate(DFSClient dfsClient, String src,
       FsPermission masked, EnumSet<CreateFlag> flag, boolean createParent,
       short replication, long blockSize, Progressable progress, int buffersize,
-      DataChecksum checksum) throws IOException {
+      DataChecksum checksum, boolean saveSmallFilesInDB, final int dbFileMaxSize) throws IOException {
     return newStreamForCreate(dfsClient, src, masked, flag, createParent,
-        replication, blockSize, progress, buffersize, checksum, null);
+        replication, blockSize, progress, buffersize, checksum, null, saveSmallFilesInDB, dbFileMaxSize);
   }
 
   static DFSOutputStream newStreamForCreate(DFSClient dfsClient, String src,
       FsPermission masked, EnumSet<CreateFlag> flag, boolean createParent,
       short replication, long blockSize, Progressable progress, int buffersize,
-      DataChecksum checksum, EncodingPolicy policy) throws IOException {
+      DataChecksum checksum, EncodingPolicy policy,boolean saveSmallFilesInDB,
+      final int dbFileMaxSize) throws IOException {
     final DFSOutputStream out =
         new DFSOutputStream(dfsClient, src, masked, flag, createParent,
-            replication, blockSize, progress, buffersize, checksum, policy);
+            replication, blockSize, progress, buffersize, checksum, policy, saveSmallFilesInDB, dbFileMaxSize);
     out.streamer.start();
     return out;
   }
@@ -1529,9 +1538,8 @@ public class DFSOutputStream extends FSOutputSummer implements Syncable {
    */
   private DFSOutputStream(DFSClient dfsClient, String src, int buffersize,
       Progressable progress, LocatedBlock lastBlock, HdfsFileStatus stat,
-      DataChecksum checksum) throws IOException {
-    this(dfsClient, src, stat.getBlockSize(), progress, checksum,
-        stat.getReplication());
+      DataChecksum checksum, boolean saveSmallFilesInDB, final int dbFileMaxSize) throws IOException {
+    this(dfsClient, src, stat.getBlockSize(), progress, checksum, stat.getReplication(),saveSmallFilesInDB,dbFileMaxSize);
     initialFileSize = stat.getLen(); // length of file when opened
 
     //
@@ -1551,10 +1559,26 @@ public class DFSOutputStream extends FSOutputSummer implements Syncable {
 
   static DFSOutputStream newStreamForAppend(DFSClient dfsClient, String src,
       int buffersize, Progressable progress, LocatedBlock lastBlock,
-      HdfsFileStatus stat, DataChecksum checksum) throws IOException {
+      HdfsFileStatus stat, DataChecksum checksum,boolean saveSmallFilesInDB, final int dbFileMaxSize) throws IOException {
+    String errorMessage = null;
+    if ((stat.isFileStoredInDB() == true && !saveSmallFilesInDB)) {
+      errorMessage = "The file is stored in the database. Parameter to store the data in the database is disabled. " +
+              "Set the "+DFSConfigKeys.DFS_STORE_SMALL_FILES_IN_DB_KEY+" configuration parameter in the hdfs " +
+              "configuration file";
+    }
+    else if(stat.isFileStoredInDB() == true && ( stat.getLen() > stat.getBlockSize() || (dbFileMaxSize > stat.getBlockSize()))){
+      errorMessage = "Invalid paraters for appending a file stored in the database. ";
+    }
+    if(errorMessage != null){
+      throw new IOException(errorMessage+" Stat.isStoredInDB: " + stat.isFileStoredInDB()+
+              " saveSmallFilesInDB: " + saveSmallFilesInDB + " Stat.len: " + stat.getLen() + " dbFileMaxSize: " +
+              dbFileMaxSize+" BlockSize: "+stat.getBlockSize());
+    }
+
+
     final DFSOutputStream out =
         new DFSOutputStream(dfsClient, src, buffersize, progress, lastBlock,
-            stat, checksum);
+            stat, checksum, saveSmallFilesInDB, dbFileMaxSize);
     out.streamer.start();
     return out;
   }
@@ -1566,7 +1590,7 @@ public class DFSOutputStream extends FSOutputSummer implements Syncable {
       Progressable progress, LocatedBlock lb, DataChecksum checksum)
       throws IOException {
     this(dfsClient, src, lb.getBlockSize(), progress, checksum,
-        (short) lb.getLocations().length);
+        (short) lb.getLocations().length, false, -1);
     singleBlock = true;
 
     computePacketChunkSize(dfsClient.getConf().writePacketSize,
@@ -1596,23 +1620,39 @@ public class DFSOutputStream extends FSOutputSummer implements Syncable {
     }
   }
 
-  class SmallFileBuffer{
-    final boolean isAppend;
-    final int existingDataLen;
-    int dataLen;
-    List<Packet> packets;
+//  /**
+//   * This is an additional buffer that holds the packets for small files.
+//   * When the file is closed the data is sent to a NameNode to store it in the database.
+//   * If the data exceeds the "dfs.small.file.max.size" limit or the
+//   * client explicity calls hflush then the packets are put in the dataQueue
+//   * to persist them on the datanodes
+//   */
+//  class SmallFileBuffer{
+//    final boolean saveSmallFilesInDB;
+//    final boolean isAppend;
+//    final int existingDataLen;
+//    int dataLen;
+//    LinkedList<Packet> packets;
+//
+//    protected SmallFileBuffer(boolean saveSmallFilesInDB, boolean isAppend, int existingDataLen){
+//      this.isAppend = isAppend;
+//      this.existingDataLen = existingDataLen;
+//      this.dataLen = 0;
+//      this.packets = new LinkedList<Packet>();
+//      this.saveSmallFilesInDB = saveSmallFilesInDB;
+//    }
+//
+//    protected void enqueuePacket(Packet packet){
+//      if(saveSmallFilesInDB){
+//
+//      }else{
+//
+//      }
+//      packets.addLast(packet);
+//    }
+//
 
-    protected SmallFileBuffer(boolean isAppend, int existingDataLen){
-      this.isAppend = isAppend;
-      this.existingDataLen = existingDataLen;
-      dataLen = 0;
-      packets = new LinkedList<Packet>();
-    }
-
-    //xxx
-
-
-  }
+//  }
 
   private void queueCurrentPacket() {
     synchronized (dataQueue) {
@@ -2056,7 +2096,7 @@ public class DFSOutputStream extends FSOutputSummer implements Syncable {
     long localstart = Time.now();
     boolean fileComplete = false;
     while (!fileComplete) {
-      fileComplete = dfsClient.complete(src, dfsClient.clientName, last);
+      fileComplete = dfsClient.complete(src, dfsClient.clientName, last, null);
       if (!fileComplete) {
         if (!dfsClient.clientRunning || (dfsClient.hdfsTimeout > 0 &&
             localstart + dfsClient.hdfsTimeout < Time.now())) {

@@ -875,11 +875,15 @@ public class PBHelper {
   
   
   // LocatedBlocks
-  public static LocatedBlocks convert(LocatedBlocksProto lb) {
-    return new LocatedBlocks(lb.getFileLength(), lb.getUnderConstruction(),
+  public static LocatedBlocks convert(LocatedBlocksProto lb) throws IOException {
+    LocatedBlocks locatedBlocks =  new LocatedBlocks(lb.getFileLength(), lb.getUnderConstruction(),
         PBHelper.convertLocatedBlock(lb.getBlocksList()),
         lb.hasLastBlock() ? PBHelper.convert(lb.getLastBlock()) : null,
         lb.getIsLastBlockComplete());
+    if(lb.hasData()){
+      locatedBlocks.setSmallFileData(lb.getData().toByteArray());
+    }
+    return locatedBlocks;
   }
   
   public static LocatedBlocksProto convert(LocatedBlocks lb) {
@@ -889,6 +893,9 @@ public class PBHelper {
     LocatedBlocksProto.Builder builder = LocatedBlocksProto.newBuilder();
     if (lb.getLastLocatedBlock() != null) {
       builder.setLastBlock(PBHelper.convert(lb.getLastLocatedBlock()));
+    }
+    if(lb.getDataStoredInDB() != null){
+      builder.setData(ByteString.copyFrom(lb.getDataStoredInDB()));
     }
     return builder.setFileLength(lb.getFileLength())
         .setUnderConstruction(lb.isUnderConstruction())
@@ -990,7 +997,7 @@ public class PBHelper {
   }
   
   
-  public static HdfsFileStatus convert(HdfsFileStatusProto fs) {
+  public static HdfsFileStatus convert(HdfsFileStatusProto fs) throws IOException {
     if (fs == null) {
       return null;
     }
@@ -1000,7 +1007,9 @@ public class PBHelper {
         PBHelper.convert(fs.getPermission()), fs.getOwner(), fs.getGroup(),
         fs.getFileType().equals(FileType.IS_SYMLINK) ?
             fs.getSymlink().toByteArray() : null, fs.getPath().toByteArray(),
-        fs.hasLocations() ? PBHelper.convert(fs.getLocations()) : null);
+        fs.hasLocations() ? PBHelper.convert(fs.getLocations()) : null,
+            fs.hasIsFileStoredInDB() ? fs.getIsFileStoredInDB() : false);
+
   }
 
   public static HdfsFileStatusProto convert(HdfsFileStatus fs) {
@@ -1024,10 +1033,13 @@ public class PBHelper {
         setPermission(PBHelper.convert(fs.getPermission())).
         setOwner(fs.getOwner()).
         setGroup(fs.getGroup()).
-        setPath(ByteString.copyFrom(fs.getLocalNameInBytes()));
+        setPath(ByteString.copyFrom(fs.getLocalNameInBytes())).
+        setIsFileStoredInDB(fs.isFileStoredInDB()).
+        setIsFileStoredInDB(fs.isFileStoredInDB());
     if (fs.isSymlink()) {
       builder.setSymlink(ByteString.copyFrom(fs.getSymlinkInBytes()));
     }
+
     if (fs instanceof HdfsLocatedFileStatus) {
       LocatedBlocks locations =
           ((HdfsLocatedFileStatus) fs).getBlockLocations();
@@ -1050,7 +1062,7 @@ public class PBHelper {
     return result;
   }
   
-  public static HdfsFileStatus[] convert(HdfsFileStatusProto[] fs) {
+  public static HdfsFileStatus[] convert(HdfsFileStatusProto[] fs) throws IOException {
     if (fs == null) {
       return null;
     }
@@ -1062,7 +1074,7 @@ public class PBHelper {
     return result;
   }
   
-  public static DirectoryListing convert(DirectoryListingProto dl) {
+  public static DirectoryListing convert(DirectoryListingProto dl) throws IOException {
     if (dl == null) {
       return null;
     }

@@ -18,7 +18,6 @@
 package org.apache.hadoop.hdfs.server.namenode;
 
 import com.google.common.annotations.VisibleForTesting;
-import com.google.common.base.Charsets;
 import com.google.common.collect.Lists;
 import io.hops.common.IDsGeneratorFactory;
 import io.hops.common.IDsMonitor;
@@ -35,7 +34,6 @@ import io.hops.metadata.hdfs.dal.BlockChecksumDataAccess;
 import io.hops.metadata.hdfs.dal.EncodingStatusDataAccess;
 import io.hops.metadata.hdfs.dal.INodeAttributesDataAccess;
 import io.hops.metadata.hdfs.dal.INodeDataAccess;
-import io.hops.metadata.hdfs.dal.MetadataLogDataAccess;
 import io.hops.metadata.hdfs.dal.SafeBlocksDataAccess;
 import io.hops.metadata.hdfs.dal.SizeLogDataAccess;
 import io.hops.metadata.hdfs.entity.BlockChecksum;
@@ -142,17 +140,11 @@ import org.mortbay.util.ajax.JSON;
 import javax.management.NotCompliantMBeanException;
 import javax.management.ObjectName;
 import javax.management.StandardMBean;
-import java.io.BufferedWriter;
 import java.io.ByteArrayInputStream;
 import java.io.DataInputStream;
 import java.io.DataOutputStream;
-import java.io.File;
 import java.io.FileNotFoundException;
-import java.io.FileOutputStream;
 import java.io.IOException;
-import java.io.OutputStreamWriter;
-import java.io.PrintWriter;
-import java.io.StringWriter;
 import java.lang.management.ManagementFactory;
 import java.net.InetAddress;
 import java.util.ArrayList;
@@ -398,6 +390,8 @@ public class FSNamesystem
   private final boolean erasureCodingEnabled;
   private final ErasureCodingManager erasureCodingManager;
 
+  private final boolean storeSmallFilesInDB;
+  private final int DBFileMaxSize;
   /**
    * Clear all loaded data
    */
@@ -469,6 +463,10 @@ public class FSNamesystem
       this.erasureCodingEnabled =
           ErasureCodingManager.isErasureCodingEnabled(conf);
       this.erasureCodingManager = new ErasureCodingManager(this, conf);
+      this.storeSmallFilesInDB = conf.getBoolean(DFSConfigKeys.DFS_STORE_SMALL_FILES_IN_DB_KEY, DFSConfigKeys
+              .DFS_STORE_SMALL_FILES_IN_DB_DEFAULT);
+      this.DBFileMaxSize = conf.getInt(DFSConfigKeys.DFS_DB_FILE_MAX_SIZE_KEY, DFSConfigKeys
+              .DFS_DB_FILE_MAX_SIZE_DEFAULT);
       this.datanodeStatistics =
           blockManager.getDatanodeManager().getDatanodeStatistics();
 
@@ -7408,6 +7406,14 @@ private void commitOrCompleteLastBlock(
   
   public ExecutorService getExecutorService(){
     return subtreeOperationsExecutor;
+  }
+
+  public boolean storeSmallFilesInDB(){
+    return this.storeSmallFilesInDB;
+  }
+
+  public int smallFilesMaxSize(){
+    return this.DBFileMaxSize;
   }
 }
 

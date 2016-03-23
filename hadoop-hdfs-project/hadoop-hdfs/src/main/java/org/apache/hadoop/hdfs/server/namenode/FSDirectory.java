@@ -1286,9 +1286,6 @@ public class FSDirectory implements Closeable {
   /**
    * Delete a path from the name space
    * Update the count at each ancestor directory with quota
-   * <br>
-   * Note: This is to be used by {@link FSEditLog} only.
-   * <br>
    *
    * @param src
    *     a string representation of a path to an inode
@@ -1463,7 +1460,6 @@ public class FSDirectory implements Closeable {
    * deepest INodes. The array size will be the number of expected
    * components in the path, and non existing components will be
    * filled with null
-   * @see INodeDirectory#getExistingPathINodes(byte[][], INode[])
    */
   INode[] getExistingPathINodes(String path)
       throws UnresolvedLinkException, StorageException,
@@ -1522,7 +1518,7 @@ public class FSDirectory implements Closeable {
    *     the delta change of diskspace
    * @throws QuotaExceededException
    *     if the new count violates any quota limit
-   * @throws FileNotFound
+   * @throws FileNotFoundException
    *     if path does not exist.
    */
   void updateSpaceConsumed(String path, long nsDelta, long dsDelta)
@@ -2559,6 +2555,7 @@ public class FSDirectory implements Closeable {
   private HdfsFileStatus createFileStatus(byte[] path, INode node)
       throws IOException {
     long size = 0;     // length is zero for directories
+
     if (node instanceof INodeFile) {
       INodeFile fileNode = (INodeFile) node;
       size = fileNode.getSize();//.computeFileSize(true);
@@ -2571,16 +2568,18 @@ public class FSDirectory implements Closeable {
       throws IOException {
     short replication = 0;
     long blocksize = 0;
+    boolean isStoredInDB = false;
     if (node instanceof INodeFile) {
       INodeFile fileNode = (INodeFile) node;
       replication = fileNode.getBlockReplication();
       blocksize = fileNode.getPreferredBlockSize();
+      isStoredInDB = fileNode.isFileStoredInDB();
     }
     // TODO Add encoding status
     return new HdfsFileStatus(size, node.isDirectory(), replication, blocksize,
         node.getModificationTime(), node.getAccessTime(),
         node.getFsPermission(), node.getUserName(), node.getGroupName(),
-        node.isSymlink() ? ((INodeSymlink) node).getSymlink() : null, path);
+        node.isSymlink() ? ((INodeSymlink) node).getSymlink() : null, path,isStoredInDB);
   }
 
   /**
@@ -2592,6 +2591,7 @@ public class FSDirectory implements Closeable {
     short replication = 0;
     long blocksize = 0;
     LocatedBlocks loc = null;
+    boolean isFileStoredInDB = false;
     if (node instanceof INodeFile) {
       INodeFile fileNode = (INodeFile) node;
       size = fileNode.computeFileSize(true);
@@ -2604,12 +2604,17 @@ public class FSDirectory implements Closeable {
       if (loc == null) {
         loc = new LocatedBlocks();
       }
+      isFileStoredInDB = fileNode.isFileStoredInDB();
+
+      assert isFileStoredInDB==true && loc.locatedBlockCount() <= 0 : "A file stored in memory can not have data " +
+              "blcoks stored in the database";
+
     }
     return new HdfsLocatedFileStatus(size, node.isDirectory(), replication,
         blocksize, node.getModificationTime(), node.getAccessTime(),
         node.getFsPermission(), node.getUserName(), node.getGroupName(),
         node.isSymlink() ? ((INodeSymlink) node).getSymlink() : null, path,
-        loc);
+        loc, isFileStoredInDB);
   }
 
 

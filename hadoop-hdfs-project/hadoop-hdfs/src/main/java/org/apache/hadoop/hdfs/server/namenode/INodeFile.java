@@ -67,6 +67,7 @@ public class INodeFile extends INode implements BlockCollection {
   private long header;
   private int generationStamp = (int) GenerationStamp.FIRST_VALID_STAMP;
   private long size;
+  private boolean isFileStoredInDB = false;
   
 
   public INodeFile(PermissionStatus permissions, BlockInfo[] blklist,
@@ -75,12 +76,14 @@ public class INodeFile extends INode implements BlockCollection {
     super(permissions, modificationTime, atime);
     this.setReplicationNoPersistance(replication);
     this.setPreferredBlockSizeNoPersistance(preferredBlockSize);
+    this.setFileStoredInDBNoPersistence(false); // it is set when the data is stored in the database
   }
 
   public INodeFile(PermissionStatus permissions, long header,
-      long modificationTime, long atime) throws IOException {
+      long modificationTime, long atime, boolean isFileStoredInDB) throws IOException {
     super(permissions, modificationTime, atime);
     this.setHeader(header);
+    this.isFileStoredInDB = isFileStoredInDB;
   }
 
   //HOP:
@@ -91,6 +94,7 @@ public class INodeFile extends INode implements BlockCollection {
     setPreferredBlockSizeNoPersistance(other.getPreferredBlockSize());
     setGenerationStampNoPersistence(other.getGenerationStamp());
     setSizeNoPersistence(other.getSize());
+    setFileStoredInDBNoPersistence(other.isFileStoredInDB());
   }
 
   /**
@@ -387,6 +391,20 @@ public class INodeFile extends INode implements BlockCollection {
 
   public long getSize() {
     return size;
+  }
+
+  public boolean isFileStoredInDB(){
+    return isFileStoredInDB;
+  }
+
+  public void setFileStoredInDB(boolean isFileStoredInDB) throws StorageException, TransactionContextException {
+    setFileStoredInDBNoPersistence(isFileStoredInDB);
+    save();
+    throw new UnsupportedOperationException("setFileStoredInDB is not implemented");
+  }
+
+  public void setFileStoredInDBNoPersistence(boolean isFileStoredInDB){
+     this.isFileStoredInDB = isFileStoredInDB;
   }
 
   public void setSizeNoPersistence(long size) {

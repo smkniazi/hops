@@ -20,6 +20,7 @@ package org.apache.hadoop.hdfs.protocol;
 import org.apache.hadoop.classification.InterfaceAudience;
 import org.apache.hadoop.classification.InterfaceStability;
 
+import java.io.IOException;
 import java.util.Collections;
 import java.util.Comparator;
 import java.util.List;
@@ -36,11 +37,13 @@ public class LocatedBlocks {
   private boolean underConstruction;
   private LocatedBlock lastLocatedBlock = null;
   private boolean isLastBlockComplete = false;
+  private byte[] data; // this store the data for the files stored in the database
 
   public LocatedBlocks() {
     fileLength = 0;
     blocks = null;
     underConstruction = false;
+    data = null;
   }
   
   /**
@@ -54,8 +57,34 @@ public class LocatedBlocks {
     underConstruction = isUnderConstuction;
     this.lastLocatedBlock = lastBlock;
     this.isLastBlockComplete = isLastBlockCompleted;
+    data = null;
   }
-  
+
+  public void setSmallFileData(final byte[] data) throws IOException{
+
+    if(underConstruction){
+      throw new IOException("Reading small file that is under construction is not yet supported");
+    }
+
+    if(blocks!= null){
+      throw new IOException("A file can not have data in both the database and on the datanodes");
+    }
+
+    this.data = data;
+  }
+
+  public boolean isStoredInDB(){
+    if(data!=null){
+      return true;
+    }else{
+      return false;
+    }
+  }
+
+  public byte[] getDataStoredInDB(){
+    return data;
+  }
+
   /**
    * Get located blocks.
    */

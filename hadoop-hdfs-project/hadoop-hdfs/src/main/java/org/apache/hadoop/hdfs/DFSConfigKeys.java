@@ -278,9 +278,9 @@ public class DFSConfigKeys extends CommonConfigurationKeys {
           "dfs.store.small.files.in.db";
   public static final boolean DFS_STORE_SMALL_FILES_IN_DB_DEFAULT = false;
 
-  public static final String DFS_SMALL_FILE_MAX_SIZE_KEY =
-          "dfs.small.file.max.size";
-  public static final String DFS_SMALL_FILE_MAX_SIZE_DEFAULT = "32*1024";
+  public static final String DFS_DB_FILE_MAX_SIZE_KEY =
+          "dfs.database.file.max.size";
+  public static final int DFS_DB_FILE_MAX_SIZE_DEFAULT = 32*1024; // 32KB
 
   public static final String DFS_BLOCK_SIZE_KEY = "dfs.blocksize";
   public static final long DFS_BLOCK_SIZE_DEFAULT = 64 * 1024 * 1024;
