@@ -499,10 +499,8 @@ class NameNodeRpcServer implements NamenodeProtocols {
       stateChangeLog
           .debug("*DIR* NameNode.complete: " + src + " for " + clientName);
     }
-    if(data != null){
-      throw new IOException("data is not null. situation currently now handled");
-    }
-    return namesystem.completeFile(src, clientName, last);
+
+    return namesystem.completeFile(src, clientName, last, data);
   }
 
   /**

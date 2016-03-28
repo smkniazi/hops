@@ -30,20 +30,8 @@ import io.hops.exception.TransactionContextException;
 import io.hops.leader_election.node.ActiveNode;
 import io.hops.metadata.HdfsStorageFactory;
 import io.hops.metadata.HdfsVariables;
-import io.hops.metadata.hdfs.dal.BlockChecksumDataAccess;
-import io.hops.metadata.hdfs.dal.EncodingStatusDataAccess;
-import io.hops.metadata.hdfs.dal.INodeAttributesDataAccess;
-import io.hops.metadata.hdfs.dal.INodeDataAccess;
-import io.hops.metadata.hdfs.dal.SafeBlocksDataAccess;
-import io.hops.metadata.hdfs.dal.SizeLogDataAccess;
-import io.hops.metadata.hdfs.entity.BlockChecksum;
-import io.hops.metadata.hdfs.entity.EncodingPolicy;
-import io.hops.metadata.hdfs.entity.EncodingStatus;
-import io.hops.metadata.hdfs.entity.INodeIdentifier;
-import io.hops.metadata.hdfs.entity.MetadataLogEntry;
-import io.hops.metadata.hdfs.entity.ProjectedINode;
-import io.hops.metadata.hdfs.entity.SizeLogEntry;
-import io.hops.metadata.hdfs.entity.SubTreeOperation;
+import io.hops.metadata.hdfs.dal.*;
+import io.hops.metadata.hdfs.entity.*;
 import io.hops.resolvingcache.Cache;
 import io.hops.transaction.EntityManager;
 import io.hops.transaction.handler.EncodingStatusOperationType;
@@ -266,12 +254,12 @@ public class FSNamesystem
     return (isAuditEnabled() && isExternalInvocation()) ?
         dir.getFileInfo(path, resolveSymlink) : null;
   }
-  
+
   private void logAuditEvent(boolean succeeded, String cmd, String src)
       throws IOException {
     logAuditEvent(succeeded, cmd, src, null, null);
   }
-  
+
   private void logAuditEvent(boolean succeeded, String cmd, String src,
       String dst, HdfsFileStatus stat) throws IOException {
     if (isAuditEnabled() && isExternalInvocation()) {
@@ -329,7 +317,7 @@ public class FSNamesystem
       TimeUnit.MILLISECONDS.convert(1, TimeUnit.HOURS);
   final DelegationTokenSecretManager dtSecretManager;
   private final boolean alwaysUseDelegationTokensForTests;
-  
+
   // Tracks whether the default audit logger is the only configured audit
   // logger; this allows isAuditEnabled() to return false in case the
   // underlying logger is disabled, and avoid some unnecessary work.
@@ -351,12 +339,12 @@ public class FSNamesystem
   final LeaseManager leaseManager = new LeaseManager(this);
 
   Daemon smmthread = null;  // SafeModeMonitor thread
-  
+
   Daemon nnrmthread = null; // NamenodeResourceMonitor thread
 
   private volatile boolean hasResourcesAvailable = true; //HOP. yes we have huge namespace
   private volatile boolean fsRunning = true;
-  
+
   /**
    * The start time of the namesystem.
    */
@@ -494,7 +482,7 @@ public class FSNamesystem
           conf.getInt(DFS_SUBTREE_EXECUTOR_LIMIT_KEY,
               DFS_SUBTREE_EXECUTOR_LIMIT_DEFAULT));
 
-      
+
       LOG.info("fsOwner             = " + fsOwner);
       LOG.info("supergroup          = " + supergroup);
       LOG.info("isPermissionEnabled = " + isPermissionEnabled);
@@ -527,7 +515,7 @@ public class FSNamesystem
               DFS_ENCRYPT_DATA_TRANSFER_DEFAULT),
           conf.getLong(FS_TRASH_INTERVAL_KEY, FS_TRASH_INTERVAL_DEFAULT),
           checksumType);
-      
+
       this.maxFsObjects = conf.getLong(DFS_NAMENODE_MAX_OBJECTS_KEY,
           DFS_NAMENODE_MAX_OBJECTS_DEFAULT);
 
@@ -539,7 +527,7 @@ public class FSNamesystem
 
       this.dtpReplaceDatanodeOnFailure = ReplaceDatanodeOnFailure.get(conf);
 
-      
+
       // For testing purposes, allow the DT secret manager to be started regardless
       // of whether security is enabled.
       alwaysUseDelegationTokensForTests =
@@ -605,7 +593,7 @@ public class FSNamesystem
       }
     }
   }
-  
+
   private void startSecretManagerIfNecessary() throws IOException {
     boolean shouldRun = shouldUseDelegationTokens() && !isInSafeMode();
     boolean running = dtSecretManager.isRunning();
@@ -619,7 +607,7 @@ public class FSNamesystem
       dtSecretManager.stopThreads();
     }
   }
-  
+
   /**
    * Start services common
    *      configuration
@@ -639,11 +627,11 @@ public class FSNamesystem
     if (dir.isQuotaEnabled()) {
       quotaUpdateManager.activate();
     }
-    
+
     registerMXBean();
     DefaultMetricsSystem.instance().register(this);
   }
-  
+
   /**
    * Stop services common
    *
@@ -656,7 +644,7 @@ public class FSNamesystem
       quotaUpdateManager.close();
     }
   }
-  
+
   /**
    * Start services required in active state
    *
@@ -787,8 +775,8 @@ public class FSNamesystem
    */
   void setPermissionSTO(final String src, final FsPermission permission)
       throws AccessControlException, FileNotFoundException, SafeModeException,
-      UnresolvedLinkException, IOException {  
-    
+      UnresolvedLinkException, IOException {
+
     boolean txFailed = true;
     INode inode = null;
     try {
@@ -822,9 +810,9 @@ public class FSNamesystem
         }
       }
     }
-    
+
   }
-  
+
   private void setPermissionSTOInt(String src, FsPermission permission,boolean isSTO)
       throws AccessControlException, FileNotFoundException, SafeModeException,
       UnresolvedLinkException, IOException, StorageException {
@@ -837,7 +825,7 @@ public class FSNamesystem
     dir.setPermission(src, permission);
     resultingStat = getAuditFileInfo(src, false);
     logAuditEvent(true, "setPermission", src, null, resultingStat);
-    
+
     //remove sto from 
     if(isSTO){
     INode[] nodes = dir.getRootDir().getExistingPathINodes(src, false);
@@ -849,7 +837,7 @@ public class FSNamesystem
     EntityManager.remove(new SubTreeOperation(getSubTreeLockPathPrefix(src)));
     }
   }
-  
+
   /**
    * Set permissions for an existing file.
    *
@@ -936,7 +924,7 @@ public class FSNamesystem
       }
     }
   }
-  
+
   private void setOwnerSTOInt(String src, String username, String group, boolean isSTO)
       throws AccessControlException, FileNotFoundException, SafeModeException,
       UnresolvedLinkException, IOException, StorageException {
@@ -967,7 +955,7 @@ public class FSNamesystem
     EntityManager.remove(new SubTreeOperation(getSubTreeLockPathPrefix(src)));
     }
   }
-  
+
   /**
    * Set owner for an existing file.
    *
@@ -1092,7 +1080,7 @@ public class FSNamesystem
         };
     return (LocatedBlocks) getBlockLocationsHandler.handle(this);
   }
-  
+
   /**
    * Get block locations within the specified range.
    *
@@ -1240,7 +1228,7 @@ public class FSNamesystem
       FSNamesystem.LOG.debug("concat " + Arrays.toString(srcs) +
           " to " + target);
     }
-    
+
     // verify args
     if (target.isEmpty()) {
       throw new IllegalArgumentException("Target file name is empty");
@@ -1248,7 +1236,7 @@ public class FSNamesystem
     if (srcs == null || srcs.length == 0) {
       throw new IllegalArgumentException("No sources given");
     }
-    
+
     // We require all files be in the same directory
     String trgParent =
         target.substring(0, target.lastIndexOf(Path.SEPARATOR_CHAR));
@@ -1378,7 +1366,7 @@ public class FSNamesystem
 
     dir.concat(target, srcs);
   }
-  
+
   /**
    * stores the modification and access time for this inode.
    * The access time is precise upto an hour. The transaction, if needed, is
@@ -1570,7 +1558,7 @@ public class FSNamesystem
     }
     return isFile;
   }
-  
+
     void setMetaEnabled(final String src, final boolean metaEnabled)
       throws IOException {
     try {
@@ -1858,7 +1846,7 @@ public class FSNamesystem
     }
     return null;
   }
-  
+
   /**
    * Replace current node with a INodeUnderConstruction.
    * Recreate lease record.
@@ -2406,7 +2394,7 @@ public class FSNamesystem
         };
     return (Boolean) abandonBlockHandler.handle(this);
   }
-  
+
   // make sure that we still have the lease on this file.
   private INodeFileUnderConstruction checkLease(String src, String holder)
       throws LeaseExpiredException, UnresolvedLinkException, StorageException,
@@ -2449,7 +2437,7 @@ public class FSNamesystem
    *     on error (eg lease mismatch, file not open, file deleted)
    */
   boolean completeFile(final String src, final String holder,
-      final ExtendedBlock last) throws IOException {
+      final ExtendedBlock last, final byte[] data) throws IOException {
     HopsTransactionalRequestHandler completeFileHandler =
         new HopsTransactionalRequestHandler(HDFSOperationType.COMPLETE_FILE,
             src) {
@@ -2459,22 +2447,25 @@ public class FSNamesystem
             locks.add(lf.getINodeLock(nameNode, INodeLockType.WRITE,
                 INodeResolveType.PATH, src))
                 .add(lf.getLeaseLock(LockType.WRITE, holder))
-                .add(lf.getLeasePathLock(LockType.WRITE)).add(lf.getBlockLock())
-                .add(lf.getBlockRelated(BLK.RE, BLK.CR, BLK.ER, BLK.UC, BLK.UR,
-                    BLK.IV));
+                .add(lf.getLeasePathLock(LockType.WRITE)).add(lf.getBlockLock());
+
+                if(data == null){ // the data is stored on the datanodes.
+                  locks.add(lf.getBlockRelated(BLK.RE, BLK.CR, BLK.ER, BLK.UC, BLK.UR, BLK.IV));
+                }
+
           }
 
           @Override
           public Object performTask() throws IOException {
             checkBlock(last);
             return completeFileInternal(src, holder,
-                ExtendedBlock.getLocalBlock(last));
+                ExtendedBlock.getLocalBlock(last),data);
           }
         };
     return (Boolean) completeFileHandler.handle(this);
   }
 
-  private boolean completeFileInternal(String src, String holder, Block last)
+  private boolean completeFileInternal(String src, String holder, Block last, final byte[] data)
       throws SafeModeException, UnresolvedLinkException, IOException,
       StorageException {
     if (NameNode.stateChangeLog.isDebugEnabled()) {
@@ -2485,7 +2476,20 @@ public class FSNamesystem
       throw new SafeModeException("Cannot complete file " + src, safeMode);
     }
 
-    INodeFileUnderConstruction pendingFile;
+    if(data!=null){
+      if(last != null){
+        throw new IllegalStateException("Trying to store the file data in the database. Last block of the file should" +
+                " have been null");
+      }
+      return completeFileStoredInDataBase(src, holder, data);
+    }else{
+      return completeFileStoredOnDataNodes(src, holder, last);
+    }
+  }
+
+  private boolean completeFileStoredOnDataNodes(String src, String holder, Block last)throws SafeModeException, UnresolvedLinkException, IOException,
+      StorageException {
+   INodeFileUnderConstruction pendingFile;
     try {
       pendingFile = checkLease(src, holder);
     } catch (LeaseExpiredException lee) {
@@ -2523,17 +2527,43 @@ public class FSNamesystem
     return true;
   }
 
+
+  private boolean completeFileStoredInDataBase(String src, String holder, final byte[] data)throws SafeModeException, UnresolvedLinkException, IOException,
+      StorageException {
+    INodeFileUnderConstruction pendingFile;
+
+    pendingFile = checkLease(src, holder);
+
+    storeFileDataInDB(pendingFile,data);
+
+    pendingFile.setFileStoredInDB(true);
+
+    finalizeINodeFileUnderConstructionStoredInDB(src, pendingFile);
+
+    NameNode.stateChangeLog
+            .info("DIR* completeFile: " + src + " is closed by " + holder);
+    return true;
+  }
+
+  private void storeFileDataInDB(INode inode, byte[] data) throws StorageException {
+
+    FileInodeDataDataAccess fida = (FileInodeDataDataAccess) HdfsStorageFactory.getDataAccess(FileInodeDataDataAccess
+            .class);
+    FileInodeData fid = new FileInodeData(inode.getId(), data);
+    fida.add(fid);
+    System.out.println("SMALL_FILE the file has been stored in the database ");
+  }
   /**
-   * Save allocated block at the given pending filename
-   *
-   * @param src
-   *     path to the file
-   * @param inodes
-   *     representing each of the components of src.
-   *     The last INode is the INode for the file.
-   * @throws QuotaExceededException
-   *     If addition of block exceeds space quota
-   */
+ * Save allocated block at the given pending filename
+ *
+ * @param src
+ *     path to the file
+ * @param inodes
+ *     representing each of the components of src.
+ *     The last INode is the INode for the file.
+ * @throws QuotaExceededException
+ *     If addition of block exceeds space quota
+ */
   BlockInfo saveAllocatedBlock(String src, INode[] inodes, Block newBlock,
       DatanodeDescriptor targets[]) throws IOException, StorageException {
     BlockInfo b = dir.addBlock(src, inodes, newBlock, targets);
@@ -2703,7 +2733,7 @@ public class FSNamesystem
     }
     return false;
   }
-  
+
 
   /**
    * Rename src to dst
@@ -2887,7 +2917,7 @@ public class FSNamesystem
       start = end;
     }
   }
-  
+
   void removePathAndBlocks(String src, List<Block> blocks)
       throws StorageException, IOException {
     leaseManager.removeLeaseWithPrefixPath(src);
@@ -3105,7 +3135,7 @@ public class FSNamesystem
 //        };
 //    setQuotaHandler.handle(this);
 //  }
-  
+
   /**
    * Persist all metadata about this file.
    *
@@ -3292,7 +3322,7 @@ public class FSNamesystem
     }
     return reassignLeaseInternal(lease, src, newHolder, pendingFile);
   }
-  
+
   Lease reassignLeaseInternal(Lease lease, String src, String newHolder,
       INodeFileUnderConstruction pendingFile)
       throws StorageException, TransactionContextException {
@@ -3303,13 +3333,13 @@ public class FSNamesystem
 private void commitOrCompleteLastBlock(
       final INodeFileUnderConstruction fileINode, final Block commitBlock)
       throws IOException {
-    
+
     if (!blockManager.commitOrCompleteLastBlock(fileINode, commitBlock)) {
       return;
     }
 
-    fileINode.recomputeFileSize();     
-    
+    fileINode.recomputeFileSize();
+
     if (dir.isQuotaEnabled()) {
       final long diff = fileINode.getPreferredBlockSize()
           - commitBlock.getNumBytes();
@@ -3320,7 +3350,7 @@ private void commitOrCompleteLastBlock(
           -diff * fileINode.getBlockReplication());
       }
     }
-    
+
     try {
       if (fileINode.isPathMetaEnabled()) {
         SizeLogDataAccess da = (SizeLogDataAccess)
@@ -3333,9 +3363,22 @@ private void commitOrCompleteLastBlock(
     }
   }
 
-  private void finalizeINodeFileUnderConstruction(String src,
-      INodeFileUnderConstruction pendingFile)
-      throws IOException, UnresolvedLinkException, StorageException {
+private void finalizeINodeFileUnderConstruction(String src,
+                                                INodeFileUnderConstruction pendingFile)
+        throws IOException, UnresolvedLinkException, StorageException {
+  finalizeINodeFileUnderConstructionInternel(src, pendingFile, false);
+}
+
+  private void finalizeINodeFileUnderConstructionStoredInDB(String src,
+                                                            INodeFileUnderConstruction pendingFile)
+          throws IOException, UnresolvedLinkException, StorageException {
+    finalizeINodeFileUnderConstructionInternel(src, pendingFile, true);
+  }
+
+  private void finalizeINodeFileUnderConstructionInternel(String src,
+                                                          INodeFileUnderConstruction pendingFile,
+                                                          boolean skipReplicationChecks)
+          throws IOException, UnresolvedLinkException, StorageException {
     leaseManager.removeLease(pendingFile.getClientName(), src);
 
     // The file is no longer pending.
@@ -3344,7 +3387,9 @@ private void commitOrCompleteLastBlock(
     // close file and persist block allocations for this file
     dir.closeFile(src, newFile);
 
-    blockManager.checkReplication(newFile);
+    if(!skipReplicationChecks) {
+      blockManager.checkReplication(newFile);
+    }
   }
 
   void commitBlockSynchronization(final ExtendedBlock lastblock,
@@ -3591,7 +3636,7 @@ private void commitOrCompleteLastBlock(
     getBlockManager().getDatanodeManager().registerDatanode(nodeReg);
     checkSafeMode();
   }
-  
+
   /**
    * Get registrationID for datanodes based on the namespaceID.
    *
@@ -3812,7 +3857,7 @@ private void commitOrCompleteLastBlock(
    * @see SafeModeMonitor
    */
   class SafeModeInfo {
-    
+
     // configuration fields
     /**
      * Safe mode threshold condition %.
@@ -3867,10 +3912,10 @@ private void commitOrCompleteLastBlock(
      * Was safemode entered automatically because available resources were low.
      */
     private boolean resourcesLow = false;
-    
+
     public ThreadLocal<Boolean> safeModePendingOperation =
         new ThreadLocal<Boolean>();
-    
+
     /**
      * Creates SafeModeInfo when the name node enters
      * automatic safe mode at startup.
@@ -3895,7 +3940,7 @@ private void commitOrCompleteLastBlock(
         LOG.warn("Only safe replication 1 is supported");
         this.safeReplication = 1;
       }
-      
+
       LOG.info(DFS_NAMENODE_SAFEMODE_THRESHOLD_PCT_KEY + " = " + threshold);
       LOG.info(
           DFS_NAMENODE_SAFEMODE_MIN_DATANODES_KEY + " = " + datanodeThreshold);
@@ -3966,20 +4011,20 @@ private void commitOrCompleteLastBlock(
       if (!isPopulatingReplQueues() && shouldPopulateReplQueues()) {
         initializeReplQueues();
       }
-      
+
       leaveInternal();
-      
+
       HdfsVariables.exitClusterSafeMode();
       HdfsVariables.resetMisReplicatedIndex();
       clearSafeBlocks();
     }
-    
+
     private void leaveInternal() throws IOException {
       long timeInSafemode = now() - startTime;
       NameNode.stateChangeLog.info(
           "STATE* Leaving safe mode after " + timeInSafemode / 1000 + " secs");
       NameNode.getNameNodeMetrics().setSafeModeTime((int) timeInSafemode);
-      
+
       if (reached >= 0) {
         NameNode.stateChangeLog.info("STATE* Safe mode is OFF");
       }
@@ -3992,7 +4037,7 @@ private void commitOrCompleteLastBlock(
               nt.getNumOfLeaves() + " datanodes");
       NameNode.stateChangeLog.info("STATE* UnderReplicatedBlocks has " +
           blockManager.numOfUnderReplicatedBlocks() + " blocks");
-      
+
       startSecretManagerIfNecessary();
     }
 
@@ -4078,7 +4123,7 @@ private void commitOrCompleteLastBlock(
     /**
      * Check and trigger safe mode if needed.
      */
-    
+
     private void checkMode() throws IOException {
       // Have to have write-lock since leaving safemode initializes
       // repl queues, which requires write lock
@@ -4104,7 +4149,7 @@ private void commitOrCompleteLastBlock(
       // start monitor
       reached = now();
       startSafeModeMonitor();
-      
+
       reportStatus("STATE* Safe mode extension entered.", true);
 
       // check if we are ready to initialize replication queues
@@ -4214,7 +4259,7 @@ private void commitOrCompleteLastBlock(
 
       int numLive = getNumLiveDataNodes();
       String msg = "";
-      
+
       long blockSafe;
       try {
         blockSafe = blockSafe();
@@ -4298,7 +4343,7 @@ private void commitOrCompleteLastBlock(
       if (!assertsOn) {
         return;
       }
-      
+
       if (blockTotal == -1 /*&& blockSafe == -1*/) {
         return; // manual safe mode
       }
@@ -4333,7 +4378,7 @@ private void commitOrCompleteLastBlock(
 
       checkMode();
     }
-    
+
     private void performSafeModePendingOperation() throws IOException {
       if (safeModePendingOperation.get() != null) {
         if (safeModePendingOperation.get().booleanValue() == true) {
@@ -4363,7 +4408,7 @@ private void commitOrCompleteLastBlock(
      * interval in msec for checking safe mode: {@value}
      */
     private static final long recheckInterval = 1000;
-    
+
     /**
      */
     @Override
@@ -4486,7 +4531,7 @@ private void commitOrCompleteLastBlock(
           (short) blockManager.countNodes(b).liveReplicas());
     }
   }
-  
+
   /**
    * Adjust the total number of blocks safe and expected during safe mode.
    * If safe mode is not currently on, this is a no-op.
@@ -4627,7 +4672,7 @@ private void commitOrCompleteLastBlock(
           parentAccess, access, subAccess);
     }
   }
-  
+
   /**
    * Check to see if we have exceeded the limit on the number
    * of inodes.
@@ -4709,7 +4754,7 @@ private void commitOrCompleteLastBlock(
   public String getFSState() throws IOException {
     return isInSafeMode() ? "safeMode" : "Operational";
   }
-  
+
   private ObjectName mbeanName;
 
   /**
@@ -4736,7 +4781,7 @@ private void commitOrCompleteLastBlock(
       MBeans.unregister(mbeanName);
     }
   }
-  
+
 
   @Override // FSNamesystemMBean
   public int getNumLiveDataNodes() {
@@ -4747,7 +4792,7 @@ private void commitOrCompleteLastBlock(
   public int getNumDeadDataNodes() {
     return getBlockManager().getDatanodeManager().getNumDeadDataNodes();
   }
-  
+
   @Override // FSNamesystemMBean
   @Metric({"StaleDataNodes",
       "Number of datanodes marked stale due to delayed heartbeat"})
@@ -4761,7 +4806,7 @@ private void commitOrCompleteLastBlock(
       throw new SafeModeException("Cannot get a new generation stamp and an " +
           "access token for block " + block, safeMode);
     }
-    
+
     // check stored block state
     BlockInfo storedBlock =
         blockManager.getStoredBlock(ExtendedBlock.getLocalBlock(block));
@@ -4770,14 +4815,14 @@ private void commitOrCompleteLastBlock(
       throw new IOException(block +
           " does not exist or is not under Construction" + storedBlock);
     }
-    
+
     // check file inode
     INodeFile file = (INodeFile) storedBlock.getBlockCollection();
     if (file == null || !file.isUnderConstruction()) {
       throw new IOException("The file " + storedBlock +
           " belonged to does not exist or it is not under construction.");
     }
-    
+
     // check lease
     INodeFileUnderConstruction pendingFile = (INodeFileUnderConstruction) file;
     if (clientName == null || !clientName.equals(pendingFile.getClientName())) {
@@ -4787,7 +4832,7 @@ private void commitOrCompleteLastBlock(
 
     return pendingFile;
   }
-  
+
   /**
    * Client is reporting some bad block locations.
    */
@@ -4858,7 +4903,7 @@ private void commitOrCompleteLastBlock(
         };
     return (LocatedBlock) updateBlockForPipelineHandler.handle(this);
   }
-  
+
   /**
    * Update a pipeline for a block under construction
    *
@@ -4964,12 +5009,12 @@ private void commitOrCompleteLastBlock(
   static class CorruptFileBlockInfo {
     String path;
     Block block;
-    
+
     public CorruptFileBlockInfo(String p, Block b) {
       path = p;
       block = b;
     }
-    
+
     @Override
     public String toString() {
       return block.getBlockName() + "\t" + path;
@@ -5223,7 +5268,7 @@ private void commitOrCompleteLastBlock(
         };
     cancelDelegationTokenHandler.handle(this);
   }
-  
+
   /**
    * @param out
    *     save state of the secret manager
@@ -5247,7 +5292,7 @@ private void commitOrCompleteLastBlock(
    *     new delegation key.
    */
   public void logUpdateMasterKey(DelegationKey key) throws IOException {
-    
+
     assert !isInSafeMode() :
         "this should never be called while in safemode, since we stop " +
             "the DT manager before entering safemode!";
@@ -5269,7 +5314,7 @@ private void commitOrCompleteLastBlock(
     }
     return true;
   }
-  
+
   /**
    * Returns authentication method used to establish the connection
    *
@@ -5285,7 +5330,7 @@ private void commitOrCompleteLastBlock(
     }
     return authMethod;
   }
-  
+
   /**
    * Client invoked methods are invoked over RPC and will be in
    * RPC call context even if the client exits.
@@ -5302,7 +5347,7 @@ private void commitOrCompleteLastBlock(
     }
     return NamenodeWebHdfsMethods.getRemoteIp();
   }
-  
+
   // optimize ugi lookup for RPC operations to avoid a trip through
   // UGI.getCurrentUser which is synch'ed
   private static UserGroupInformation getRemoteUser() throws IOException {
@@ -5312,7 +5357,7 @@ private void commitOrCompleteLastBlock(
     }
     return (ugi != null) ? ugi : UserGroupInformation.getCurrentUser();
   }
-  
+
   /**
    * Log fsck event in the audit log
    */
@@ -5406,7 +5451,7 @@ private void commitOrCompleteLastBlock(
   public long getNumberOfMissingBlocks() throws IOException {
     return getMissingBlocksCount();
   }
-  
+
   @Override // NameNodeMXBean
   public int getThreads() {
     return ManagementFactory.getThreadMXBean().getThreadCount();
@@ -5495,12 +5540,12 @@ private void commitOrCompleteLastBlock(
     return cid;
 
   }
-  
+
   @Override  // NameNodeMXBean
   public String getBlockPoolId() {
     return blockPoolId;
   }
-  
+
   @Override  // NameNodeMXBean
   public String getNameDirStatuses() {
     throw new UnsupportedOperationException(
@@ -5513,7 +5558,7 @@ private void commitOrCompleteLastBlock(
   public BlockManager getBlockManager() {
     return blockManager;
   }
-  
+
   /**
    * Verifies that the given identifier and password are valid and match.
    *
@@ -5527,7 +5572,7 @@ private void commitOrCompleteLastBlock(
       byte[] password) throws InvalidToken {
     getDelegationTokenSecretManager().verifyToken(identifier, password);
   }
-  
+
   @Override
   public boolean isGenStampInFuture(long genStamp) throws StorageException {
     throw new UnsupportedOperationException("Not supported anymore.");
@@ -5596,7 +5641,7 @@ private void commitOrCompleteLastBlock(
   public long getNamenodeId() {
     return nameNode.getLeCurrentId();
   }
-  
+
   public String getSupergroup() {
     return this.supergroup;
   }
@@ -5638,7 +5683,7 @@ private void commitOrCompleteLastBlock(
       this.parentPath = parentPath;
       this.inode = inode;
     }
-    
+
     public String getPath() {
       if (parentPath.endsWith("/")) {
         return parentPath + inode.getLocalName();
@@ -5646,11 +5691,11 @@ private void commitOrCompleteLastBlock(
         return parentPath + "/" + inode.getLocalName();
       }
     }
-    
+
     public INode getINode() {
       return inode;
     }
-    
+
     public String getParentPath() {
       return parentPath;
     }
@@ -5668,7 +5713,7 @@ private void commitOrCompleteLastBlock(
       }
     }
   }
-  
+
   @Override
   public void adjustSafeModeBlocks(Set<Long> safeBlocks) throws IOException {
     // safeMode is volatile, and may be set to null at any time
@@ -5785,7 +5830,7 @@ private void commitOrCompleteLastBlock(
   ExecutorService getSubtreeOperationsExecutor() {
     return subtreeOperationsExecutor;
   }
-  
+
   boolean isLegacyDeleteEnabled() {
     return legacyDeleteEnabled;
   }
@@ -5832,7 +5877,7 @@ private void commitOrCompleteLastBlock(
     INode subtreeRoot = null;
     int subtreeRootId = Integer.MIN_VALUE;
     boolean removeSTOLock = false;
-    
+
     try {
       PathInformation pathInfo = getPathExistingINodesFromDB(path,
               false, null, null, null, null);
@@ -5850,7 +5895,7 @@ private void commitOrCompleteLastBlock(
       if(INode.getPathNames(path).length == 0){ // this method return empty array in case of path = "/"
         subtreeRootId = INodeDirectory.ROOT_ID; // locking root id is not yet properly implemented
       }else{
-        subtreeRoot = lockSubtree(path, SubTreeOperation.StoOperationType.QUOTA_STO);      
+        subtreeRoot = lockSubtree(path, SubTreeOperation.StoOperationType.QUOTA_STO);
         if(subtreeRoot == null){
           // in the mean while the dir has been deleted by someone
           throw new FileNotFoundException("Directory does not exist: " + path);
@@ -5858,7 +5903,7 @@ private void commitOrCompleteLastBlock(
         subtreeRootId = subtreeRoot.getId();
         removeSTOLock = true;
       }
-      
+
       final AbstractFileTree.IdCollectingCountingFileTree fileTree =
           new AbstractFileTree.IdCollectingCountingFileTree(this,
               subtreeRootId);
@@ -5922,7 +5967,7 @@ private void commitOrCompleteLastBlock(
     ContentSummary multiTransactionalGetContentSummary(final String path)
       throws AccessControlException, FileNotFoundException,
       UnresolvedLinkException, IOException {
-  
+
       PathInformation pathInfo = getPathExistingINodesFromDB(path,
               false, null, null, null, null);
       if(pathInfo.getPathInodes()[pathInfo.getPathComponents().length-1] == null){
@@ -6075,11 +6120,11 @@ private void commitOrCompleteLastBlock(
               .warn("DIR* FSDirectory.unprotectedRenameTo: " + error);
       throw new ParentNotDirectoryException(error);
     }
-    
+
     INode srcDataset = getMetaEnabledParent(srcInodes);
     INode dstDataset = getMetaEnabledParent(dstInodes);
     Collection<MetadataLogEntry> logEntries = Collections.EMPTY_LIST;
-    
+
     //--
     //TODO [S]  if src is a file then there is no need for sub tree locking 
     //mechanism on the src and dst
@@ -6137,7 +6182,7 @@ private void commitOrCompleteLastBlock(
       }
     }
   }
-  
+
   private boolean pathIsMetaEnabled(INode[] pathComponents) {
     return getMetaEnabledParent(pathComponents) == null ? false : true;
   }
@@ -6222,10 +6267,10 @@ private void commitOrCompleteLastBlock(
             break;
           }
         }
-        
-        removeSubTreeLocksForRenameInternal(src, isUsingSubTreeLocks, 
+
+        removeSubTreeLocksForRenameInternal(src, isUsingSubTreeLocks,
                 subTreeLockDst);
-        
+
         dir.renameTo(src, dst, srcNsCount, srcDsCount, dstNsCount, dstDsCount,
             options);
         return null;
@@ -6251,7 +6296,7 @@ private void commitOrCompleteLastBlock(
       }
     }
   }
-  
+
   @Deprecated
   boolean multiTransactionalRename(final String src, final String dst)
       throws IOException {
@@ -6274,8 +6319,8 @@ private void commitOrCompleteLastBlock(
               " to " + dst + " because source is the root");
       return false;
     }
-    
-    
+
+
     PathInformation srcInfo = getPathExistingINodesFromDB(src,
              false, null, FsAction.WRITE, null, null);
     INode[] srcInodes = srcInfo.getPathInodes();
@@ -6293,7 +6338,7 @@ private void commitOrCompleteLastBlock(
     if(dstInfo.isDir()){
       actualDst += Path.SEPARATOR + new Path(src).getName();
     }
-    
+
     if (actualDst.equals(src)) {
       return true;
     }
@@ -6306,19 +6351,19 @@ private void commitOrCompleteLastBlock(
               " because destination's parent does not exist");
       return false;
     }
-    
+
     if (actualDst.startsWith(src) &&
         actualDst.charAt(src.length()) == Path.SEPARATOR_CHAR) {
       NameNode.stateChangeLog.warn(
           "DIR* FSDirectory.unprotectedRenameTo: " + "failed to rename " + src +
               " to " + actualDst + " because destination starts with src");
       return false;
-    }    
-    
+    }
+
     INode srcDataset = getMetaEnabledParent(srcInfo.getPathInodes());
     INode dstDataset = getMetaEnabledParent(dstInfo.getPathInodes());
     Collection<MetadataLogEntry> logEntries = Collections.EMPTY_LIST;
-    
+
     //TODO [S]  if src is a file then there is no need for sub tree locking 
     //mechanism on the src and dst
     //However the quota is enabled then all the quota update on the dst
@@ -6326,12 +6371,12 @@ private void commitOrCompleteLastBlock(
     long srcNsCount = srcInfo.getNsCount(); //if not dir then it will return zero
     long srcDsCount = srcInfo.getDsCount();
     long dstNsCount = dstInfo.getNsCount();
-    long dstDsCount = dstInfo.getDsCount();  
+    long dstDsCount = dstInfo.getDsCount();
     boolean isUsingSubTreeLocks = srcInfo.isDir();
     boolean renameTransactionCommitted = false;
     INode srcSubTreeRoot = null;
     INode dstSubTreeRoot = null;
-    
+
     String subTreeLockDst = INode.constructPath(dstInfo.getPathComponents(),
             0,  dstInfo.getNumExistingComp());
     if(subTreeLockDst.equals(INodeDirectory.ROOT_NAME)){
@@ -6435,13 +6480,13 @@ private void commitOrCompleteLastBlock(
             }
 
             // remove the subtree locks
-            removeSubTreeLocksForRenameInternal(src, isUsingSubTreeLocks, 
+            removeSubTreeLocksForRenameInternal(src, isUsingSubTreeLocks,
                     subTreeLockDst);
 
             for (MetadataLogEntry logEntry : logEntries) {
               EntityManager.add(logEntry);
             }
-            
+
             return dir.renameTo(src, dst, srcNsCount, srcDsCount, dstNsCount,
                 dstDsCount);
           }
@@ -6515,7 +6560,7 @@ private void commitOrCompleteLastBlock(
       //sub tree operation
       try {
         subtreeRoot = lockSubtreeAndCheckPathPermission(path, false, null,
-                FsAction.WRITE, null, null, 
+                FsAction.WRITE, null, null,
                 SubTreeOperation.StoOperationType.DELETE_STO);
 
         AbstractFileTree.FileTree fileTree =
@@ -6660,16 +6705,16 @@ private void commitOrCompleteLastBlock(
       final FsAction parentAccess, final FsAction access,
       final FsAction subAccess,
       final SubTreeOperation.StoOperationType stoType) throws IOException {
-    
+
     return (INode) new HopsTransactionalRequestHandler(
         HDFSOperationType.SET_SUBTREE_LOCK) {
 
       @Override
       public void setUp() throws IOException {
-        super.setUp(); 
+        super.setUp();
         log.debug("About to lock \""+path+"\"");
       }
-      
+
       @Override
       public void acquireLock(TransactionLocks locks) throws IOException {
         LockFactory lf = LockFactory.getInstance();
@@ -6677,9 +6722,9 @@ private void commitOrCompleteLastBlock(
             INodeResolveType.PATH, false, path)).
                 //READ_COMMITTED because it is index scan and locking is bad idea
                 //INode lock is sufficient
-                add(lf.getSubTreeOpsLock(LockType.READ_COMMITTED, 
-                getSubTreeLockPathPrefix(path))); // it is 
-        
+                add(lf.getSubTreeOpsLock(LockType.READ_COMMITTED,
+                getSubTreeLockPathPrefix(path))); // it is
+
       }
 
       @Override
@@ -6701,7 +6746,7 @@ private void commitOrCompleteLastBlock(
           log.debug("Lock the INode with sub tree lock flag. Path: \""+path+"\" "
                   +" id: "+ inode.getId()
                   +" pid: "+inode.getParentId()+" name: "+inode.getLocalName());
-          
+
           EntityManager.update(new SubTreeOperation(getSubTreeLockPathPrefix(path)
                 ,nameNode.getId(),stoType));
           return inode;
@@ -6713,7 +6758,7 @@ private void commitOrCompleteLastBlock(
       }
     }.handle(this);
   }
-  
+
   /**
    * adds / at the end of the path
    * suppose /aa/bb is locked and we want to lock an other foler /a. 
@@ -6736,28 +6781,28 @@ private void commitOrCompleteLastBlock(
    */
   private void checkSubTreeLocks(String path) throws TransactionContextException, StorageException{
       List<SubTreeOperation> ops = (List<SubTreeOperation>)
-              EntityManager.findList(SubTreeOperation.Finder.ByPathPrefix, 
+              EntityManager.findList(SubTreeOperation.Finder.ByPathPrefix,
               path);  // THIS RETURNS ONLY ONE SUBTREE OP IN THE CHILD TREE. INCREASE THE LIMIT IN IMPL LAYER IF NEEDED
       Set<Long> activeNameNodeIds = new HashSet<Long>();
       for(ActiveNode node:nameNode.getActiveNameNodes().getActiveNodes()){
         activeNameNodeIds.add(node.getId());
       }
-      
+
       for(SubTreeOperation op : ops){
         if(activeNameNodeIds.contains(op.getNameNodeId())){
           throw new SubtreeLockedException("There is atleat one on going subtree operation "
                   + "on the decendents. Path: "+op.getPath()
                   +" Operation "+op.getOpType()+" NameNodeId "+op.getNameNodeId());
-          
-        }else{ // operation started by a dead namenode. 
+
+        }else{ // operation started by a dead namenode.
           //TODO: what if the activeNameNodeIds does not contain all new namenode ids
-          //An operation belonging to new namenode might be considered dead 
-          //handle this my maintaining a list of dead namenodes. 
+          //An operation belonging to new namenode might be considered dead
+          //handle this my maintaining a list of dead namenodes.
           EntityManager.remove(op);
         }
       }
   }
-  
+
   /**
    * Unlock a subtree in the filesystem tree.
    *
@@ -6794,7 +6839,7 @@ private void commitOrCompleteLastBlock(
     tok.nextElement();
     return Integer.parseInt((String) tok.nextElement());
   }
-  
+
   private String pname(String param) {
     StringTokenizer tok = new StringTokenizer(param);
     return (String) tok.nextElement();
@@ -6960,7 +7005,7 @@ private void commitOrCompleteLastBlock(
       }
     }.handle();
   }
-  
+
   /**
    * Remove the status of an erasure-coded file.
    *
@@ -7306,7 +7351,7 @@ private void commitOrCompleteLastBlock(
     }
     return i / length;
   }
-  
+
   private PathInformation getPathExistingINodesFromDB(final String path,
           final boolean doCheckOwner, final FsAction ancestorAccess,
           final FsAction parentAccess, final FsAction access,
@@ -7317,7 +7362,7 @@ private void commitOrCompleteLastBlock(
           public void acquireLock(TransactionLocks locks) throws IOException {
             LockFactory lf = LockFactory.getInstance();
             locks.add(lf.getINodeLock(nameNode, INodeLockType.READ_COMMITTED,
-                INodeResolveType.PATH, false, 
+                INodeResolveType.PATH, false,
                 path)).add(lf.getBlockLock()); // blk lock only if file
           }
 
@@ -7328,32 +7373,32 @@ private void commitOrCompleteLastBlock(
               pc.checkPermission(path, dir.getRootDir(), doCheckOwner,
                       ancestorAccess, parentAccess, access, subAccess);
             }
-        
+
             byte[][] pathComponents = INode.getPathComponents(path);
             INode[] pathInodes = new INode[pathComponents.length];
             boolean isDir = false;
             INode.DirCounts srcCounts  = new INode.DirCounts();
             int numExistingComp = dir.getRootDir().
                     getExistingPathINodes(pathComponents, pathInodes, false);
-            
+
             if(pathInodes[pathInodes.length - 1] != null){  // complete path resolved
               if(pathInodes[pathInodes.length - 1] instanceof INodeFile ){
                 isDir = false;
                 //do ns and ds counts for file only
-                pathInodes[pathInodes.length - 1].spaceConsumedInTree(srcCounts); 
+                pathInodes[pathInodes.length - 1].spaceConsumedInTree(srcCounts);
               }else{
                 isDir =true;
               }
             }
 
-            return new PathInformation(path, pathComponents, 
-                    pathInodes,numExistingComp,isDir, 
+            return new PathInformation(path, pathComponents,
+                    pathInodes,numExistingComp,isDir,
                     srcCounts.getNsCount(), srcCounts.getDsCount());
           }
         };
     return (PathInformation)handler.handle(this);
   }
-  
+
   private class PathInformation{
     private String path;
     private byte[][] pathComponents;
@@ -7362,9 +7407,9 @@ private void commitOrCompleteLastBlock(
     private long nsCount;
     private long dsCount;
     private int numExistingComp;
-    
-    public PathInformation(String path, 
-            byte[][] pathComponents, INode[] pathInodes, int numExistingComp, 
+
+    public PathInformation(String path,
+            byte[][] pathComponents, INode[] pathInodes, int numExistingComp,
             boolean dir, long nsCount, long dsCount) {
       this.path = path;
       this.pathComponents = pathComponents;
@@ -7403,7 +7448,7 @@ private void commitOrCompleteLastBlock(
       return numExistingComp;
     }
   }
-  
+
   public ExecutorService getExecutorService(){
     return subtreeOperationsExecutor;
   }

@@ -1640,6 +1640,9 @@ public class DFSClient implements java.io.Closeable {
           DSQuotaExceededException.class, UnsupportedOperationException.class,
           UnresolvedPathException.class);
     }
+    if(stat.isFileStoredInDB()){
+      throw new UnsupportedOperationException("Currently appending to a file stored in the database is not yet implemented");
+    }
     return DFSOutputStream
         .newStreamForAppend(this, src, buffersize, progress, lastBlock, stat,
             dfsClientConf.createChecksum(), isStoreSmallFilesInDB(), getDBFileMaxSize());

@@ -400,7 +400,6 @@ public class INodeFile extends INode implements BlockCollection {
   public void setFileStoredInDB(boolean isFileStoredInDB) throws StorageException, TransactionContextException {
     setFileStoredInDBNoPersistence(isFileStoredInDB);
     save();
-    throw new UnsupportedOperationException("setFileStoredInDB is not implemented");
   }
 
   public void setFileStoredInDBNoPersistence(boolean isFileStoredInDB){
