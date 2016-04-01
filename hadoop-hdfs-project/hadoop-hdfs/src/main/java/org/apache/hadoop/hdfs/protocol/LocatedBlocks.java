@@ -6,9 +6,9 @@
  * to you under the Apache License, Version 2.0 (the
  * "License"); you may not use this file except in compliance
  * with the License.  You may obtain a copy of the License at
- *
- *     http://www.apache.org/licenses/LICENSE-2.0
- *
+ * <p>
+ * http://www.apache.org/licenses/LICENSE-2.0
+ * <p>
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
@@ -33,7 +33,7 @@ import java.util.List;
 public class LocatedBlocks {
   private long fileLength;
   private List<LocatedBlock> blocks;
-      // array of blocks with prioritized locations
+  // array of blocks with prioritized locations
   private boolean underConstruction;
   private LocatedBlock lastLocatedBlock = null;
   private boolean isLastBlockComplete = false;
@@ -43,7 +43,7 @@ public class LocatedBlocks {
     blocks = null;
     underConstruction = false;
   }
-  
+
   /**
    * public Constructor
    */
@@ -58,30 +58,30 @@ public class LocatedBlocks {
   }
 
   public byte[] getDataStoredInDB() throws IOException {
-    if(hasPhantomBlocks()) {
+    if (hasPhantomBlock()) {
       return blocks.get(0).getData();
-    }
-    else
-    {
+    } else {
       throw new IOException("The file is not stored in the database");
     }
   }
 
-  public boolean hasPhantomBlocks()throws  IOException{
+  public boolean hasPhantomBlock() throws IOException {
     boolean hasPhantomBlocks = false;
-    if(blocks != null){
-      for(LocatedBlock blk : blocks){
-        if(blk.isPhantomBlock()){
+    if (blocks != null) {
+      for (LocatedBlock blk : blocks) {
+        if (blk.isPhantomBlock()) {
           hasPhantomBlocks = true;
           break;
         }
       }
-      if(hasPhantomBlocks && blocks.size() > 1){
-        throw new IOException("There could be only one phantom block. Found: "+blocks.size()+" blocks");
+      if (hasPhantomBlocks && blocks.size() > 1) {
+        throw new IOException(
+            "There could be only one phantom block. Found: " + blocks.size() +
+                " blocks");
       }
     }
     return hasPhantomBlocks;
- }
+  }
 
   /**
    * Get located blocks.
@@ -89,14 +89,14 @@ public class LocatedBlocks {
   public List<LocatedBlock> getLocatedBlocks() {
     return blocks;
   }
-  
+
   /**
    * Get the last located block.
    */
   public LocatedBlock getLastLocatedBlock() {
     return lastLocatedBlock;
   }
-  
+
   /**
    * Is the last block completed?
    */
@@ -110,7 +110,7 @@ public class LocatedBlocks {
   public LocatedBlock get(int index) {
     return blocks.get(index);
   }
-  
+
   /**
    * Get number of located blocks.
    */
@@ -132,7 +132,7 @@ public class LocatedBlocks {
   public boolean isUnderConstruction() {
     return underConstruction;
   }
-  
+
   /**
    * Find block containing specified offset.
    *
@@ -163,7 +163,7 @@ public class LocatedBlocks {
     };
     return Collections.binarySearch(blocks, key, comp);
   }
-  
+
   public void insertRange(int blockIdx, List<LocatedBlock> newBlocks) {
     int oldIdx = blockIdx;
     int insStart = 0, insEnd = 0;
@@ -191,7 +191,7 @@ public class LocatedBlocks {
       blocks.addAll(oldIdx, newBlocks.subList(insStart, insEnd));
     }
   }
-  
+
   public static int getInsertIndex(int binSearchResult) {
     return binSearchResult >= 0 ? binSearchResult : -(binSearchResult + 1);
   }
