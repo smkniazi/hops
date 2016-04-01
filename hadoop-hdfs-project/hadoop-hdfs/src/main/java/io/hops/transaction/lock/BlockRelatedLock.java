@@ -36,6 +36,12 @@ final class BlockRelatedLock extends LockWithType {
 
   @Override
   protected void acquire(TransactionLocks locks) throws IOException {
+    BaseINodeLock inodeLock = (BaseINodeLock) locks.getLock(Type.INode);
+    if (inodeLock.areAllResolvedFilesStoredInDB()) {
+      LOG.debug("SMALL_FILE BlockRelateLock. "+getType()+"'s lock skipped as the file(s) data is stored in the database ");
+      return;
+    }
+
     // FIXME handle null block
     Lock lock = locks.getLock(Type.Block);
     if (lock instanceof BaseIndividualBlockLock) {

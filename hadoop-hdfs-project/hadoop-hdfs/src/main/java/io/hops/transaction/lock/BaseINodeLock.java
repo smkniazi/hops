@@ -22,11 +22,10 @@ import io.hops.resolvingcache.Cache;
 import io.hops.metadata.hdfs.dal.BlockInfoDataAccess;
 import io.hops.metadata.hdfs.entity.INodeCandidatePrimaryKey;
 import io.hops.transaction.EntityManager;
-import org.apache.commons.logging.Log;
-import org.apache.commons.logging.LogFactory;
 import org.apache.hadoop.hdfs.server.namenode.INode;
 import org.apache.hadoop.hdfs.server.namenode.INodeAttributes;
 import org.apache.hadoop.hdfs.server.namenode.INodeDirectoryWithQuota;
+import org.apache.hadoop.hdfs.server.namenode.INodeFile;
 
 import java.util.ArrayList;
 import java.util.Collection;
@@ -37,8 +36,6 @@ import java.util.Map;
 import java.util.Random;
 
 public abstract class BaseINodeLock extends Lock {
-  protected final static Log LOG = LogFactory.getLog(BaseINodeLock.class);
-
   private final Map<INode, TransactionLockTypes.INodeLockType>
       allLockedInodesInTx;
   private final ResolvedINodesMap resolvedINodesMap;
@@ -51,6 +48,7 @@ public abstract class BaseINodeLock extends Lock {
   private static boolean setRandomParitionKeyEnabled = false;
 
   private static Random rand = new Random(System.currentTimeMillis());
+
 
   public static void setDefaultLockType(
       TransactionLockTypes.INodeLockType defaultLockType) {
@@ -76,6 +74,8 @@ public abstract class BaseINodeLock extends Lock {
         new HashMap<String, PathRelatedINodes>();
     private final Collection<INode> individualInodes = new ArrayList<INode>();
 
+    private boolean areAllResolvedFilesStoredInDB = false;
+
     private class PathRelatedINodes {
       private List<INode> pathINodes;
       private List<INode> childINodes;
@@ -93,20 +93,69 @@ public abstract class BaseINodeLock extends Lock {
     private void putPathINodes(String path, List<INode> iNodes) {
       PathRelatedINodes pathRelatedINodes = getWithLazyInit(path);
       pathRelatedINodes.pathINodes = iNodes;
+      setAreAllResolvedFilesStoredInDB();
     }
 
     private void putChildINodes(String path, List<INode> iNodes) {
       PathRelatedINodes pathRelatedINodes = getWithLazyInit(path);
       pathRelatedINodes.childINodes = iNodes;
+      setAreAllResolvedFilesStoredInDB();
     }
 
     private void putIndividualINode(INode iNode) {
       individualInodes.add(iNode);
+      setAreAllResolvedFilesStoredInDB();
+    }
+
+    private void putIndividualINodes(List<INode> iNodes) {
+      for(INode iNode: iNodes){
+        individualInodes.add(iNode);
+      }
+      setAreAllResolvedFilesStoredInDB();
     }
 
     private List<INode> getPathINodes(String path) {
       PathRelatedINodes pri = pathToPathINodes.get(path);
       return pri.pathINodes;
+    }
+
+    private final int countResolvedFilesStoredInDB() {
+      return fileCount(true);
+    }
+
+    private final int countResolvedFilesStoredOnDataNodes() {
+      return fileCount(false);
+    }
+
+    private final int fileCount(boolean isStoredInDB) {
+      int count = 0;
+      for (INode inode : this.getAll()) {
+        if (inode instanceof INodeFile) {
+          INodeFile file = (INodeFile) inode;
+          if (isStoredInDB && file.isFileStoredInDB()) {
+            count++;
+          } else if (!isStoredInDB && !file.isFileStoredInDB()) {
+            count++;
+          }
+        }
+      }
+      return count;
+    }
+
+    private void setAreAllResolvedFilesStoredInDB() {
+      if (countResolvedFilesStoredInDB() > 0 && countResolvedFilesStoredOnDataNodes() > 0) {
+        throw new UnsupportedOperationException("Trying to lock multiple file stored in the database and the datanodes. All files should be in same storage space");
+      } else if (countResolvedFilesStoredInDB() > 0 && countResolvedFilesStoredOnDataNodes() == 0) {
+        LOG.debug("SMALL_FILE Locked file(s) data is stored in the database.");
+        areAllResolvedFilesStoredInDB = true;
+      } else {
+//        LOG.debug("SMALL_FILE Locked file(s) data is not stored in the database");
+        areAllResolvedFilesStoredInDB = false;
+      }
+    }
+
+    protected boolean areAllResolvedFilesStoredInDB() {
+      return areAllResolvedFilesStoredInDB;
     }
 
     private List<INode> getChildINodes(String path) {
@@ -162,6 +211,10 @@ public abstract class BaseINodeLock extends Lock {
 
   void addIndividualINode(INode iNode) {
     resolvedINodesMap.putIndividualINode(iNode);
+  }
+
+  void addIndividualINodes(List<INode> iNodes) {
+    resolvedINodesMap.putIndividualINodes(iNodes);
   }
 
   List<INode> getPathINodes(String path) {
@@ -296,5 +349,9 @@ public abstract class BaseINodeLock extends Lock {
   @Override
   protected final Type getType() {
     return Type.INode;
+  }
+
+  protected boolean areAllResolvedFilesStoredInDB(){
+    return this.resolvedINodesMap.areAllResolvedFilesStoredInDB();
   }
 }

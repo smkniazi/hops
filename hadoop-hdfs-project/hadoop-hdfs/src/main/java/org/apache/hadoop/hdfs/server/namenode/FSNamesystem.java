@@ -6,9 +6,9 @@
  * to you under the Apache License, Version 2.0 (the
  * "License"); you may not use this file except in compliance
  * with the License.  You may obtain a copy of the License at
- *
+ * <p>
  *     http://www.apache.org/licenses/LICENSE-2.0
- *
+ * <p>
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
@@ -398,12 +398,10 @@ public class FSNamesystem
    * Instantiates an FSNamesystem loaded from the image and edits
    * directories specified in the passed Configuration.
    *
-   * @param conf
-   *     the Configuration which specifies the storage directories
+   * @param conf the Configuration which specifies the storage directories
    *     from which to load
    * @return an FSNamesystem which contains the loaded namespace
-   * @throws IOException
-   *     if loading fails
+   * @throws IOException if loading fails
    */
   public static FSNamesystem loadFromDisk(Configuration conf, NameNode namenode)
       throws IOException {
@@ -432,12 +430,9 @@ public class FSNamesystem
   /**
    * Create an FSNamesystem.
    *
-   * @param conf
-   *     configuration
-   * @param namenode
-   *     the namenode
-   * @throws IOException
-   *      on bad configuration
+   * @param conf     configuration
+   * @param namenode the namenode
+   * @throws IOException on bad configuration
    */
   FSNamesystem(Configuration conf, NameNode namenode) throws IOException {
     try {
@@ -891,7 +886,8 @@ public class FSNamesystem
       UnresolvedLinkException, IOException {
 
     boolean txFailed = true;
-    INode inode = null;;
+    INode inode = null;
+    ;
     try{
     inode = lockSubtreeAndCheckPathPermission(src,
             true, null, null, null, null, SubTreeOperation.StoOperationType.SET_OWNER_STO);
@@ -1031,7 +1027,7 @@ public class FSNamesystem
             LocatedBlocks blocks =
                 getBlockLocationsInternal(src, offset, length, true, true,
                     true);
-            if (blocks != null) {
+                if (blocks != null && !blocks.hasPhantomBlocks()) { // no need to sort phantom datanodes
               blockManager.getDatanodeManager()
                   .sortLocatedBlocks(clientMachine, blocks.getLocatedBlocks());
 
@@ -1053,8 +1049,7 @@ public class FSNamesystem
   /**
    * Get block locations within the specified range.
    *
-   * @throws FileNotFoundException,
-   *     UnresolvedLinkException, IOException
+   * @throws FileNotFoundException, UnresolvedLinkException, IOException
    * @see ClientProtocol#getBlockLocations(String, long, long)
    */
   public LocatedBlocks getBlockLocations(final String src, final long offset,
@@ -1084,8 +1079,7 @@ public class FSNamesystem
   /**
    * Get block locations within the specified range.
    *
-   * @throws FileNotFoundException,
-   *     UnresolvedLinkException, IOException
+   * @throws FileNotFoundException, UnresolvedLinkException, IOException
    * @see ClientProtocol#getBlockLocations(String, long, long)
    */
   LocatedBlocks getBlockLocationsInternal(String src, long offset, long length,
@@ -1132,9 +1126,16 @@ public class FSNamesystem
       throw new HadoopIllegalArgumentException(
           "Negative length is not supported. File: " + src);
     }
-    final LocatedBlocks ret =
-        getBlockLocationsUpdateTimes(src, offset, length, doAccessTime,
+    LocatedBlocks ret = null;
+    final INodeFile inodeFile = INodeFile.valueOf(dir.getINode(src), src);
+    if (inodeFile.isFileStoredInDB()) {
+      LOG.debug("SMALL_FILE The file is stored in the database. Returning Phantom Blocks");
+      ret = getPhantomBlockLocationsUpdateTimes(src, offset, length, doAccessTime,
             needBlockToken);
+    } else {
+      ret = getBlockLocationsUpdateTimes(src, offset, length, doAccessTime,
+              needBlockToken);
+    }
     logAuditEvent(true, "open", src);
     if (checkSafeMode && isInSafeMode()) {
       for (LocatedBlock b : ret.getLocatedBlocks()) {
@@ -1148,6 +1149,38 @@ public class FSNamesystem
     return ret;
   }
 
+/**
+ * Get phantom block location for the file stored in the database and
+ * access times if necessary.
+ */
+
+  private LocatedBlocks getPhantomBlockLocationsUpdateTimes(String src, long offset,
+                                                            long length, boolean doAccessTime, boolean needBlockToken)
+          throws FileNotFoundException, UnresolvedLinkException, IOException,
+          StorageException {
+    for (int attempt = 0; attempt < 2; attempt++) {
+      // if the namenode is in safemode, then do not update access time
+      if (isInSafeMode()) {
+        doAccessTime = false;
+      }
+
+      long now = now();
+      final INodeFile inode = INodeFile.valueOf(dir.getINode(src), src);
+      if (doAccessTime && isAccessTimeSupported()) {
+        if (now <= inode.getAccessTime() + getAccessTimePrecision()) {
+          // if we have to set access time but we only have the readlock, then
+          // restart this entire operation with the writeLock.
+          if (attempt == 0) {
+            continue;
+          }
+        }
+        dir.setTimes(src, inode, -1, now, false);
+      }
+
+      return blockManager.createPhantomLocatedBlocks(inode, getFileDataInDB(inode), inode.isUnderConstruction(), needBlockToken);
+    }
+    return null; // can never reach here
+  }
   /*
    * Get block locations within the specified range, updating the
    * access times if necessary. 
@@ -1497,10 +1530,8 @@ public class FSNamesystem
    * under-replicated data blocks or removal of the excessive block copies
    * if the blocks are over-replicated.
    *
-   * @param src
-   *     file name
-   * @param replication
-   *     new replication
+   * @param src         file name
+   * @param replication new replication
    * @return true if successful;
    * false if file does not exist or is a directory
    * @see ClientProtocol#setReplication(String, short)
@@ -1619,7 +1650,7 @@ public class FSNamesystem
     ProjectedINode datasetDir = fileTree.getSubtreeRoot();
     for (ProjectedINode node : fileTree.getAllChildren()) {
       MetadataLogEntry logEntry = new MetadataLogEntry(datasetDir.getId(),
-          node.getId(), node.getParentId(), node.getName(), operation);
+              node.getId(), operation);
       EntityManager.add(logEntry);
     }
   }
@@ -1851,16 +1882,11 @@ public class FSNamesystem
    * Replace current node with a INodeUnderConstruction.
    * Recreate lease record.
    *
-   * @param src
-   *     path to the file
-   * @param file
-   *     existing file object
-   * @param leaseHolder
-   *     identifier of the lease holder on this file
-   * @param clientMachine
-   *     identifier of the client machine
-   * @param clientNode
-   *     if the client is collocated with a DN, that DN's descriptor
+   * @param src           path to the file
+   * @param file          existing file object
+   * @param leaseHolder   identifier of the lease holder on this file
+   * @param clientMachine identifier of the client machine
+   * @param clientNode    if the client is collocated with a DN, that DN's descriptor
    * @return the last block locations if the block is partial or null otherwise
    * @throws UnresolvedLinkException
    * @throws IOException
@@ -1880,12 +1906,9 @@ public class FSNamesystem
    * Immediately revoke the lease of the current lease holder and start lease
    * recovery so that the file can be forced to be closed.
    *
-   * @param src
-   *     the path of the file to start lease recovery
-   * @param holder
-   *     the lease holder's name
-   * @param clientMachine
-   *     the client machine's name
+   * @param src           the path of the file to start lease recovery
+   * @param holder        the lease holder's name
+   * @param clientMachine the client machine's name
    * @return true if the file is already closed
    * @throws IOException
    */
@@ -2433,8 +2456,7 @@ public class FSNamesystem
    *
    * @return true if successful, false if the client should continue to retry
    * (e.g if not all blocks have reached minimum replication yet)
-   * @throws IOException
-   *     on error (eg lease mismatch, file not open, file deleted)
+   * @throws IOException on error (eg lease mismatch, file not open, file deleted)
    */
   boolean completeFile(final String src, final String holder,
       final ExtendedBlock last, final byte[] data) throws IOException {
@@ -2537,6 +2559,7 @@ public class FSNamesystem
     storeFileDataInDB(pendingFile,data);
 
     pendingFile.setFileStoredInDB(true);
+    pendingFile.setSize(data.length);
 
     finalizeINodeFileUnderConstructionStoredInDB(src, pendingFile);
 
@@ -2553,16 +2576,22 @@ public class FSNamesystem
     fida.add(fid);
     System.out.println("SMALL_FILE the file has been stored in the database ");
   }
+
+  private byte[] getFileDataInDB(INode inode) throws StorageException {
+
+    FileInodeDataDataAccess fida = (FileInodeDataDataAccess) HdfsStorageFactory.getDataAccess(FileInodeDataDataAccess
+            .class);
+    FileInodeData fid = (FileInodeData)fida.get(inode.getId());
+    System.out.println("SMALL_FILE Read file data from the database. Data length is :"+fid.getInodeData().length);
+    return fid.getInodeData();
+  }
   /**
  * Save allocated block at the given pending filename
  *
- * @param src
- *     path to the file
- * @param inodes
- *     representing each of the components of src.
+   * @param src    path to the file
+   * @param inodes representing each of the components of src.
  *     The last INode is the INode for the file.
- * @throws QuotaExceededException
- *     If addition of block exceeds space quota
+   * @throws QuotaExceededException If addition of block exceeds space quota
  */
   BlockInfo saveAllocatedBlock(String src, INode[] inodes, Block newBlock,
       DatanodeDescriptor targets[]) throws IOException, StorageException {
@@ -2932,17 +2961,13 @@ public class FSNamesystem
   /**
    * Get the file info for a specific file.
    *
-   * @param src
-   *     The string representation of the path to the file
-   * @param resolveLink
-   *     whether to throw UnresolvedLinkException
+   * @param src         The string representation of the path to the file
+   * @param resolveLink whether to throw UnresolvedLinkException
    *     if src refers to a symlink
    * @return object containing information regarding the file
    * or null if file not found
-   * @throws AccessControlException
-   *     if access is denied
-   * @throws UnresolvedLinkException
-   *     if a symlink is encountered.
+   * @throws AccessControlException  if access is denied
+   * @throws UnresolvedLinkException if a symlink is encountered.
    */
   public HdfsFileStatus getFileInfo(final String src, final boolean resolveLink)
       throws AccessControlException, UnresolvedLinkException, IOException {
@@ -3139,15 +3164,11 @@ public class FSNamesystem
   /**
    * Persist all metadata about this file.
    *
-   * @param src
-   *     The string representation of the path
-   * @param clientName
-   *     The string representation of the client
-   * @param lastBlockLength
-   *     The length of the last block
+   * @param src             The string representation of the path
+   * @param clientName      The string representation of the client
+   * @param lastBlockLength The length of the last block
    *     under construction reported from client.
-   * @throws IOException
-   *     if path does not exist
+   * @throws IOException if path does not exist
    */
   void fsync(final String src, final String clientName,
       final long lastBlockLength) throws IOException, UnresolvedLinkException {
@@ -3182,18 +3203,14 @@ public class FSNamesystem
   /**
    * Move a file that is being written to be immutable.
    *
-   * @param src
-   *     The filename
-   * @param lease
-   *     The lease for the client creating the file
-   * @param recoveryLeaseHolder
-   *     reassign lease to this holder if the last block
+   * @param src                 The filename
+   * @param lease               The lease for the client creating the file
+   * @param recoveryLeaseHolder reassign lease to this holder if the last block
    *     needs recovery; keep current holder if null.
    * @return true  if file has been successfully finalized and closed or
    * false if block recovery has been initiated. Since the lease owner
    * has been changed and logged, caller should call logSync().
-   * @throws AlreadyBeingCreatedException
-   *     if file is waiting to achieve minimal
+   * @throws AlreadyBeingCreatedException if file is waiting to achieve minimal
    *     replication;<br>
    *     RecoveryInProgressException if lease recovery is in progress.<br>
    *     IOException in case of an error.
@@ -3540,19 +3557,13 @@ private void finalizeINodeFileUnderConstruction(String src,
   /**
    * Get a partial listing of the indicated directory
    *
-   * @param src
-   *     the directory name
-   * @param startAfter
-   *     the name to start after
-   * @param needLocation
-   *     if blockLocations need to be returned
+   * @param src          the directory name
+   * @param startAfter   the name to start after
+   * @param needLocation if blockLocations need to be returned
    * @return a partial listing starting after startAfter
-   * @throws AccessControlException
-   *     if access is denied
-   * @throws UnresolvedLinkException
-   *     if symbolic link is encountered
-   * @throws IOException
-   *     if other I/O error occurred
+   * @throws AccessControlException  if access is denied
+   * @throws UnresolvedLinkException if symbolic link is encountered
+   * @throws IOException             if other I/O error occurred
    */
   DirectoryListing getListing(final String src, final byte[] startAfter,
       final boolean needLocation)
@@ -3920,8 +3931,7 @@ private void finalizeINodeFileUnderConstruction(String src,
      * Creates SafeModeInfo when the name node enters
      * automatic safe mode at startup.
      *
-     * @param conf
-     *     configuration
+     * @param conf configuration
      */
     private SafeModeInfo(Configuration conf) {
       this.threshold = conf.getFloat(DFS_NAMENODE_SAFEMODE_THRESHOLD_PCT_KEY,
@@ -4088,6 +4098,7 @@ private void finalizeINodeFileUnderConstruction(String src,
      * updaing the safeblock count.
      * This call will trigger the @link{SafeModeMonitor} if it's not already
      * started.
+     *
      * @throws IOException
      */
     private void tryToHelpToGetout() throws IOException {
@@ -4100,6 +4111,7 @@ private void finalizeINodeFileUnderConstruction(String src,
     /**
      * The cluster already left safemode, now it's time to for this namenode
      * to leave as well.
+     *
      * @throws IOException
      */
     private void clusterLeftSafeModeAlready() throws IOException {
@@ -4179,8 +4191,7 @@ private void finalizeINodeFileUnderConstruction(String src,
      * Increment number of safe blocks if current block has
      * reached minimal replication.
      *
-     * @param blk
-     *     current block
+     * @param blk current block
      */
     private void incrementSafeBlockCount(Block blk) throws IOException {
       addSafeBlock(blk.getBlockId());
@@ -4190,10 +4201,9 @@ private void finalizeINodeFileUnderConstruction(String src,
     /**
      * Decrement number of safe blocks if current block has
      * fallen below minimal replication.
-     * @param blk
-     *     current block
-     * @param replication
-     *     current replication
+     *
+     * @param blk         current block
+     * @param replication current replication
      */
     private void decrementSafeBlockCount(Block blk, short replication)
         throws IOException {
@@ -4391,6 +4401,7 @@ private void finalizeINodeFileUnderConstruction(String src,
 
     /**
      * Get number of safeblocks from the database
+     *
      * @return
      * @throws IOException
      */
@@ -4536,10 +4547,8 @@ private void finalizeINodeFileUnderConstruction(String src,
    * Adjust the total number of blocks safe and expected during safe mode.
    * If safe mode is not currently on, this is a no-op.
    *
-   * @param deltaSafe
-   *     the change in number of safe blocks
-   * @param deltaTotal
-   *     the change i nnumber of total blocks expected
+   * @param deltaSafe  the change in number of safe blocks
+   * @param deltaTotal the change i nnumber of total blocks expected
    */
   @Override
   public void adjustSafeModeBlockTotals(int deltaSafe, int deltaTotal)
@@ -4856,13 +4865,10 @@ private void finalizeINodeFileUnderConstruction(String src,
    * This method is called for recovering a failed pipeline or setting up
    * a pipeline to append to a block.
    *
-   * @param block
-   *     a block
-   * @param clientName
-   *     the name of a client
+   * @param block      a block
+   * @param clientName the name of a client
    * @return a located block with a new generation stamp and an access token
-   * @throws IOException
-   *     if any error occurs
+   * @throws IOException if any error occurs
    */
   LocatedBlock updateBlockForPipeline(final ExtendedBlock block,
       final String clientName) throws IOException {
@@ -4907,16 +4913,11 @@ private void finalizeINodeFileUnderConstruction(String src,
   /**
    * Update a pipeline for a block under construction
    *
-   * @param clientName
-   *     the name of the client
-   * @param oldBlock
-   *     and old block
-   * @param newBlock
-   *     a new block with a new generation stamp and length
-   * @param newNodes
-   *     datanodes in the pipeline
-   * @throws IOException
-   *     if any error occurs
+   * @param clientName the name of the client
+   * @param oldBlock   and old block
+   * @param newBlock   a new block with a new generation stamp and length
+   * @param newNodes   datanodes in the pipeline
+   * @throws IOException if any error occurs
    */
   void updatePipeline(final String clientName, final ExtendedBlock oldBlock,
       final ExtendedBlock newBlock, final DatanodeID[] newNodes)
@@ -5022,10 +5023,8 @@ private void finalizeINodeFileUnderConstruction(String src,
   }
 
   /**
-   * @param path
-   *     Restrict corrupt files to this portion of namespace.
-   * @param cookieTab
-   *     Support for continuation; the set of files we return
+   * @param path      Restrict corrupt files to this portion of namespace.
+   * @param cookieTab Support for continuation; the set of files we return
    *     back is ordered by blockid; startBlockAfter tells where to start from
    * @return a list in which each entry describes a corrupt file/block
    * @throws AccessControlException
@@ -5270,16 +5269,14 @@ private void finalizeINodeFileUnderConstruction(String src,
   }
 
   /**
-   * @param out
-   *     save state of the secret manager
+   * @param out save state of the secret manager
    */
   void saveSecretManagerState(DataOutputStream out) throws IOException {
     dtSecretManager.saveSecretManagerState(out);
   }
 
   /**
-   * @param in
-   *     load the state of secret manager from input stream
+   * @param in load the state of secret manager from input stream
    */
   void loadSecretManagerState(DataInputStream in) throws IOException {
     dtSecretManager.loadSecretManagerState(in);
@@ -5288,8 +5285,7 @@ private void finalizeINodeFileUnderConstruction(String src,
   /**
    * Log the updateMasterKey operation to edit logs
    *
-   * @param key
-   *     new delegation key.
+   * @param key new delegation key.
    */
   public void logUpdateMasterKey(DelegationKey key) throws IOException {
 
@@ -5562,10 +5558,8 @@ private void finalizeINodeFileUnderConstruction(String src,
   /**
    * Verifies that the given identifier and password are valid and match.
    *
-   * @param identifier
-   *     Token identifier.
-   * @param password
-   *     Password in the token.
+   * @param identifier Token identifier.
+   * @param password   Password in the token.
    * @throws InvalidToken
    */
   public synchronized void verifyToken(DelegationTokenIdentifier identifier,
@@ -5735,8 +5729,8 @@ private void finalizeINodeFileUnderConstruction(String src,
 
   /**
    * Update safeblocks in the database
-   * @param safeBlock
-   *      block to be added to safeblocks
+   *
+   * @param safeBlock block to be added to safeblocks
    * @throws IOException
    */
   private void addSafeBlock(final Long safeBlock) throws IOException {
@@ -5747,8 +5741,8 @@ private void finalizeINodeFileUnderConstruction(String src,
 
   /**
    * Remove a block that is not considered safe anymore
-   * @param safeBlock
-   *      block to be removed from safeblocks
+   *
+   * @param safeBlock block to be removed from safeblocks
    * @throws IOException
    */
   private void removeSafeBlock(final Long safeBlock) throws IOException {
@@ -5765,8 +5759,8 @@ private void finalizeINodeFileUnderConstruction(String src,
 
   /**
    * Update safeblocks in the database
-   * @param safeBlocks
-   *      list of blocks to be added to safeblocks
+   *
+   * @param safeBlocks list of blocks to be added to safeblocks
    * @throws IOException
    */
   private void addSafeBlocks(final Set<Long> safeBlocks) throws IOException {
@@ -5783,6 +5777,7 @@ private void finalizeINodeFileUnderConstruction(String src,
 
   /**
    * Get number of blocks to be considered safe in the current cluster
+   *
    * @return number of safeblocks
    * @throws IOException
    */
@@ -5800,6 +5795,7 @@ private void finalizeINodeFileUnderConstruction(String src,
 
   /**
    * Delete all safeblocks
+   *
    * @throws IOException
    */
   private void clearSafeBlocks() throws IOException {
@@ -5816,6 +5812,7 @@ private void finalizeINodeFileUnderConstruction(String src,
 
   /**
    * Check if the cluster is in safemode?
+   *
    * @return true if the cluster in safemode, false otherwise.
    * @throws IOException
    */
@@ -5856,12 +5853,9 @@ private void finalizeINodeFileUnderConstruction(String src,
    * The subtree is locked during these operations in order to prevent any
    * concurrent modification.
    *
-   * @param path
-   *    the path of the directory where the quota should be set
-   * @param nsQuota
-   *    the namespace quota to be set
-   * @param dsQuota
-   *    the diskspace quota to be set
+   * @param path    the path of the directory where the quota should be set
+   * @param nsQuota the namespace quota to be set
+   * @param dsQuota the diskspace quota to be set
    * @throws IOException, UnresolvedLinkException
    */
   void multiTransactionalSetQuota(final String path, final long nsQuota,
@@ -5954,10 +5948,8 @@ private void finalizeINodeFileUnderConstruction(String src,
    * level by level. The directory tree is locked during the operation to prevent
    * any concurrent modification.
    *
-   * @param path
-   *    the path
-   * @return
-   *    the content summary for the given path
+   * @param path the path
+   * @return the content summary for the given path
    * @throws IOException
    */
   // [S] what if you call content summary on the root
@@ -6007,10 +5999,8 @@ private void finalizeINodeFileUnderConstruction(String src,
    * The subtree is locked during these operations in order to prevent any
    * concurrent modification.
    *
-   * @param src
-   *    the source
-   * @param dst
-   *    the destination
+   * @param src the source
+   * @param dst the destination
    * @throws IOException
    */
   void multiTransactionalRename(final String src, final String dst,
@@ -6501,12 +6491,9 @@ private void finalizeINodeFileUnderConstruction(String src,
    * deleted and then deletes it level by level. The directory tree is locked
    * during the delete to prevent any concurrent modification.
    *
-   * @param path
-   *    the path to be deleted
-   * @param recursive
-   *    whether or not and non-empty directory should be deleted
-   * @return
-   *    true if the delete succeeded
+   * @param path      the path to be deleted
+   * @param recursive whether or not and non-empty directory should be deleted
+   * @return true if the delete succeeded
    * @throws IOException
    */
   boolean multiTransactionalDelete(final String path, final boolean recursive)
@@ -6666,10 +6653,8 @@ private void finalizeINodeFileUnderConstruction(String src,
    * Lock a subtree of the filesystem tree.
    * Locking a subtree prevents it from any concurrent write operations.
    *
-   * @param path
-   *    the root of the subtree to be locked
-   * @return
-   *  the inode representing the root of the subtree
+   * @param path the root of the subtree to be locked
+   * @return the inode representing the root of the subtree
    * @throws IOException
    */
   @VisibleForTesting
@@ -6683,20 +6668,13 @@ private void finalizeINodeFileUnderConstruction(String src,
    * sufficient permissions. Locking a subtree prevents it from any concurrent
    * write operations.
    *
-   * @param path
-   *    the root of the subtree to be locked
-   * @param doCheckOwner
-   *    whether or not to check the owner
-   * @param ancestorAccess
-   *    the requested ancestor access
-   * @param parentAccess
-   *    the requested parent access
-   * @param access
-   *    the requested access
-   * @param subAccess
-   *    the requested subaccess
-   * @return
-   *  the inode representing the root of the subtree
+   * @param path           the root of the subtree to be locked
+   * @param doCheckOwner   whether or not to check the owner
+   * @param ancestorAccess the requested ancestor access
+   * @param parentAccess   the requested parent access
+   * @param access         the requested access
+   * @param subAccess      the requested subaccess
+   * @return the inode representing the root of the subtree
    * @throws IOException
    */
   @VisibleForTesting
@@ -6764,6 +6742,7 @@ private void finalizeINodeFileUnderConstruction(String src,
    * suppose /aa/bb is locked and we want to lock an other foler /a. 
    * when we search for all prefixes "/a" it will return subtree ops in other 
    * folders i.e /aa*. By adding / in the end of the path solves the problem
+   *
    * @param path
    * @return /path + "/"
    */
@@ -6777,6 +6756,7 @@ private void finalizeINodeFileUnderConstruction(String src,
 
   /**
    * check for sub tree locks in the descendant tree
+   *
    * @return number of active operations in the descendant tree
    */
   private void checkSubTreeLocks(String path) throws TransactionContextException, StorageException{
@@ -6806,8 +6786,7 @@ private void finalizeINodeFileUnderConstruction(String src,
   /**
    * Unlock a subtree in the filesystem tree.
    *
-   * @param path
-   *    the root of the subtree
+   * @param path the root of the subtree
    * @throws IOException
    */
   @VisibleForTesting
@@ -6894,10 +6873,8 @@ private void finalizeINodeFileUnderConstruction(String src,
   /**
    * Get the inode with the given id.
    *
-   * @param id
-   *    the inode id
-   * @return
-   *    the inode
+   * @param id the inode id
+   * @return the inode
    * @throws IOException
    */
   public INode findInode(final int id) throws IOException {
@@ -6917,10 +6894,8 @@ private void finalizeINodeFileUnderConstruction(String src,
   /**
    * Get the path of a file with the given inode id.
    *
-   * @param id
-   *    the inode id of the file
-   * @return
-   *    the path
+   * @param id the inode id of the file
+   * @return the path
    * @throws IOException
    */
   public String getPath(int id) throws IOException {
@@ -6960,10 +6935,8 @@ private void finalizeINodeFileUnderConstruction(String src,
   /**
    * Add and encoding status for a file.
    *
-   * @param sourcePath
-   *    the file path
-   * @param policy
-   *    the policy to be used
+   * @param sourcePath the file path
+   * @param policy     the policy to be used
    * @throws IOException
    */
   public void addEncodingStatus(final String sourcePath,
@@ -7009,8 +6982,7 @@ private void finalizeINodeFileUnderConstruction(String src,
   /**
    * Remove the status of an erasure-coded file.
    *
-   * @param encodingStatus
-   *    the status of the file
+   * @param encodingStatus the status of the file
    * @throws IOException
    */
   public void removeEncodingStatus(final EncodingStatus encodingStatus)
@@ -7039,10 +7011,8 @@ private void finalizeINodeFileUnderConstruction(String src,
   /**
    * Remove the status of an erasure-coded file.
    *
-   * @param path
-   *    the path of the file
-   * @param encodingStatus
-   *    the status of the file
+   * @param path           the path of the file
+   * @param encodingStatus the status of the file
    * @throws IOException
    */
   public void removeEncodingStatus(final String path,
@@ -7107,10 +7077,8 @@ private void finalizeINodeFileUnderConstruction(String src,
   /**
    * Set the status of an erasure-coded file.
    *
-   * @param sourceFile
-   *    the file path
-   * @param status
-   *    the file status
+   * @param sourceFile the file path
+   * @param status     the file status
    * @throws IOException
    */
   public void updateEncodingStatus(String sourceFile,
@@ -7121,10 +7089,8 @@ private void finalizeINodeFileUnderConstruction(String src,
   /**
    * Set the parity status of an erasure-coded file.
    *
-   * @param sourceFile
-   *    the file path
-   * @param parityStatus
-   *    the parity file status
+   * @param sourceFile   the file path
+   * @param parityStatus the parity file status
    * @throws IOException
    */
   public void updateEncodingStatus(String sourceFile,
@@ -7135,12 +7101,9 @@ private void finalizeINodeFileUnderConstruction(String src,
   /**
    * Set the status of an erasure-coded file.
    *
-   * @param sourceFile
-   *    the file path
-   * @param status
-   *    the file status
-   * @param parityFile
-   *    the parity file name
+   * @param sourceFile the file path
+   * @param status     the file status
+   * @param parityFile the parity file name
    * @throws IOException
    */
   public void updateEncodingStatus(String sourceFile,
@@ -7151,14 +7114,10 @@ private void finalizeINodeFileUnderConstruction(String src,
   /**
    * Set the status of an erasure-coded file and its parity file.
    *
-   * @param sourceFile
-   *    the file path
-   * @param status
-   *    the file status
-   * @param parityStatus
-   *    the parity status
-   * @param parityFile
-   *    the parity file name
+   * @param sourceFile   the file path
+   * @param status       the file status
+   * @param parityStatus the parity status
+   * @param parityFile   the parity file name
    * @throws IOException
    */
   public void updateEncodingStatus(final String sourceFile,

@@ -399,11 +399,13 @@ public class PBHelper {
     if (di == null) {
       return null;
     }
-    return new DatanodeInfo(PBHelper.convert(di.getId()),
+    DatanodeInfo datanodeInfo = new DatanodeInfo(PBHelper.convert(di.getId()),
         di.hasLocation() ? di.getLocation() : null, di.getCapacity(),
         di.getDfsUsed(), di.getRemaining(), di.getBlockPoolUsed(),
         di.getLastUpdate(), di.getXceiverCount(),
         PBHelper.convert(di.getAdminState()));
+    datanodeInfo.setPhantomDatanode(di.hasIsPhantomDatanode()? di.getIsPhantomDatanode():false);
+    return datanodeInfo;
   }
   
   static public DatanodeInfoProto convertDatanodeInfo(DatanodeInfo di) {
@@ -423,7 +425,7 @@ public class PBHelper {
         setBlockPoolUsed(di.getBlockPoolUsed()).
         setLastUpdate(di.getLastUpdate()).
         setXceiverCount(di.getXceiverCount()).
-        setAdminState(PBHelper.convert(di.getAdminState())).
+        setAdminState(PBHelper.convert(di.getAdminState())).setIsPhantomDatanode(di.isPhantomDataNode()).
         build();
   }
   
@@ -503,9 +505,13 @@ public class PBHelper {
     for (int i = 0; i < locs.length; i++) {
       builder.addLocs(i, PBHelper.convert(locs[i]));
     }
-    return builder.setB(PBHelper.convert(b.getBlock()))
+    builder = builder.setB(PBHelper.convert(b.getBlock()))
         .setBlockToken(PBHelper.convert(b.getBlockToken()))
-        .setCorrupt(b.isCorrupt()).setOffset(b.getStartOffset()).build();
+        .setCorrupt(b.isCorrupt()).setOffset(b.getStartOffset());
+    if(b.isPhantomBlock() && b.isDataSet()){
+      builder.setData(ByteString.copyFrom(b.getData()));
+    }
+    return builder.build();
   }
   
   public static LocatedBlock convert(LocatedBlockProto proto) {
@@ -520,6 +526,9 @@ public class PBHelper {
     LocatedBlock lb = new LocatedBlock(PBHelper.convert(proto.getB()), targets,
         proto.getOffset(), proto.getCorrupt());
     lb.setBlockToken(PBHelper.convert(proto.getBlockToken()));
+    if(proto.getData().size() > 0){
+      lb.setData(proto.getData().toByteArray());
+    }
     return lb;
   }
 
@@ -875,14 +884,11 @@ public class PBHelper {
   
   
   // LocatedBlocks
-  public static LocatedBlocks convert(LocatedBlocksProto lb) throws IOException {
+  public static LocatedBlocks convert(LocatedBlocksProto lb) {
     LocatedBlocks locatedBlocks =  new LocatedBlocks(lb.getFileLength(), lb.getUnderConstruction(),
         PBHelper.convertLocatedBlock(lb.getBlocksList()),
         lb.hasLastBlock() ? PBHelper.convert(lb.getLastBlock()) : null,
         lb.getIsLastBlockComplete());
-    if(lb.hasData()){
-      locatedBlocks.setSmallFileData(lb.getData().toByteArray());
-    }
     return locatedBlocks;
   }
   
@@ -893,9 +899,6 @@ public class PBHelper {
     LocatedBlocksProto.Builder builder = LocatedBlocksProto.newBuilder();
     if (lb.getLastLocatedBlock() != null) {
       builder.setLastBlock(PBHelper.convert(lb.getLastLocatedBlock()));
-    }
-    if(lb.getDataStoredInDB() != null){
-      builder.setData(ByteString.copyFrom(lb.getDataStoredInDB()));
     }
     return builder.setFileLength(lb.getFileLength())
         .setUnderConstruction(lb.isUnderConstruction())

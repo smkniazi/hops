@@ -49,7 +49,6 @@ class INodeLock extends BaseINodeLock {
   private final long namenodeId;
   private final boolean skipReadingQuotaAttr;
 
-
   INodeLock(TransactionLockTypes.INodeLockType lockType,
       TransactionLockTypes.INodeResolveType resolveType, boolean resolveLink,
       boolean ignoreLocalSubtreeLocks, boolean skipReadingQuotaAttr, long namenodeId,
@@ -347,13 +346,13 @@ class INodeLock extends BaseINodeLock {
       acquireINodeAttributes();
     }
   }
-  
+
   protected void acquireINodeLocks() throws IOException {
     if (!resolveType.equals(TransactionLockTypes.INodeResolveType.PATH) &&
-        !resolveType.equals(
-            TransactionLockTypes.INodeResolveType.PATH_AND_IMMEDIATE_CHILDREN) &&
-        !resolveType.equals(
-            TransactionLockTypes.INodeResolveType.PATH_AND_ALL_CHILDREN_RECURSIVELY)) {
+            !resolveType.equals(
+                    TransactionLockTypes.INodeResolveType.PATH_AND_IMMEDIATE_CHILDREN) &&
+            !resolveType.equals(
+                    TransactionLockTypes.INodeResolveType.PATH_AND_ALL_CHILDREN_RECURSIVELY)) {
       throw new IllegalArgumentException("Unknown type " + resolveType.name());
     }
 

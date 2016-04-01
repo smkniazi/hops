@@ -37,13 +37,11 @@ public class LocatedBlocks {
   private boolean underConstruction;
   private LocatedBlock lastLocatedBlock = null;
   private boolean isLastBlockComplete = false;
-  private byte[] data; // this store the data for the files stored in the database
 
   public LocatedBlocks() {
     fileLength = 0;
     blocks = null;
     underConstruction = false;
-    data = null;
   }
   
   /**
@@ -57,33 +55,33 @@ public class LocatedBlocks {
     underConstruction = isUnderConstuction;
     this.lastLocatedBlock = lastBlock;
     this.isLastBlockComplete = isLastBlockCompleted;
-    data = null;
   }
 
-  public void setSmallFileData(final byte[] data) throws IOException{
-
-    if(underConstruction){
-      throw new IOException("Reading small file that is under construction is not yet supported");
+  public byte[] getDataStoredInDB() throws IOException {
+    if(hasPhantomBlocks()) {
+      return blocks.get(0).getData();
     }
-
-    if(blocks!= null){
-      throw new IOException("A file can not have data in both the database and on the datanodes");
-    }
-
-    this.data = data;
-  }
-
-  public boolean isStoredInDB(){
-    if(data!=null){
-      return true;
-    }else{
-      return false;
+    else
+    {
+      throw new IOException("The file is not stored in the database");
     }
   }
 
-  public byte[] getDataStoredInDB(){
-    return data;
-  }
+  public boolean hasPhantomBlocks()throws  IOException{
+    boolean hasPhantomBlocks = false;
+    if(blocks != null){
+      for(LocatedBlock blk : blocks){
+        if(blk.isPhantomBlock()){
+          hasPhantomBlocks = true;
+          break;
+        }
+      }
+      if(hasPhantomBlocks && blocks.size() > 1){
+        throw new IOException("There could be only one phantom block. Found: "+blocks.size()+" blocks");
+      }
+    }
+    return hasPhantomBlocks;
+ }
 
   /**
    * Get located blocks.

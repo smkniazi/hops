@@ -72,6 +72,7 @@ message DatanodeInfoProto {
   optional uint64 lastUpdate = 6 [default = 0];
   optional uint32 xceiverCount = 7 [default = 0];
   optional string location = 8;
+  optional bool isPhantomDatanode = 9;
   enum AdminState {
     NORMAL = 0;
     DECOMMISSION_INPROGRESS = 1;
@@ -124,6 +125,7 @@ message LocatedBlockProto {
 
   required hadoop.common.TokenProto blockToken = 5;
   optional uint64 checksum = 6;
+  optional bytes data = 7;
 }
 
 message DataEncryptionKeyProto {
@@ -145,7 +147,6 @@ message LocatedBlocksProto {
   required bool underConstruction = 3;
   optional LocatedBlockProto lastBlock = 4;
   required bool isLastBlockComplete = 5;
-  optional bytes data = 6;
 }
 
 

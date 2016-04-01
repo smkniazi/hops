@@ -46,30 +46,32 @@ final class BlockLock extends IndividualBlockLock {
     BaseINodeLock inodeLock = (BaseINodeLock) locks.getLock(Type.INode);
     boolean individualBlockAlreadyRead = false;
     Iterable blks = Collections.EMPTY_LIST;
-    for (INode inode : inodeLock.getAllResolvedINodes()) {
-      if (inode instanceof INodeFile) {
-        Collection<BlockInfo> inodeBlocks =
-            acquireLockList(DEFAULT_LOCK_TYPE, BlockInfo.Finder.ByINodeId,
-                inode.getId());
+    if (!inodeLock.areAllResolvedFilesStoredInDB()) {
+      for (INode inode : inodeLock.getAllResolvedINodes()) {
+        if (inode instanceof INodeFile) {
+          Collection<BlockInfo> inodeBlocks =
+                  acquireLockList(DEFAULT_LOCK_TYPE, BlockInfo.Finder.ByINodeId,
+                          inode.getId());
 
-        if(!individualBlockAlreadyRead){
-          individualBlockAlreadyRead = inode.getId() == inodeId;
-        }
+          if (!individualBlockAlreadyRead) {
+            individualBlockAlreadyRead = inode.getId() == inodeId;
+          }
 
-        if(inodeBlocks == null || inodeBlocks.isEmpty()){
-          announceEmptyFile(inode.getId());
+          if (inodeBlocks == null || inodeBlocks.isEmpty()) {
+            announceEmptyFile(inode.getId());
+          }
+
+          blks = Iterables.concat(blks, inodeBlocks);
+          files.add((INodeFile) inode);
         }
-        
-        blks = Iterables.concat(blks, inodeBlocks);
-        files.add((INodeFile) inode);
       }
     }
 
-    if(!individualBlockAlreadyRead) {
+    if (!individualBlockAlreadyRead) {
       super.acquire(locks);
     }
+
   }
-  
   Collection<INodeFile> getFiles() {
     return files;
   }

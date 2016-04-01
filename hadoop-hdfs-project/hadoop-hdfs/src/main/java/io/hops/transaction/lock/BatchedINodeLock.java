@@ -47,7 +47,8 @@ public class BatchedINodeLock extends BaseINodeLock {
         inodeIds[i] = inodeIdentifier.getInodeId();
       }
 
-      find(DEFAULT_INODE_LOCK_TYPE, names, parentIds, false);
+      List<INode> inodes = find(DEFAULT_INODE_LOCK_TYPE, names, parentIds, false);
+      addIndividualINodes(inodes);
     } else {
       throw new StorageException(
           "INodeIdentifier object is not properly initialized ");

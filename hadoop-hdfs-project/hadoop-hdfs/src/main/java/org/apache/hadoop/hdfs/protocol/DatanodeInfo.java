@@ -47,7 +47,8 @@ public class DatanodeInfo extends DatanodeID implements Node {
   private long lastUpdate;
   private int xceiverCount;
   private String location = NetworkTopology.DEFAULT_RACK;
-  
+  private boolean isPhantomDatanode = false; // for small files the phantom datanode points to a namenode
+
   // Datanode administrative states
   public enum AdminStates {
     NORMAL("In Service"),
@@ -134,7 +135,14 @@ public class DatanodeInfo extends DatanodeID implements Node {
     this.location = networkLocation;
     this.adminState = adminState;
   }
-  
+
+  public boolean isPhantomDataNode(){
+    return isPhantomDatanode;
+  }
+
+  public void setPhantomDatanode(boolean isPhantomDatanode){
+    this.isPhantomDatanode = isPhantomDatanode;
+  }
   /**
    * Network location name
    */

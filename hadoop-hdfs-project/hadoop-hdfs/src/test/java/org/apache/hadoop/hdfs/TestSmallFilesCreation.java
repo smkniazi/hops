@@ -25,7 +25,7 @@ public class TestSmallFilesCreation {
 
       final int BLOCK_SIZE = 1024*1024;
       final int CHECK_SUM_SIZE = 32;
-      final int FILE_SIZE = 32*1024;
+      final int FILE_SIZE = 1*1024;
       final boolean ENABLE_STORE_SMALL_FILES_IN_DB = true;
       final int SMALL_FILE_MAX_SIZE = 32*1024;
 
@@ -65,21 +65,21 @@ public class TestSmallFilesCreation {
       out.close();
       System.out.println("SMALL_FILE After Closing the file.");
 
-//
-//      FSDataInputStream dfsIs = dfs.open(new Path(FILE_NAME));
-//      byte buffer[] = new byte[FILE_SIZE];
-//      int readSize = 0;
-//      int curRead = -1;
-//
-//      while((curRead = dfsIs.read(buffer)) != -1 ){
-//        readSize += curRead;
-//      }
-//
-//
-//      if(  readSize != FILE_SIZE ){
-//        fail("Wrong amount of data read from the file. Data read  was: "+readSize);
-//      }
-//      dfsIs.close();
+
+      FSDataInputStream dfsIs = dfs.open(new Path(FILE_NAME));
+      byte buffer[] = new byte[FILE_SIZE];
+      int readSize = 0;
+      int curRead = -1;
+
+      while((curRead = dfsIs.read(buffer)) != -1 ){
+        readSize += curRead;
+      }
+
+
+      if(  readSize != FILE_SIZE ){
+        fail("Wrong amount of data read from the file. Data read  was: "+readSize);
+      }
+      dfsIs.close();
 //
 //
 //      DFSClient c = dfs.getClient();

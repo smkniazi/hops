@@ -20,6 +20,7 @@ package io.hops.transaction.lock;
 import io.hops.metadata.hdfs.dal.BlockChecksumDataAccess;
 import io.hops.metadata.hdfs.entity.BlockChecksum;
 import org.apache.hadoop.hdfs.server.namenode.INode;
+import org.codehaus.jackson.map.MapperConfig;
 
 import java.io.IOException;
 
@@ -34,7 +35,13 @@ class BlockChecksumLock extends Lock {
 
   @Override
   protected void acquire(TransactionLocks locks) throws IOException {
-    INodeLock iNodeLock = (INodeLock) locks.getLock(Type.INode);
+
+    BaseINodeLock iNodeLock = (BaseINodeLock) locks.getLock(Type.INode);
+    if (iNodeLock.areAllResolvedFilesStoredInDB()) {
+      LOG.debug("SMALL_FILE BlockChecksumLock. Skipping acquring locks on the file(s) as the files data is stored in the database.");
+      return;
+    }
+
     INode iNode = iNodeLock.getTargetINode(target);
     BlockChecksumDataAccess.KeyTuple key =
         new BlockChecksumDataAccess.KeyTuple(iNode.getId(), blockIndex);

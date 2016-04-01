@@ -42,6 +42,12 @@ class IndividualBlockLock extends BaseIndividualBlockLock {
 
   @Override
   protected void acquire(TransactionLocks locks) throws IOException {
+    BaseINodeLock iNodeLock = (BaseINodeLock) locks.getLock(Type.INode);
+    if (iNodeLock.areAllResolvedFilesStoredInDB()) {
+      LOG.debug("SMALL_FILE IndividualBlockLock. Skipping acquring locks on the file(s) as the files data is stored in the database.");
+      return;
+    }
+
     if (blockId != NON_EXISTING_BLOCK) {
       BlockInfo result =
           acquireLock(DEFAULT_LOCK_TYPE, BlockInfo.Finder.ByBlockIdAndINodeId,

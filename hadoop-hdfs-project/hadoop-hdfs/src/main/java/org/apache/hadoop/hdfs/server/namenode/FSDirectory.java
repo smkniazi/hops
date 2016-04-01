@@ -2597,17 +2597,18 @@ public class FSDirectory implements Closeable {
       size = fileNode.computeFileSize(true);
       replication = fileNode.getBlockReplication();
       blocksize = fileNode.getPreferredBlockSize();
-      loc = getFSNamesystem().getBlockManager()
-          .createLocatedBlocks(fileNode.getBlocks(),
-              fileNode.computeFileSize(false), fileNode.isUnderConstruction(),
-              0L, size, false);
+      isFileStoredInDB = fileNode.isFileStoredInDB();
+      if(isFileStoredInDB){
+        loc = getFSNamesystem().getBlockManager().createPhantomLocatedBlocks(fileNode,null,fileNode.isUnderConstruction(),false);
+      }else {
+        loc = getFSNamesystem().getBlockManager()
+                .createLocatedBlocks(fileNode.getBlocks(),
+                        fileNode.computeFileSize(false), fileNode.isUnderConstruction(),
+                        0L, size, false);
+      }
       if (loc == null) {
         loc = new LocatedBlocks();
       }
-      isFileStoredInDB = fileNode.isFileStoredInDB();
-
-      assert isFileStoredInDB==true && loc.locatedBlockCount() <= 0 : "A file stored in memory can not have data " +
-              "blcoks stored in the database";
 
     }
     return new HdfsLocatedFileStatus(size, node.isDirectory(), replication,

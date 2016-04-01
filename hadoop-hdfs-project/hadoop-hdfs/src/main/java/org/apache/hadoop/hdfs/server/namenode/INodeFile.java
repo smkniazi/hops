@@ -409,7 +409,11 @@ public class INodeFile extends INode implements BlockCollection {
   public void setSizeNoPersistence(long size) {
     this.size = size;
   }
-  
+
+  public void setSize(long size) throws TransactionContextException, StorageException {
+    setSizeNoPersistence(size);
+    save();
+  }
   public void recomputeFileSize() throws StorageException, TransactionContextException {
     setSizeNoPersistence(this.computeFileSize(true));
     save();
