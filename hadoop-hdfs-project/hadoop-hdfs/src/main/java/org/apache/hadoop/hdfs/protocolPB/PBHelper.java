@@ -425,7 +425,8 @@ public class PBHelper {
         setBlockPoolUsed(di.getBlockPoolUsed()).
         setLastUpdate(di.getLastUpdate()).
         setXceiverCount(di.getXceiverCount()).
-        setAdminState(PBHelper.convert(di.getAdminState())).setIsPhantomDatanode(di.isPhantomDataNode()).
+        setAdminState(PBHelper.convert(di.getAdminState())).
+        setIsPhantomDatanode(di.isPhantomDataNode()).
         build();
   }
   
@@ -480,7 +481,8 @@ public class PBHelper {
         .setLastUpdate(info.getLastUpdate())
         .setLocation(info.getNetworkLocation())
         .setRemaining(info.getRemaining())
-        .setXceiverCount(info.getXceiverCount()).build();
+        .setXceiverCount(info.getXceiverCount())
+        .setIsPhantomDatanode(info.isPhantomDataNode()).build();
     return builder.build();
   }
 

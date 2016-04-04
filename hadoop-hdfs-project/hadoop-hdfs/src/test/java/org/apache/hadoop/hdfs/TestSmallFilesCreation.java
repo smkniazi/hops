@@ -4,6 +4,7 @@ import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.*;
 import org.apache.hadoop.hdfs.protocol.LocatedBlocks;
 import org.junit.Test;
+
 import static org.junit.Assert.fail;
 
 
@@ -23,16 +24,11 @@ public class TestSmallFilesCreation {
     try {
       Configuration conf = new HdfsConfiguration();
 
-      final int BLOCK_SIZE = 1024*1024;
+      final int BLOCK_SIZE = 1024 * 1024;
       final int CHECK_SUM_SIZE = 32;
-      final int FILE_SIZE = 1*1024;
+      final int FILE_SIZE = 1 * 1024;
       final boolean ENABLE_STORE_SMALL_FILES_IN_DB = true;
-      final int SMALL_FILE_MAX_SIZE = 32*1024;
-
-
-
-
-
+      final int SMALL_FILE_MAX_SIZE = 32 * 1024;
       final String FILE_NAME = "/TEST-FLIE";
 
       conf.setInt(DFSConfigKeys.DFS_DB_FILE_MAX_SIZE_KEY, SMALL_FILE_MAX_SIZE);
@@ -46,57 +42,76 @@ public class TestSmallFilesCreation {
 
       DistributedFileSystem dfs = cluster.getFileSystem();
       FSDataOutputStream out = dfs.create(new Path(FILE_NAME), (short) 3);
-
-      byte data[] = new byte[FILE_SIZE];
-      Random rand = new Random(System.currentTimeMillis());
-      long total = 0;
-      for(int i = 0; i < data.length; i++)
-      {
-        data[i] = (byte)rand.nextInt(128);
-        total += data[i];
-      }
-      System.out.println("SMALL_FILE Before Writing the data. Sum of all the data is : "+total);
-
-      out.write(data);
-     // Thread.sleep(5000);
-
-      System.out.println("SMALL_FILE After Writing the data");
-      System.out.println("SMALL_FILE Before Closing the file.");
+      writeFile(out, FILE_SIZE);
       out.close();
-      System.out.println("SMALL_FILE After Closing the file.");
 
 
       FSDataInputStream dfsIs = dfs.open(new Path(FILE_NAME));
-      byte buffer[] = new byte[FILE_SIZE];
-      int readSize = 0;
-      int curRead = -1;
-
-      while((curRead = dfsIs.read(buffer)) != -1 ){
-        readSize += curRead;
-      }
-
-
-      if(  readSize != FILE_SIZE ){
-        fail("Wrong amount of data read from the file. Data read  was: "+readSize);
-      }
+      readFile(dfsIs, FILE_SIZE);
       dfsIs.close();
-//
-//
-//      DFSClient c = dfs.getClient();
-//      LocatedBlocks lb = c.getLocatedBlocks(FILE_NAME, 0, Long.MAX_VALUE);
-//
-//      if(lb != null && lb.isStoredInDB() != false){
-//        fail("The file should have been stored on the datanodes");
-//      }
-
-
 
     } catch (Exception e) {
       e.printStackTrace();
+      fail(e.getMessage());
     } finally {
       if (cluster != null) {
         cluster.shutdown();
       }
     }
+  }
+
+  static void writeFile(FSDataOutputStream os, int size) throws IOException {
+    byte[] data = new byte[size];
+    for (int i = 0; i < size; i++) {
+      byte number = (byte) (i % 128);
+      data[i] = number;
+    }
+    os.write(data);
+  }
+
+  /**
+   * This method reads the file using different read methods.
+   */
+  static void readFile(DistributedFileSystem dfs, String file, int size) throws IOException {
+    //reading one byte at a time.
+    FSDataInputStream is = dfs.open(new Path(file));
+    byte[] onebyte = new byte[1];
+    for (int i = 0; i < size; i++) {
+      if (is.read(onebyte, 0, 1) != 1) {
+        fail("failed to read");
+      }
+      byte number = (byte) (i % 128);
+      if (number != onebyte[0]) {
+        fail("Wrong data read");
+      }
+    }
+    //next read should return -1
+    if (is.read(onebyte, 0, 1) != -1) {
+      fail("Read Failed. Expecting End of File.");
+    }
+    is.close();
+
+    //read the whole file
+    is = dfs.open(new Path(file));
+    byte[] buffer = new byte[size];
+    if (size != is.read(buffer, 0, size)) {
+      fail("Wrong amount of data read from the file");
+    }
+    if (-1 != is.read(buffer, 0, size)) {
+      fail("Read Failed. Expecting End of File.");
+    }
+    is.close();
+
+    ByteBuffer byteBuffer = ByteBuffer.allocate(size);
+    is = dfs.open(new Path(file));
+    if( size != is.read(byteBuffer)){
+      fail("Wrong amount of data read using read(ByteBuffer) function");
+    }
+    is.close();
+
+    is = dfs.open(new Path(file));
+    is.readFully(0, buffer);
+
+
   }
 }

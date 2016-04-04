@@ -815,6 +815,7 @@ public class BlockManager {
         DFSConfigKeys.DFS_DATANODE_HTTP_DEFAULT_PORT,
         DFSConfigKeys.DFS_DATANODE_IPC_DEFAULT_PORT);
     DatanodeInfo phantomDatanode = new DatanodeInfo(phantomDatanodID);
+    phantomDatanode.setPhantomDatanode(true);
     DatanodeInfo[] machines = new DatanodeInfo[1];
     machines[0] = phantomDatanode;
     LocatedBlock locatedBlock  = new LocatedBlock(eb, machines, 0, false);
