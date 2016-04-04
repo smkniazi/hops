@@ -138,6 +138,15 @@ public class BlockReaderDB implements  BlockReader{
      */
     @Override
     public int read(ByteBuffer buf) throws IOException {
-         throw new UnsupportedOperationException("Not implemented yet");
+      int amountToRead = buf.remaining();
+      int initialPosition = buf.position();
+      byte buffer[] = new byte[amountToRead];
+      int actuallyRead = bis.read(buffer);
+      if(actuallyRead > 0){
+        buf.put(buffer);
+        buf.position(initialPosition);
+      }
+      return actuallyRead;
     }
+
 }

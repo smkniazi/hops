@@ -1689,11 +1689,9 @@ public class DFSOutputStream extends FSOutputSummer implements Syncable {
   private void forwardSmallFilesPacketsToDataNodes() {
     // can not save the data in the database
     if (saveSmallFilesInDB && isThisFileStoredInDB) {
-      LOG.debug("SMALL_FILE The file is too large to be stored in the database");
+      LOG.debug("SMALL_FILE The file can not be stored  in the database");
       isThisFileStoredInDB = false;
-
       if (!smallFileDataQueue.isEmpty()) {
-        LOG.debug("SMALL_FILE The file will be stored on the datanodes");
         LOG.debug("SMALL_FILE Sync/Flush Called: " + syncOrFlushCalled + " Current File Size: " + currentPacket
                 .getLastByteOffsetBlock() + " Max size of a file in DB: " + dbFileMaxSize);
 
