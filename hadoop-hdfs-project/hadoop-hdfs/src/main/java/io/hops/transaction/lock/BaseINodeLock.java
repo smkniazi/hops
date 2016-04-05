@@ -74,8 +74,6 @@ public abstract class BaseINodeLock extends Lock {
         new HashMap<String, PathRelatedINodes>();
     private final Collection<INode> individualInodes = new ArrayList<INode>();
 
-    private boolean areAllResolvedFilesStoredInDB = false;
-
     private class PathRelatedINodes {
       private List<INode> pathINodes;
       private List<INode> childINodes;
@@ -93,25 +91,21 @@ public abstract class BaseINodeLock extends Lock {
     private void putPathINodes(String path, List<INode> iNodes) {
       PathRelatedINodes pathRelatedINodes = getWithLazyInit(path);
       pathRelatedINodes.pathINodes = iNodes;
-      setAreAllResolvedFilesStoredInDB();
     }
 
     private void putChildINodes(String path, List<INode> iNodes) {
       PathRelatedINodes pathRelatedINodes = getWithLazyInit(path);
       pathRelatedINodes.childINodes = iNodes;
-      setAreAllResolvedFilesStoredInDB();
     }
 
     private void putIndividualINode(INode iNode) {
       individualInodes.add(iNode);
-      setAreAllResolvedFilesStoredInDB();
     }
 
     private void putIndividualINodes(List<INode> iNodes) {
       for(INode iNode: iNodes){
         individualInodes.add(iNode);
       }
-      setAreAllResolvedFilesStoredInDB();
     }
 
     private List<INode> getPathINodes(String path) {
@@ -140,22 +134,6 @@ public abstract class BaseINodeLock extends Lock {
         }
       }
       return count;
-    }
-
-    private void setAreAllResolvedFilesStoredInDB() {
-      if (countResolvedFilesStoredInDB() > 0 && countResolvedFilesStoredOnDataNodes() > 0) {
-        throw new UnsupportedOperationException("Trying to lock multiple file stored in the database and the datanodes. All files should be in same storage space");
-      } else if (countResolvedFilesStoredInDB() > 0 && countResolvedFilesStoredOnDataNodes() == 0) {
-        LOG.debug("SMALL_FILE Locked file(s) data is stored in the database.");
-        areAllResolvedFilesStoredInDB = true;
-      } else {
-//        LOG.debug("SMALL_FILE Locked file(s) data is not stored in the database");
-        areAllResolvedFilesStoredInDB = false;
-      }
-    }
-
-    protected boolean areAllResolvedFilesStoredInDB() {
-      return areAllResolvedFilesStoredInDB;
     }
 
     private List<INode> getChildINodes(String path) {
@@ -351,7 +329,12 @@ public abstract class BaseINodeLock extends Lock {
     return Type.INode;
   }
 
-  protected boolean areAllResolvedFilesStoredInDB(){
-    return this.resolvedINodesMap.areAllResolvedFilesStoredInDB();
+  protected static boolean isStoredInDB(INode inode){
+    if(inode instanceof  INodeFile){
+      INodeFile file = (INodeFile)inode;
+      return file.isFileStoredInDB();
+    }else{
+      return false;
+    }
   }
 }

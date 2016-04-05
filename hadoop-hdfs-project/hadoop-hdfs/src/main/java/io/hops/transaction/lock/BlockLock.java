@@ -30,12 +30,12 @@ import java.util.List;
 final class BlockLock extends IndividualBlockLock {
 
   private final List<INodeFile> files;
-  
+
   BlockLock() {
     super();
     this.files = new ArrayList<INodeFile>();
   }
-  
+
   BlockLock(long blockId, INodeIdentifier inode) {
     super(blockId, inode);
     this.files = new ArrayList<INodeFile>();
@@ -46,24 +46,26 @@ final class BlockLock extends IndividualBlockLock {
     BaseINodeLock inodeLock = (BaseINodeLock) locks.getLock(Type.INode);
     boolean individualBlockAlreadyRead = false;
     Iterable blks = Collections.EMPTY_LIST;
-    if (!inodeLock.areAllResolvedFilesStoredInDB()) {
-      for (INode inode : inodeLock.getAllResolvedINodes()) {
-        if (inode instanceof INodeFile) {
-          Collection<BlockInfo> inodeBlocks =
-                  acquireLockList(DEFAULT_LOCK_TYPE, BlockInfo.Finder.ByINodeId,
-                          inode.getId());
+    for (INode inode : inodeLock.getAllResolvedINodes()) {
+      if(BaseINodeLock.isStoredInDB(inode)){
+        LOG.debug("SMALL_FILE BlockLock. Skipping acquring locks on the inode named: "+inode.getLocalName()+" as the file is stored in the database");
+        continue;
+      }
+      if (inode instanceof INodeFile) {
+        Collection<BlockInfo> inodeBlocks =
+                acquireLockList(DEFAULT_LOCK_TYPE, BlockInfo.Finder.ByINodeId,
+                        inode.getId());
 
-          if (!individualBlockAlreadyRead) {
-            individualBlockAlreadyRead = inode.getId() == inodeId;
-          }
-
-          if (inodeBlocks == null || inodeBlocks.isEmpty()) {
-            announceEmptyFile(inode.getId());
-          }
-
-          blks = Iterables.concat(blks, inodeBlocks);
-          files.add((INodeFile) inode);
+        if (!individualBlockAlreadyRead) {
+          individualBlockAlreadyRead = inode.getId() == inodeId;
         }
+
+        if (inodeBlocks == null || inodeBlocks.isEmpty()) {
+          announceEmptyFile(inode.getId());
+        }
+
+        blks = Iterables.concat(blks, inodeBlocks);
+        files.add((INodeFile) inode);
       }
     }
 
@@ -72,6 +74,7 @@ final class BlockLock extends IndividualBlockLock {
     }
 
   }
+
   Collection<INodeFile> getFiles() {
     return files;
   }

@@ -6,9 +6,9 @@
  * to you under the Apache License, Version 2.0 (the
  * "License"); you may not use this file except in compliance
  * with the License.  You may obtain a copy of the License at
- *
- *     http://www.apache.org/licenses/LICENSE-2.0
- *
+ * <p>
+ * http://www.apache.org/licenses/LICENSE-2.0
+ * <p>
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
@@ -37,15 +37,15 @@ class BlockChecksumLock extends Lock {
   protected void acquire(TransactionLocks locks) throws IOException {
 
     BaseINodeLock iNodeLock = (BaseINodeLock) locks.getLock(Type.INode);
-    if (iNodeLock.areAllResolvedFilesStoredInDB()) {
-      LOG.debug("SMALL_FILE BlockChecksumLock. Skipping acquring locks on the file(s) as the files data is stored in the database.");
-      return;
+    INode iNode = iNodeLock.getTargetINode(target);
+    if (!BaseINodeLock.isStoredInDB(iNode)) {
+      BlockChecksumDataAccess.KeyTuple key =
+              new BlockChecksumDataAccess.KeyTuple(iNode.getId(), blockIndex);
+      acquireLock(DEFAULT_LOCK_TYPE, BlockChecksum.Finder.ByKeyTuple, key);
+    } else {
+      LOG.debug("SMALL_FILE BlockChecksumLock. Skipping acquring locks on the inode named: " + iNode.getLocalName() + " as the file is stored in the database");
     }
 
-    INode iNode = iNodeLock.getTargetINode(target);
-    BlockChecksumDataAccess.KeyTuple key =
-        new BlockChecksumDataAccess.KeyTuple(iNode.getId(), blockIndex);
-    acquireLock(DEFAULT_LOCK_TYPE, BlockChecksum.Finder.ByKeyTuple, key);
   }
 
   @Override

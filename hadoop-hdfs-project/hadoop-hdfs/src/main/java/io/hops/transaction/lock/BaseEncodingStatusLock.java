@@ -51,25 +51,23 @@ abstract class BaseEncodingStatusLock extends Lock {
     @Override
     protected void acquire(TransactionLocks locks) throws IOException {
       BaseINodeLock iNodeLock = (BaseINodeLock) locks.getLock(Type.INode);
-
-      if (iNodeLock.areAllResolvedFilesStoredInDB()) {
-        LOG.debug("SMALL_FILE BaseEncodingStatusLock. Skipping acquring locks on the file(s) as the files data is stored in the database.");
-        return;
-      }
-
       Arrays.sort(targets);
       for (String target : targets) {
         INode iNode = iNodeLock.getTargetINode(target);
-        EncodingStatus status = acquireLock(getLockType(),
-                EncodingStatus.Finder.ByInodeId,
-                iNode.getId());
-        if (status != null) {
-          // It's a source file
-          return;
+        if (!BaseINodeLock.isStoredInDB(iNode)) {
+          EncodingStatus status = acquireLock(getLockType(),
+                  EncodingStatus.Finder.ByInodeId,
+                  iNode.getId());
+          if (status != null) {
+            // It's a source file
+            return;
+          }
+          // It's a parity file
+          acquireLock(getLockType(), EncodingStatus.Finder.ByParityInodeId,
+                  iNode.getId());
+        }else{
+          LOG.debug("SMALL_FILE BaseEncodingStatusLock. Skipping acquring locks on the inode named: "+iNode.getLocalName()+" as the file is stored in the database");
         }
-        // It's a parity file
-        acquireLock(getLockType(), EncodingStatus.Finder.ByParityInodeId,
-                iNode.getId());
       }
     }
   }
@@ -89,12 +87,6 @@ abstract class BaseEncodingStatusLock extends Lock {
       // TODO STEFFEN - Should only acquire the locks if we know it has a status and also not twice.
       // Maybe add a flag to iNode specifying whether it's encoded or a parity file
 
-      BaseINodeLock iNodeLock = (BaseINodeLock) locks.getLock(Type.INode);
-      if (iNodeLock.areAllResolvedFilesStoredInDB()) {
-        LOG.debug("SMALL_FILE IndividualEncodingStatusLock. Skipping acquring locks on the file(s) as the files data is stored in the database.");
-        return;
-      }
-
       EncodingStatus status = acquireLock(
               getLockType(), EncodingStatus.Finder.ByInodeId, inodeId);
       if (status != null) {
@@ -102,8 +94,7 @@ abstract class BaseEncodingStatusLock extends Lock {
         return;
       }
       // It's a parity file
-      acquireLock(getLockType(), EncodingStatus.Finder.ByParityInodeId,
-              inodeId);
+      acquireLock(getLockType(), EncodingStatus.Finder.ByParityInodeId, inodeId);
     }
   }
 }

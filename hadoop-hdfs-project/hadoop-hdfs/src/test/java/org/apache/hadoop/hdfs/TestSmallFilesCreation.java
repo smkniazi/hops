@@ -1,5 +1,10 @@
 package org.apache.hadoop.hdfs;
 
+import io.hops.exception.StorageException;
+import io.hops.metadata.HdfsStorageFactory;
+import io.hops.metadata.hdfs.dal.FileInodeDataDataAccess;
+import io.hops.transaction.handler.HDFSOperationType;
+import io.hops.transaction.handler.LightWeightRequestHandler;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.*;
 import org.apache.hadoop.hdfs.protocol.LocatedBlock;
@@ -7,6 +12,7 @@ import org.apache.hadoop.hdfs.protocol.LocatedBlocks;
 import org.junit.Test;
 
 import static org.junit.Assert.assertFalse;
+import static org.junit.Assert.assertTrue;
 import static org.junit.Assert.fail;
 
 
@@ -111,7 +117,7 @@ public class TestSmallFilesCreation {
    * @throws IOException
    */
   @Test
-  public void Test0() throws IOException {
+  public void TestSimpleReadAndWrite() throws IOException {
     MiniDFSCluster cluster = null;
     try {
       Configuration conf = new HdfsConfiguration();
@@ -154,7 +160,7 @@ public class TestSmallFilesCreation {
    * @throws IOException
    */
   @Test
-  public void Test1() throws IOException {
+  public void TestWriteLargeFile() throws IOException {
     MiniDFSCluster cluster = null;
     try {
       Configuration conf = new HdfsConfiguration();
@@ -205,7 +211,7 @@ public class TestSmallFilesCreation {
    * @throws IOException
    */
   @Test
-  public void Test2() throws IOException {
+  public void TestSmallFileHflush() throws IOException {
     MiniDFSCluster cluster = null;
     try {
       Configuration conf = new HdfsConfiguration();
@@ -256,7 +262,7 @@ public class TestSmallFilesCreation {
    * @throws IOException
    */
   @Test
-  public void Test3() throws IOException {
+  public void TestSmallFileHsync() throws IOException {
     MiniDFSCluster cluster = null;
     try {
       Configuration conf = new HdfsConfiguration();
@@ -302,7 +308,7 @@ public class TestSmallFilesCreation {
    * @throws IOException
    */
   @Test
-  public void Test4() throws IOException {
+  public void TestDeleteSmallFile() throws IOException {
     MiniDFSCluster cluster = null;
     try {
       Configuration conf = new HdfsConfiguration();
@@ -336,4 +342,105 @@ public class TestSmallFilesCreation {
       }
     }
   }
+  @Test
+  public void TestRenameSmallFile() throws IOException {
+    MiniDFSCluster cluster = null;
+    try {
+      Configuration conf = new HdfsConfiguration();
+
+      final int BLOCK_SIZE = 1024 * 1024;
+      final int FILE_SIZE = 1 * 1024;
+      final boolean ENABLE_STORE_SMALL_FILES_IN_DB = true;
+      final int SMALL_FILE_MAX_SIZE = 32 * 1024;
+      final String FILE_NAME = "/TEST-FLIE";
+
+      conf.setInt(DFSConfigKeys.DFS_DB_FILE_MAX_SIZE_KEY, SMALL_FILE_MAX_SIZE);
+      conf.setBoolean(DFSConfigKeys.DFS_STORE_SMALL_FILES_IN_DB_KEY,
+          ENABLE_STORE_SMALL_FILES_IN_DB);
+      conf.setInt(DFSConfigKeys.DFS_BLOCK_SIZE_KEY, BLOCK_SIZE); // 4 byte
+
+      cluster = new MiniDFSCluster.Builder(conf).numDataNodes(1).build();
+      cluster.waitActive();
+      DistributedFileSystem dfs = cluster.getFileSystem();
+
+      FSDataOutputStream out = dfs.create(new Path(FILE_NAME), (short) 3);
+      writeFile(out, FILE_SIZE);
+      out.close();
+
+      dfs.rename(new Path(FILE_NAME), new Path(FILE_NAME+"1"));
+
+      readFileUsingMultipleMethods(dfs, FILE_NAME+"1",FILE_SIZE);
+
+      assertTrue("Count of db file should be 1", countDBFiles() == 1);
+
+    } catch (Exception e) {
+      e.printStackTrace();
+      fail(e.getMessage());
+    } finally {
+      if (cluster != null) {
+        cluster.shutdown();
+      }
+    }
+  }
+
+  @Test
+  public void TestRenameSmallFiles2() throws IOException {
+    MiniDFSCluster cluster = null;
+    try {
+      Configuration conf = new HdfsConfiguration();
+
+      final int BLOCK_SIZE = 1024 * 1024;
+      final int FILE_SIZE = 1 * 1024;
+      final boolean ENABLE_STORE_SMALL_FILES_IN_DB = true;
+      final int SMALL_FILE_MAX_SIZE = 32 * 1024;
+      final String FILE_NAME = "/TEST-FLIE";
+
+      conf.setInt(DFSConfigKeys.DFS_DB_FILE_MAX_SIZE_KEY, SMALL_FILE_MAX_SIZE);
+      conf.setBoolean(DFSConfigKeys.DFS_STORE_SMALL_FILES_IN_DB_KEY,
+          ENABLE_STORE_SMALL_FILES_IN_DB);
+      conf.setInt(DFSConfigKeys.DFS_BLOCK_SIZE_KEY, BLOCK_SIZE); // 4 byte
+
+      cluster = new MiniDFSCluster.Builder(conf).numDataNodes(1).build();
+      cluster.waitActive();
+      DistributedFileSystem dfs = cluster.getFileSystem();
+
+      FSDataOutputStream out = dfs.create(new Path(FILE_NAME+"1"), (short) 3);
+      writeFile(out, FILE_SIZE);
+      out.close();
+
+      out = dfs.create(new Path(FILE_NAME+"2"), (short) 3);
+      writeFile(out, FILE_SIZE);
+      out.close();
+
+      assertTrue("Count of db file should be 2", countDBFiles() == 2);
+
+      dfs.rename(new Path(FILE_NAME+"1"), new Path(FILE_NAME+"2"));
+
+      readFileUsingMultipleMethods(dfs, FILE_NAME+"2",FILE_SIZE);
+
+      assertTrue("Count of db file should be 1", countDBFiles() == 1);
+
+    } catch (Exception e) {
+      e.printStackTrace();
+      fail(e.getMessage());
+    } finally {
+      if (cluster != null) {
+        cluster.shutdown();
+      }
+    }
+  }
+
+  public static int countDBFiles() throws IOException {
+    LightWeightRequestHandler countDBFiles =
+            new LightWeightRequestHandler(HDFSOperationType.TEST_DB_FILES) {
+              @Override
+              public Object performTask() throws StorageException, IOException {
+                FileInodeDataDataAccess fida = (FileInodeDataDataAccess) HdfsStorageFactory
+                        .getDataAccess(FileInodeDataDataAccess.class);
+                return fida.count();
+              }
+            };
+    return (Integer)countDBFiles.handle();
+  }
+
 }
