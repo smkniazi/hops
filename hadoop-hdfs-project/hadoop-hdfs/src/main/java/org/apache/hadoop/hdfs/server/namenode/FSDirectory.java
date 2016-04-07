@@ -580,6 +580,15 @@ public class FSDirectory implements Closeable {
           List<Block> collectedBlocks = new ArrayList<Block>();
           filesDeleted = 1; // rmdst.collectSubtreeBlocksAndClear(collectedBlocks);
                             // [S] as the dst dir was empty it will always return 1
+                            // if the destination is file then we need to collect the blocks for it
+          if(rmdst instanceof  INodeFile && !((INodeFile)rmdst).isFileStoredInDB()){
+            Block [] blocks = ((INodeFile)rmdst).getBlocks();
+            for(Block blk : blocks){
+              collectedBlocks.add(blk);
+            }
+          }else if(rmdst instanceof  INodeFile && ((INodeFile)rmdst).isFileStoredInDB()){
+            ((INodeFile)rmdst).deleteFileDataStoredInDB();
+          }
           getFSNamesystem().removePathAndBlocks(src, collectedBlocks);
         }
 
@@ -2761,7 +2770,7 @@ public class FSDirectory implements Closeable {
           new INodeFileUnderConstruction(name, replication, modificationTime,
               preferredBlockSize, blocks, permissionStatus, clientName,
               clientMachineName, datanodeID, id, pid);
-
+      ((INodeFileUnderConstruction)clone).setFileStoredInDB(((INodeFileUnderConstruction)inode).isFileStoredInDB());
     } else if (inode instanceof INodeFile) {
       clone = new INodeFile((INodeFile) inode);
     } else if (inode instanceof INodeDirectory) {

@@ -166,9 +166,15 @@ public class INodeFile extends INode implements BlockCollection {
   @Override
   public BlockInfo[] getBlocks()
       throws StorageException, TransactionContextException {
-    if (getId() == INode.NON_EXISTING_ID || isFileStoredInDB()) {
+    if (getId() == INode.NON_EXISTING_ID ){
       return BlockInfo.EMPTY_ARRAY;
     }
+
+    if(isFileStoredInDB()){
+      FSNamesystem.LOG.debug("SMALL_FILE getBlocks(). the file is stored in the database. Returning empty list of blocks");
+      return BlockInfo.EMPTY_ARRAY;
+    }
+
     List<BlockInfo> blocks = (List<BlockInfo>) EntityManager
         .findList(BlockInfo.Finder.ByINodeId, id);
     if (blocks != null) {

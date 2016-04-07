@@ -42,7 +42,6 @@ class IndividualBlockLock extends BaseIndividualBlockLock {
 
   @Override
   protected void acquire(TransactionLocks locks) throws IOException {
-    BaseINodeLock iNodeLock = (BaseINodeLock) locks.getLock(Type.INode);
     if (blockId != NON_EXISTING_BLOCK) {
       BlockInfo result =
           acquireLock(DEFAULT_LOCK_TYPE, BlockInfo.Finder.ByBlockIdAndINodeId,

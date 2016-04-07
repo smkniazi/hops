@@ -84,7 +84,7 @@ public class LocatedBlock {
   }
 
   public boolean isPhantomBlock(){
-    if (locs != null) {
+    if (locs != null && locs.length == 1) {
       if (locs[0].isPhantomDataNode()) {
         return true;
       }
