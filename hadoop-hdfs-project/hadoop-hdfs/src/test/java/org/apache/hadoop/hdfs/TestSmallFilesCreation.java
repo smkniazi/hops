@@ -593,6 +593,47 @@ public class TestSmallFilesCreation {
     }
   }
 
+    /*
+    Test appending to a file stored in the database
+   */
+  @Test
+  public void TestAppend() throws IOException {
+    MiniDFSCluster cluster = null;
+    try {
+      Configuration conf = new HdfsConfiguration();
+
+      final int BLOCK_SIZE = 1024 * 1024;
+      final boolean ENABLE_STORE_SMALL_FILES_IN_DB = true;
+      final int SMALL_FILE_MAX_SIZE = 32 * 1024;
+      final String FILE_NAME = "/TEST-FLIE";
+
+      conf.setInt(DFSConfigKeys.DFS_DB_FILE_MAX_SIZE_KEY, SMALL_FILE_MAX_SIZE);
+      conf.setBoolean(DFSConfigKeys.DFS_STORE_SMALL_FILES_IN_DB_KEY,
+              ENABLE_STORE_SMALL_FILES_IN_DB);
+      conf.setInt(DFSConfigKeys.DFS_BLOCK_SIZE_KEY, BLOCK_SIZE);
+
+      cluster = new MiniDFSCluster.Builder(conf).numDataNodes(1).build();
+      cluster.waitActive();
+      DistributedFileSystem dfs = cluster.getFileSystem();
+
+
+      FSDataOutputStream out = dfs.create(new Path(FILE_NAME), (short) 3);
+      writeFile(out, 1*1024);
+      out.close();
+
+      out = dfs.append(new Path(FILE_NAME));
+      writeFile(out, 1*1024);
+      out.close();
+
+    } catch (Exception e) {
+      e.printStackTrace();
+      fail(e.getMessage());
+    } finally {
+      if (cluster != null) {
+        cluster.shutdown();
+      }
+    }
+  }
 
   public static int countDBFiles() throws IOException {
     LightWeightRequestHandler countDBFiles =

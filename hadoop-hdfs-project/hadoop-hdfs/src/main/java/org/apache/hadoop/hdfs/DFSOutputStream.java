@@ -1600,7 +1600,7 @@ public class DFSOutputStream extends FSOutputSummer implements Syncable {
       }
     }
 
-    if(saveSmallFilesInDB){
+    if(saveSmallFilesInDB || lastBlock.isPhantomBlock()){
       throw new UnsupportedOperationException("Not implemented yet");
     }
 
