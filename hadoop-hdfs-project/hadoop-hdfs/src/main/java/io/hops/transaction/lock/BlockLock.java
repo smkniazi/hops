@@ -49,6 +49,7 @@ final class BlockLock extends IndividualBlockLock {
     for (INode inode : inodeLock.getAllResolvedINodes()) {
       if(BaseINodeLock.isStoredInDB(inode)){
         LOG.debug("SMALL_FILE BlockLock. Skipping acquring locks on the inode named: "+inode.getLocalName()+" as the file is stored in the database");
+        announceEmptyFile(inode.getId());
         continue;
       }
       if (inode instanceof INodeFile) {

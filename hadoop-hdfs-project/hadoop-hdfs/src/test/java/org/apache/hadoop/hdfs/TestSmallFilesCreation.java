@@ -26,7 +26,13 @@ import static org.apache.hadoop.hdfs.DFSConfigKeys.DFS_BYTES_PER_CHECKSUM_KEY;
  * Created by salman on 2016-03-22.
  */
 public class TestSmallFilesCreation {
-  static void writeFile(FSDataOutputStream os, int size) throws IOException {
+  static void writeFile(DistributedFileSystem dfs, String name, int size) throws IOException {
+    FSDataOutputStream os = (FSDataOutputStream) dfs.create(new Path(name));
+    writeData(os, size);
+    os.close();
+  }
+  
+  static void writeData(FSDataOutputStream os, int size) throws IOException {
     byte[] data = new byte[size];
     for (int i = 0; i < size; i++) {
       byte number = (byte) (i % 128);
@@ -34,12 +40,11 @@ public class TestSmallFilesCreation {
     }
     os.write(data);
   }
-
+  
   /**
    * This method reads the file using different read methods.
    */
-  static void readFileUsingMultipleMethods(DistributedFileSystem dfs,
-                                           String file, int size) throws IOException {
+  static void readFileUsingMultipleMethods(DistributedFileSystem dfs, String file, int size) throws IOException {
     //reading one byte at a time.
     FSDataInputStream is = dfs.open(new Path(file));
     byte[] onebyte = new byte[1];
@@ -58,7 +63,7 @@ public class TestSmallFilesCreation {
     }
     is.close();
     //--------------------------------------------------------------------------
-
+    
     is = dfs.open(new Path(file));
     byte[] buffer = new byte[size];
     if (size != is.read(buffer, 0, size)) {
@@ -67,8 +72,8 @@ public class TestSmallFilesCreation {
     for (int i = 0; i < size; i++) {
       if ((i % 128) != buffer[i]) {
         fail("Data is corrupted. Expecting: " + i + " got: " + buffer[i] +
-                " index: " +
-                "" + i);
+            " index: " +
+            "" + i);
       }
     }
     if (-1 != is.read(buffer, 0, size)) {
@@ -76,7 +81,7 @@ public class TestSmallFilesCreation {
     }
     is.close();
     //--------------------------------------------------------------------------
-
+    
     ByteBuffer byteBuffer = ByteBuffer.allocate(size);
     is = dfs.open(new Path(file));
     if (size != is.read(byteBuffer)) {
@@ -89,7 +94,7 @@ public class TestSmallFilesCreation {
     }
     is.close();
     //--------------------------------------------------------------------------
-
+    
     is = dfs.open(new Path(file));
     is.readFully(0, buffer);
     for (int i = 0; i < size; i++) {
@@ -99,7 +104,7 @@ public class TestSmallFilesCreation {
     }
     is.close();
     //--------------------------------------------------------------------------
-
+    
     is = dfs.open(new Path(file));
     is.readFully(0, buffer, 0, size);
     for (int i = 0; i < size; i++) {
@@ -109,9 +114,21 @@ public class TestSmallFilesCreation {
     }
     is.close();
     //--------------------------------------------------------------------------
-
+    
   }
-
+  
+  public static int countDBFiles() throws IOException {
+    LightWeightRequestHandler countDBFiles = new LightWeightRequestHandler(HDFSOperationType.TEST_DB_FILES) {
+      @Override
+      public Object performTask() throws StorageException, IOException {
+        FileInodeDataDataAccess fida =
+            (FileInodeDataDataAccess) HdfsStorageFactory.getDataAccess(FileInodeDataDataAccess.class);
+        return fida.count();
+      }
+    };
+    return (Integer) countDBFiles.handle();
+  }
+  
   /**
    * Simple read and write test
    *
@@ -122,29 +139,27 @@ public class TestSmallFilesCreation {
     MiniDFSCluster cluster = null;
     try {
       Configuration conf = new HdfsConfiguration();
-
+      
       final int BLOCK_SIZE = 1024 * 1024;
       final int FILE_SIZE = 1 * 1024;
       final boolean ENABLE_STORE_SMALL_FILES_IN_DB = true;
-      final int SMALL_FILE_MAX_SIZE = 32 * 1024;
+      final int SMALL_FILE_MAX_SIZE =
+          conf.getInt(DFSConfigKeys.DFS_DB_FILE_MAX_SIZE_KEY, DFSConfigKeys.DFS_DB_FILE_MAX_SIZE_DEFAULT);
       final String FILE_NAME = "/TEST-FLIE";
-
+      
       conf.setInt(DFSConfigKeys.DFS_DB_FILE_MAX_SIZE_KEY, SMALL_FILE_MAX_SIZE);
-      conf.setBoolean(DFSConfigKeys.DFS_STORE_SMALL_FILES_IN_DB_KEY,
-              ENABLE_STORE_SMALL_FILES_IN_DB);
-      conf.setInt(DFSConfigKeys.DFS_BLOCK_SIZE_KEY, BLOCK_SIZE); // 4 byte
-
-
+      conf.setBoolean(DFSConfigKeys.DFS_STORE_SMALL_FILES_IN_DB_KEY, ENABLE_STORE_SMALL_FILES_IN_DB);
+      conf.setInt(DFSConfigKeys.DFS_BLOCK_SIZE_KEY, BLOCK_SIZE); 
+      
+      
       cluster = new MiniDFSCluster.Builder(conf).numDataNodes(1).build();
       cluster.waitActive();
-
+      
       DistributedFileSystem dfs = cluster.getFileSystem();
-      FSDataOutputStream out = dfs.create(new Path(FILE_NAME), (short) 3);
-      writeFile(out, FILE_SIZE);
-      out.close();
+      writeFile(dfs, FILE_NAME, FILE_SIZE);
 
       readFileUsingMultipleMethods(dfs, FILE_NAME, FILE_SIZE);
-
+      
     } catch (Exception e) {
       e.printStackTrace();
       fail(e.getMessage());
@@ -154,7 +169,7 @@ public class TestSmallFilesCreation {
       }
     }
   }
-
+  
   /**
    * Write large file and make sure that it is stored on the datanodes
    *
@@ -165,35 +180,30 @@ public class TestSmallFilesCreation {
     MiniDFSCluster cluster = null;
     try {
       Configuration conf = new HdfsConfiguration();
-
+      
       final int BLOCK_SIZE = 1024 * 1024;
       final int FILE_SIZE = 32 * 1024 + 1;
       final boolean ENABLE_STORE_SMALL_FILES_IN_DB = true;
-      final int SMALL_FILE_MAX_SIZE = 32 * 1024;
+      final int SMALL_FILE_MAX_SIZE =
+          conf.getInt(DFSConfigKeys.DFS_DB_FILE_MAX_SIZE_KEY, DFSConfigKeys.DFS_DB_FILE_MAX_SIZE_DEFAULT);
       final String FILE_NAME = "/TEST-FLIE";
-
+      
       conf.setInt(DFSConfigKeys.DFS_DB_FILE_MAX_SIZE_KEY, SMALL_FILE_MAX_SIZE);
-      conf.setBoolean(DFSConfigKeys.DFS_STORE_SMALL_FILES_IN_DB_KEY,
-              ENABLE_STORE_SMALL_FILES_IN_DB);
-      conf.setInt(DFSConfigKeys.DFS_BLOCK_SIZE_KEY, BLOCK_SIZE); // 4 byte
-
-
+      conf.setBoolean(DFSConfigKeys.DFS_STORE_SMALL_FILES_IN_DB_KEY, ENABLE_STORE_SMALL_FILES_IN_DB);
+      conf.setInt(DFSConfigKeys.DFS_BLOCK_SIZE_KEY, BLOCK_SIZE); 
+      
+      
       cluster = new MiniDFSCluster.Builder(conf).numDataNodes(1).build();
       cluster.waitActive();
-
+      
       DistributedFileSystem dfs = cluster.getFileSystem();
-      FSDataOutputStream out = dfs.create(new Path(FILE_NAME), (short) 3);
-      writeFile(out, FILE_SIZE);
-      out.close();
-
-
+      writeFile(dfs, FILE_NAME, FILE_SIZE);
+      
       FSDataInputStream dfsIs = dfs.open(new Path(FILE_NAME));
-      LocatedBlocks lblks =
-              dfs.getClient().getLocatedBlocks(FILE_NAME, 0, Long.MAX_VALUE);
-      assertFalse("The should not have been stored in the database",
-              lblks.hasPhantomBlock());
+      LocatedBlocks lblks = dfs.getClient().getLocatedBlocks(FILE_NAME, 0, Long.MAX_VALUE);
+      assertFalse("The should not have been stored in the database", lblks.hasPhantomBlock());
       dfsIs.close();
-
+      
     } catch (Exception e) {
       e.printStackTrace();
       fail(e.getMessage());
@@ -203,7 +213,7 @@ public class TestSmallFilesCreation {
       }
     }
   }
-
+  
   /**
    * if the file is small but the client calls flush method before the
    * close operation the save the file on the datanodes. This is because the
@@ -216,35 +226,33 @@ public class TestSmallFilesCreation {
     MiniDFSCluster cluster = null;
     try {
       Configuration conf = new HdfsConfiguration();
-
+      
       final int BLOCK_SIZE = 1024 * 1024;
       final int FILE_SIZE = 1 * 1024;
       final boolean ENABLE_STORE_SMALL_FILES_IN_DB = true;
-      final int SMALL_FILE_MAX_SIZE = 32 * 1024;
+      final int SMALL_FILE_MAX_SIZE =
+          conf.getInt(DFSConfigKeys.DFS_DB_FILE_MAX_SIZE_KEY, DFSConfigKeys.DFS_DB_FILE_MAX_SIZE_DEFAULT);
       final String FILE_NAME = "/TEST-FLIE";
-
+      
       conf.setInt(DFSConfigKeys.DFS_DB_FILE_MAX_SIZE_KEY, SMALL_FILE_MAX_SIZE);
-      conf.setBoolean(DFSConfigKeys.DFS_STORE_SMALL_FILES_IN_DB_KEY,
-              ENABLE_STORE_SMALL_FILES_IN_DB);
-      conf.setInt(DFSConfigKeys.DFS_BLOCK_SIZE_KEY, BLOCK_SIZE); // 4 byte
-
+      conf.setBoolean(DFSConfigKeys.DFS_STORE_SMALL_FILES_IN_DB_KEY, ENABLE_STORE_SMALL_FILES_IN_DB);
+      conf.setInt(DFSConfigKeys.DFS_BLOCK_SIZE_KEY, BLOCK_SIZE); 
+      
       cluster = new MiniDFSCluster.Builder(conf).numDataNodes(1).build();
       cluster.waitActive();
       DistributedFileSystem dfs = cluster.getFileSystem();
       FSDataOutputStream out = dfs.create(new Path(FILE_NAME), (short) 3);
-      writeFile(out, FILE_SIZE);
+      writeData(out, FILE_SIZE);
       out.flush();
       out.hflush();
       out.close();
-
-
+      
+      
       FSDataInputStream dfsIs = dfs.open(new Path(FILE_NAME));
-      LocatedBlocks lblks =
-              dfs.getClient().getLocatedBlocks(FILE_NAME, 0, Long.MAX_VALUE);
-      assertFalse("The should not have been stored in the database",
-              lblks.hasPhantomBlock());
+      LocatedBlocks lblks = dfs.getClient().getLocatedBlocks(FILE_NAME, 0, Long.MAX_VALUE);
+      assertFalse("The should not have been stored in the database", lblks.hasPhantomBlock());
       dfsIs.close();
-
+      
     } catch (Exception e) {
       e.printStackTrace();
       fail(e.getMessage());
@@ -254,7 +262,7 @@ public class TestSmallFilesCreation {
       }
     }
   }
-
+  
   /**
    * if the file is small but the client calls sync ethod before the
    * close operation the save the file on the datanodes. This is because the
@@ -267,33 +275,31 @@ public class TestSmallFilesCreation {
     MiniDFSCluster cluster = null;
     try {
       Configuration conf = new HdfsConfiguration();
-
+      
       final int BLOCK_SIZE = 1024 * 1024;
       final int FILE_SIZE = 1 * 1024;
       final boolean ENABLE_STORE_SMALL_FILES_IN_DB = true;
-      final int SMALL_FILE_MAX_SIZE = 32 * 1024;
+      final int SMALL_FILE_MAX_SIZE =
+          conf.getInt(DFSConfigKeys.DFS_DB_FILE_MAX_SIZE_KEY, DFSConfigKeys.DFS_DB_FILE_MAX_SIZE_DEFAULT);
       final String FILE_NAME = "/TEST-FLIE";
-
+      
       conf.setInt(DFSConfigKeys.DFS_DB_FILE_MAX_SIZE_KEY, SMALL_FILE_MAX_SIZE);
-      conf.setBoolean(DFSConfigKeys.DFS_STORE_SMALL_FILES_IN_DB_KEY,
-              ENABLE_STORE_SMALL_FILES_IN_DB);
-      conf.setInt(DFSConfigKeys.DFS_BLOCK_SIZE_KEY, BLOCK_SIZE); // 4 byte
-
+      conf.setBoolean(DFSConfigKeys.DFS_STORE_SMALL_FILES_IN_DB_KEY, ENABLE_STORE_SMALL_FILES_IN_DB);
+      conf.setInt(DFSConfigKeys.DFS_BLOCK_SIZE_KEY, BLOCK_SIZE); 
+      
       cluster = new MiniDFSCluster.Builder(conf).numDataNodes(1).build();
       cluster.waitActive();
       DistributedFileSystem dfs = cluster.getFileSystem();
       FSDataOutputStream out = dfs.create(new Path(FILE_NAME), (short) 3);
-      writeFile(out, FILE_SIZE);
+      writeData(out, FILE_SIZE);
       out.hsync();
       out.close();
-
+      
       FSDataInputStream dfsIs = dfs.open(new Path(FILE_NAME));
-      LocatedBlocks lblks =
-              dfs.getClient().getLocatedBlocks(FILE_NAME, 0, Long.MAX_VALUE);
-      assertFalse("The should not have been stored in the database",
-              lblks.hasPhantomBlock());
+      LocatedBlocks lblks = dfs.getClient().getLocatedBlocks(FILE_NAME, 0, Long.MAX_VALUE);
+      assertFalse("The should not have been stored in the database", lblks.hasPhantomBlock());
       dfsIs.close();
-
+      
     } catch (Exception e) {
       e.printStackTrace();
       fail(e.getMessage());
@@ -303,7 +309,7 @@ public class TestSmallFilesCreation {
       }
     }
   }
-
+  
   /**
    * delete file stored in the database
    *
@@ -314,27 +320,25 @@ public class TestSmallFilesCreation {
     MiniDFSCluster cluster = null;
     try {
       Configuration conf = new HdfsConfiguration();
-
+      
       final int BLOCK_SIZE = 1024 * 1024;
       final int FILE_SIZE = 1 * 1024;
       final boolean ENABLE_STORE_SMALL_FILES_IN_DB = true;
-      final int SMALL_FILE_MAX_SIZE = 32 * 1024;
+      final int SMALL_FILE_MAX_SIZE =
+          conf.getInt(DFSConfigKeys.DFS_DB_FILE_MAX_SIZE_KEY, DFSConfigKeys.DFS_DB_FILE_MAX_SIZE_DEFAULT);
       final String FILE_NAME = "/TEST-FLIE";
-
+      
       conf.setInt(DFSConfigKeys.DFS_DB_FILE_MAX_SIZE_KEY, SMALL_FILE_MAX_SIZE);
-      conf.setBoolean(DFSConfigKeys.DFS_STORE_SMALL_FILES_IN_DB_KEY,
-              ENABLE_STORE_SMALL_FILES_IN_DB);
-      conf.setInt(DFSConfigKeys.DFS_BLOCK_SIZE_KEY, BLOCK_SIZE); // 4 byte
-
+      conf.setBoolean(DFSConfigKeys.DFS_STORE_SMALL_FILES_IN_DB_KEY, ENABLE_STORE_SMALL_FILES_IN_DB);
+      conf.setInt(DFSConfigKeys.DFS_BLOCK_SIZE_KEY, BLOCK_SIZE); 
+      
       cluster = new MiniDFSCluster.Builder(conf).numDataNodes(1).build();
       cluster.waitActive();
       DistributedFileSystem dfs = cluster.getFileSystem();
-      FSDataOutputStream out = dfs.create(new Path(FILE_NAME), (short) 3);
-      writeFile(out, FILE_SIZE);
-      out.close();
-
+      writeFile(dfs, FILE_NAME, FILE_SIZE);
+      
       dfs.delete(new Path(FILE_NAME));
-
+      
     } catch (Exception e) {
       e.printStackTrace();
       fail(e.getMessage());
@@ -344,7 +348,7 @@ public class TestSmallFilesCreation {
       }
     }
   }
-
+  
   /*
   test mv smallfile smallfile_new
    */
@@ -353,32 +357,30 @@ public class TestSmallFilesCreation {
     MiniDFSCluster cluster = null;
     try {
       Configuration conf = new HdfsConfiguration();
-
+      
       final int BLOCK_SIZE = 1024 * 1024;
       final int FILE_SIZE = 1 * 1024;
       final boolean ENABLE_STORE_SMALL_FILES_IN_DB = true;
-      final int SMALL_FILE_MAX_SIZE = 32 * 1024;
+      final int SMALL_FILE_MAX_SIZE =
+          conf.getInt(DFSConfigKeys.DFS_DB_FILE_MAX_SIZE_KEY, DFSConfigKeys.DFS_DB_FILE_MAX_SIZE_DEFAULT);
       final String FILE_NAME = "/TEST-FLIE";
-
+      
       conf.setInt(DFSConfigKeys.DFS_DB_FILE_MAX_SIZE_KEY, SMALL_FILE_MAX_SIZE);
-      conf.setBoolean(DFSConfigKeys.DFS_STORE_SMALL_FILES_IN_DB_KEY,
-              ENABLE_STORE_SMALL_FILES_IN_DB);
-      conf.setInt(DFSConfigKeys.DFS_BLOCK_SIZE_KEY, BLOCK_SIZE); // 4 byte
-
+      conf.setBoolean(DFSConfigKeys.DFS_STORE_SMALL_FILES_IN_DB_KEY, ENABLE_STORE_SMALL_FILES_IN_DB);
+      conf.setInt(DFSConfigKeys.DFS_BLOCK_SIZE_KEY, BLOCK_SIZE); 
+      
       cluster = new MiniDFSCluster.Builder(conf).numDataNodes(1).build();
       cluster.waitActive();
       DistributedFileSystem dfs = cluster.getFileSystem();
-
-      FSDataOutputStream out = dfs.create(new Path(FILE_NAME), (short) 3);
-      writeFile(out, FILE_SIZE);
-      out.close();
+      
+      writeFile(dfs, FILE_NAME, FILE_SIZE);
 
       dfs.rename(new Path(FILE_NAME), new Path(FILE_NAME + "1"));
-
+      
       readFileUsingMultipleMethods(dfs, FILE_NAME + "1", FILE_SIZE);
-
+      
       assertTrue("Count of db file should be 1", countDBFiles() == 1);
-
+      
     } catch (Exception e) {
       e.printStackTrace();
       fail(e.getMessage());
@@ -388,7 +390,7 @@ public class TestSmallFilesCreation {
       }
     }
   }
-
+  
   /*
   create smallfile1
   create smallfile2
@@ -400,37 +402,33 @@ public class TestSmallFilesCreation {
     MiniDFSCluster cluster = null;
     try {
       Configuration conf = new HdfsConfiguration();
-
+      
       final int BLOCK_SIZE = 1024 * 1024;
       final int FILE_SIZE = 1 * 1024;
       final boolean ENABLE_STORE_SMALL_FILES_IN_DB = true;
-      final int SMALL_FILE_MAX_SIZE = 32 * 1024;
+      final int SMALL_FILE_MAX_SIZE =
+          conf.getInt(DFSConfigKeys.DFS_DB_FILE_MAX_SIZE_KEY, DFSConfigKeys.DFS_DB_FILE_MAX_SIZE_DEFAULT);
       final String FILE_NAME = "/TEST-FLIE";
-
+      
       conf.setInt(DFSConfigKeys.DFS_DB_FILE_MAX_SIZE_KEY, SMALL_FILE_MAX_SIZE);
-      conf.setBoolean(DFSConfigKeys.DFS_STORE_SMALL_FILES_IN_DB_KEY,
-              ENABLE_STORE_SMALL_FILES_IN_DB);
-      conf.setInt(DFSConfigKeys.DFS_BLOCK_SIZE_KEY, BLOCK_SIZE); // 4 byte
-
+      conf.setBoolean(DFSConfigKeys.DFS_STORE_SMALL_FILES_IN_DB_KEY, ENABLE_STORE_SMALL_FILES_IN_DB);
+      conf.setInt(DFSConfigKeys.DFS_BLOCK_SIZE_KEY, BLOCK_SIZE); 
+      
       cluster = new MiniDFSCluster.Builder(conf).numDataNodes(1).build();
       cluster.waitActive();
       DistributedFileSystem dfs = cluster.getFileSystem();
 
-      FSDataOutputStream out = dfs.create(new Path(FILE_NAME + "1"), (short) 3);
-      writeFile(out, FILE_SIZE);
-      out.close();
 
-      out = dfs.create(new Path(FILE_NAME + "2"), (short) 3);
-      writeFile(out, FILE_SIZE);
-      out.close();
+      writeFile(dfs, FILE_NAME+"1", FILE_SIZE);
+      writeFile(dfs, FILE_NAME+"2", FILE_SIZE);
 
       assertTrue("Count of db file should be 2", countDBFiles() == 2);
-
+      
       dfs.rename(new Path(FILE_NAME + "1"), new Path(FILE_NAME + "2"), Options.Rename.OVERWRITE);
-
+      
       readFileUsingMultipleMethods(dfs, FILE_NAME + "2", FILE_SIZE);
       assertTrue("Count of db file should be 1", countDBFiles() == 1);
-
+      
     } catch (Exception e) {
       e.printStackTrace();
       fail(e.getMessage());
@@ -440,7 +438,7 @@ public class TestSmallFilesCreation {
       }
     }
   }
-
+  
   /*
   create smallfile1
   create largefile1
@@ -457,17 +455,17 @@ public class TestSmallFilesCreation {
     MiniDFSCluster cluster = null;
     try {
       Configuration conf = new HdfsConfiguration();
-
+      
       final int BLOCK_SIZE = 1024 * 1024;
       final boolean ENABLE_STORE_SMALL_FILES_IN_DB = true;
-      final int SMALL_FILE_MAX_SIZE = 32 * 1024;
+      final int SMALL_FILE_MAX_SIZE =
+          conf.getInt(DFSConfigKeys.DFS_DB_FILE_MAX_SIZE_KEY, DFSConfigKeys.DFS_DB_FILE_MAX_SIZE_DEFAULT);
       final String FILE_NAME = "/TEST-FLIE";
-
+      
       conf.setInt(DFSConfigKeys.DFS_DB_FILE_MAX_SIZE_KEY, SMALL_FILE_MAX_SIZE);
-      conf.setBoolean(DFSConfigKeys.DFS_STORE_SMALL_FILES_IN_DB_KEY,
-              ENABLE_STORE_SMALL_FILES_IN_DB);
-      conf.setInt(DFSConfigKeys.DFS_BLOCK_SIZE_KEY, BLOCK_SIZE); // 4 byte
-
+      conf.setBoolean(DFSConfigKeys.DFS_STORE_SMALL_FILES_IN_DB_KEY, ENABLE_STORE_SMALL_FILES_IN_DB);
+      conf.setInt(DFSConfigKeys.DFS_BLOCK_SIZE_KEY, BLOCK_SIZE); 
+      
       cluster = new MiniDFSCluster.Builder(conf).numDataNodes(1).build();
       cluster.waitActive();
       DistributedFileSystem dfs = cluster.getFileSystem();
@@ -477,27 +475,22 @@ public class TestSmallFilesCreation {
       create largefile1
       mv smallfile1 largefile1
       test largefile is deleted*/
+      writeFile(dfs, FILE_NAME+"1", 1024);
 
-      FSDataOutputStream out = dfs.create(new Path(FILE_NAME + "1"), (short) 3);
-      writeFile(out, 1024);
-      out.close();
-
-      out = dfs.create(new Path(FILE_NAME + "2"), (short) 3);
-      writeFile(out, SMALL_FILE_MAX_SIZE + 1);
-      out.close();
+      writeFile(dfs, FILE_NAME+"2", SMALL_FILE_MAX_SIZE+1);
 
       assertTrue("Count of db file should be 1", countDBFiles() == 1);
-
+      
       assertTrue("Expecting 1 block but foudn " + namesystem.getTotalBlocks(), namesystem.getTotalBlocks() == 1);
-
+      
       dfs.rename(new Path(FILE_NAME + "1"), new Path(FILE_NAME + "2"), Options.Rename.OVERWRITE);
-
+      
       assertTrue("Expecting 0 block but foudn " + namesystem.getTotalBlocks(), namesystem.getTotalBlocks() == 0);
-
+      
       assertTrue("Count of db file should be 1", countDBFiles() == 1);
-
+      
       dfs.delete(new Path(FILE_NAME + "2"));
-
+      
       assertTrue("Count of db file should be 0", countDBFiles() == 0);
 
 
@@ -506,28 +499,23 @@ public class TestSmallFilesCreation {
       mv largefile1 smallfile1
       test smallfile1 is deleted*/
 
-      out = dfs.create(new Path(FILE_NAME + "1"), (short) 3);
-      writeFile(out, 1024);
-      out.close();
-
-      out = dfs.create(new Path(FILE_NAME + "2"), (short) 3);
-      writeFile(out, SMALL_FILE_MAX_SIZE + 1);
-      out.close();
+      writeFile(dfs, FILE_NAME+"1", 1024);
+      writeFile(dfs, FILE_NAME+"2", SMALL_FILE_MAX_SIZE+1);
 
       assertTrue("Count of db file should be 1", countDBFiles() == 1);
-
+      
       assertTrue("Expecting 1 block but foudn " + namesystem.getTotalBlocks(), namesystem.getTotalBlocks() == 1);
-
+      
       dfs.rename(new Path(FILE_NAME + "2"), new Path(FILE_NAME + "1"), Options.Rename.OVERWRITE);
-
+      
       assertTrue("Expecting 1 block but foudn " + namesystem.getTotalBlocks(), namesystem.getTotalBlocks() == 1);
-
+      
       assertTrue("Count of db file should be 0", countDBFiles() == 0);
-
-      dfs.delete(new Path(FILE_NAME+"1"));
-
+      
+      dfs.delete(new Path(FILE_NAME + "1"));
+      
       assertTrue("Expecting 0 block but foudn " + namesystem.getTotalBlocks(), namesystem.getTotalBlocks() == 0);
-
+      
     } catch (Exception e) {
       e.printStackTrace();
       fail(e.getMessage());
@@ -537,52 +525,95 @@ public class TestSmallFilesCreation {
       }
     }
   }
-
-    /*
-    Delete a directory that has both small and large files
-   */
+  
+  /*
+  Delete a directory that has both small and large files
+ */
   @Test
   public void TestDelete1() throws IOException {
     MiniDFSCluster cluster = null;
     try {
       Configuration conf = new HdfsConfiguration();
-
+      
       final int BLOCK_SIZE = 1024 * 1024;
       final boolean ENABLE_STORE_SMALL_FILES_IN_DB = true;
-      final int SMALL_FILE_MAX_SIZE = 32 * 1024;
+      final int SMALL_FILE_MAX_SIZE =
+          conf.getInt(DFSConfigKeys.DFS_DB_FILE_MAX_SIZE_KEY, DFSConfigKeys.DFS_DB_FILE_MAX_SIZE_DEFAULT);
       final String FILE_NAME = "/TEST-FLIE";
-
+      
       conf.setInt(DFSConfigKeys.DFS_DB_FILE_MAX_SIZE_KEY, SMALL_FILE_MAX_SIZE);
-      conf.setBoolean(DFSConfigKeys.DFS_STORE_SMALL_FILES_IN_DB_KEY,
-              ENABLE_STORE_SMALL_FILES_IN_DB);
-      conf.setInt(DFSConfigKeys.DFS_BLOCK_SIZE_KEY, BLOCK_SIZE); // 4 byte
-
+      conf.setBoolean(DFSConfigKeys.DFS_STORE_SMALL_FILES_IN_DB_KEY, ENABLE_STORE_SMALL_FILES_IN_DB);
+      conf.setInt(DFSConfigKeys.DFS_BLOCK_SIZE_KEY, BLOCK_SIZE); 
+      
       cluster = new MiniDFSCluster.Builder(conf).numDataNodes(1).build();
       cluster.waitActive();
       DistributedFileSystem dfs = cluster.getFileSystem();
-
+      
       dfs.mkdirs(new Path("/dir"));
-
-      for(int i = 0 ;i  < 5; i++){
-      FSDataOutputStream out = dfs.create(new Path("/dir/file-db-file"+i), (short) 3);
-      writeFile(out, SMALL_FILE_MAX_SIZE);
-      out.close();
+      
+      for (int i = 0; i < 5; i++) {
+        writeFile(dfs, "/dir/file-db-file" + i, SMALL_FILE_MAX_SIZE);
       }
-
-      for(int i = 0; i < 5; i++) {
-        FSDataOutputStream out = dfs.create(new Path("/dir/file2"), (short) 3);
-        writeFile(out, SMALL_FILE_MAX_SIZE + 1);
-        out.close();
+      
+      for (int i = 0; i < 5; i++) {
+        writeFile(dfs, "/dir/file2" + i, SMALL_FILE_MAX_SIZE+1);
       }
-
+      
       assertTrue("Count of db file should be 5", countDBFiles() == 5);
-
+      
       dfs.delete(new Path("/dir"), true);
-
+      
       assertTrue("Count of db file should be 0", countDBFiles() == 0);
+      
+      assertTrue("Expecting 0 block but foudn " + cluster.getNamesystem().getTotalBlocks(),
+          cluster.getNamesystem().getTotalBlocks() == 0);
+      
+    } catch (Exception e) {
+      e.printStackTrace();
+      fail(e.getMessage());
+    } finally {
+      if (cluster != null) {
+        cluster.shutdown();
+      }
+    }
+  }
+  
+  /*
+  appending large amount to data to a file stored in the database.
+  the file should migrate to the datanodes
+ */
+  @Test
+  public void TestAppendMigrateToDataNodes() throws IOException {
+    MiniDFSCluster cluster = null;
+    try {
+      Configuration conf = new HdfsConfiguration();
+      
+      final int BLOCK_SIZE = 1024 * 1024;
+      final boolean ENABLE_STORE_SMALL_FILES_IN_DB = true;
+      final int SMALL_FILE_MAX_SIZE =
+          conf.getInt(DFSConfigKeys.DFS_DB_FILE_MAX_SIZE_KEY, DFSConfigKeys.DFS_DB_FILE_MAX_SIZE_DEFAULT);
+      final String FILE_NAME = "/TEST-FLIE";
+      
+      conf.setInt(DFSConfigKeys.DFS_DB_FILE_MAX_SIZE_KEY, SMALL_FILE_MAX_SIZE);
+      conf.setBoolean(DFSConfigKeys.DFS_STORE_SMALL_FILES_IN_DB_KEY, ENABLE_STORE_SMALL_FILES_IN_DB);
+      conf.setInt(DFSConfigKeys.DFS_BLOCK_SIZE_KEY, BLOCK_SIZE);
+      
+      cluster = new MiniDFSCluster.Builder(conf).numDataNodes(1).build();
+      cluster.waitActive();
+      DistributedFileSystem dfs = cluster.getFileSystem();
+      
 
-      assertTrue("Expecting 0 block but foudn " + cluster.getNamesystem().getTotalBlocks(), cluster.getNamesystem().getTotalBlocks() == 0);
+      writeFile(dfs, FILE_NAME, 1024);
 
+      assertTrue("Count of db file should be 1", countDBFiles() == 1);
+      
+      FSDataOutputStream out = dfs.append(new Path(FILE_NAME));
+      writeData(out, SMALL_FILE_MAX_SIZE);
+      out.close();
+      
+      assertTrue("Count of db file should be 0", countDBFiles() == 0);
+      
+      readFileUsingMultipleMethods(dfs, FILE_NAME, 1024 + SMALL_FILE_MAX_SIZE);
     } catch (Exception e) {
       e.printStackTrace();
       fail(e.getMessage());
@@ -593,37 +624,150 @@ public class TestSmallFilesCreation {
     }
   }
 
-    /*
-    Test appending to a file stored in the database
-   */
+  /*
+  during append if sync or flush is called then store the file on the datanodes
+  */
+  @Test
+  public void TestAppendSync() throws IOException {
+    MiniDFSCluster cluster = null;
+    try {
+      Configuration conf = new HdfsConfiguration();
+      
+      final int BLOCK_SIZE = 1024 * 1024;
+      final boolean ENABLE_STORE_SMALL_FILES_IN_DB = true;
+      final int SMALL_FILE_MAX_SIZE =
+          conf.getInt(DFSConfigKeys.DFS_DB_FILE_MAX_SIZE_KEY, DFSConfigKeys.DFS_DB_FILE_MAX_SIZE_DEFAULT);
+      final String FILE_NAME = "/TEST-FLIE";
+      
+      conf.setInt(DFSConfigKeys.DFS_DB_FILE_MAX_SIZE_KEY, SMALL_FILE_MAX_SIZE);
+      conf.setBoolean(DFSConfigKeys.DFS_STORE_SMALL_FILES_IN_DB_KEY, ENABLE_STORE_SMALL_FILES_IN_DB);
+      conf.setInt(DFSConfigKeys.DFS_BLOCK_SIZE_KEY, BLOCK_SIZE);
+      
+      cluster = new MiniDFSCluster.Builder(conf).numDataNodes(1).build();
+      cluster.waitActive();
+      DistributedFileSystem dfs = cluster.getFileSystem();
+      
+      writeFile(dfs, FILE_NAME, 1024);
+
+      assertTrue("Count of db file should be 1", countDBFiles() == 1);
+      
+      FSDataOutputStream out = dfs.append(new Path(FILE_NAME));
+      writeData(out, 1024);
+      out.hflush();
+      writeData(out, 1024);
+      out.close();
+      
+      assertTrue("Count of db file should be 0", countDBFiles() == 0);
+      
+      readFileUsingMultipleMethods(dfs, FILE_NAME, 3 * 1024);
+    } catch (Exception e) {
+      e.printStackTrace();
+      fail(e.getMessage());
+    } finally {
+      if (cluster != null) {
+        cluster.shutdown();
+      }
+    }
+  }
+  
+  /*
+   Test appending to a file stored in the database
+  */
   @Test
   public void TestAppend() throws IOException {
     MiniDFSCluster cluster = null;
     try {
       Configuration conf = new HdfsConfiguration();
-
+      
       final int BLOCK_SIZE = 1024 * 1024;
       final boolean ENABLE_STORE_SMALL_FILES_IN_DB = true;
-      final int SMALL_FILE_MAX_SIZE = 32 * 1024;
+      final int SMALL_FILE_MAX_SIZE =
+          conf.getInt(DFSConfigKeys.DFS_DB_FILE_MAX_SIZE_KEY, DFSConfigKeys.DFS_DB_FILE_MAX_SIZE_DEFAULT);
       final String FILE_NAME = "/TEST-FLIE";
-
+      
       conf.setInt(DFSConfigKeys.DFS_DB_FILE_MAX_SIZE_KEY, SMALL_FILE_MAX_SIZE);
-      conf.setBoolean(DFSConfigKeys.DFS_STORE_SMALL_FILES_IN_DB_KEY,
-              ENABLE_STORE_SMALL_FILES_IN_DB);
+      conf.setBoolean(DFSConfigKeys.DFS_STORE_SMALL_FILES_IN_DB_KEY, ENABLE_STORE_SMALL_FILES_IN_DB);
       conf.setInt(DFSConfigKeys.DFS_BLOCK_SIZE_KEY, BLOCK_SIZE);
-
+      
       cluster = new MiniDFSCluster.Builder(conf).numDataNodes(1).build();
       cluster.waitActive();
       DistributedFileSystem dfs = cluster.getFileSystem();
+      
+      
+      writeFile(dfs, FILE_NAME, 1024);
 
-
-      FSDataOutputStream out = dfs.create(new Path(FILE_NAME), (short) 3);
-      writeFile(out, 1*1024);
+      assertTrue("Count of db file should be 1", countDBFiles() == 1);
+      
+      FSDataOutputStream out = dfs.append(new Path(FILE_NAME));
+      writeData(out, 1 * 1024);
       out.close();
-
-      out = dfs.append(new Path(FILE_NAME));
-      writeFile(out, 1*1024);
+      
+      assertTrue("Count of db file should be 1", countDBFiles() == 1);
+      
+      readFileUsingMultipleMethods(dfs, FILE_NAME, 2 * 1024);
+    } catch (Exception e) {
+      e.printStackTrace();
+      fail(e.getMessage());
+    } finally {
+      if (cluster != null) {
+        cluster.shutdown();
+      }
+    }
+  }
+  
+  /*
+  Test overwrite
+  1. overwite a small with another small file
+  2. overwrite a large file with small file
+  3. overwirte a small file with large file. 
+ */
+  @Test
+  public void TestOverwrite() throws IOException {
+    MiniDFSCluster cluster = null;
+    try {
+      Configuration conf = new HdfsConfiguration();
+      
+      final int BLOCK_SIZE = 1024 * 1024;
+      final boolean ENABLE_STORE_SMALL_FILES_IN_DB = true;
+      final int SMALL_FILE_MAX_SIZE =
+          conf.getInt(DFSConfigKeys.DFS_DB_FILE_MAX_SIZE_KEY, DFSConfigKeys.DFS_DB_FILE_MAX_SIZE_DEFAULT);
+      final String FILE_NAME = "/TEST-FLIE";
+      
+      conf.setInt(DFSConfigKeys.DFS_DB_FILE_MAX_SIZE_KEY, SMALL_FILE_MAX_SIZE);
+      conf.setBoolean(DFSConfigKeys.DFS_STORE_SMALL_FILES_IN_DB_KEY, ENABLE_STORE_SMALL_FILES_IN_DB);
+      conf.setInt(DFSConfigKeys.DFS_BLOCK_SIZE_KEY, BLOCK_SIZE);
+      
+      cluster = new MiniDFSCluster.Builder(conf).numDataNodes(1).build();
+      cluster.waitActive();
+      DistributedFileSystem dfs = cluster.getFileSystem();
+      
+      
+      writeFile(dfs, FILE_NAME, 1024);
+      assertTrue("Count of db file should be 1", countDBFiles() == 1);
+      FSDataOutputStream out = dfs.create(new Path(FILE_NAME), true);
+      writeData(out, SMALL_FILE_MAX_SIZE);
       out.close();
+      readFileUsingMultipleMethods(dfs, FILE_NAME, SMALL_FILE_MAX_SIZE);
+      assertTrue("Count of db file should be 1", countDBFiles() == 1);
+
+
+
+      writeFile(dfs, FILE_NAME, SMALL_FILE_MAX_SIZE+1);
+      assertTrue("Count of db file should be 0", countDBFiles() == 0);
+      out = dfs.create(new Path(FILE_NAME), true);
+      writeData(out, SMALL_FILE_MAX_SIZE);
+      out.close();
+      readFileUsingMultipleMethods(dfs, FILE_NAME, SMALL_FILE_MAX_SIZE);
+      assertTrue("Count of db file should be 1", countDBFiles() == 1);
+
+
+
+      writeFile(dfs, FILE_NAME, SMALL_FILE_MAX_SIZE);
+      assertTrue("Count of db file should be 1", countDBFiles() == 1);
+      out = dfs.create(new Path(FILE_NAME), true);
+      writeData(out, SMALL_FILE_MAX_SIZE+1);
+      out.close();
+      assertTrue("Count of db file should be 0", countDBFiles() == 0);
 
     } catch (Exception e) {
       e.printStackTrace();
@@ -634,18 +778,5 @@ public class TestSmallFilesCreation {
       }
     }
   }
-
-  public static int countDBFiles() throws IOException {
-    LightWeightRequestHandler countDBFiles =
-            new LightWeightRequestHandler(HDFSOperationType.TEST_DB_FILES) {
-              @Override
-              public Object performTask() throws StorageException, IOException {
-                FileInodeDataDataAccess fida = (FileInodeDataDataAccess) HdfsStorageFactory
-                        .getDataAccess(FileInodeDataDataAccess.class);
-                return fida.count();
-              }
-            };
-    return (Integer) countDBFiles.handle();
-  }
-
+  
 }

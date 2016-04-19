@@ -1556,28 +1556,34 @@ public class DFSOutputStream extends FSOutputSummer implements Syncable {
    */
   private DFSOutputStream(DFSClient dfsClient, String src, int buffersize,
                           Progressable progress, LocatedBlock lastBlock, HdfsFileStatus stat,
-                          DataChecksum checksum, boolean saveSmallFilesInDB, final int dbFileMaxSize) throws IOException {
-    this(dfsClient, src, stat.getBlockSize(), progress, checksum, stat.getReplication(), saveSmallFilesInDB, dbFileMaxSize);
+                          DataChecksum checksum, boolean saveSmallFilesInDB, final int dbFileMaxSize)
+      throws IOException {
+    this(dfsClient, src, stat.getBlockSize(), progress, checksum, stat.getReplication(), saveSmallFilesInDB,
+        dbFileMaxSize);
 
     initialFileSize = stat.getLen(); // length of file when opened
-
-
-    if (!stat.isFileStoredInDB() || (initialFileSize > dbFileMaxSize)) {
+    if (!stat.isFileStoredInDB()) {
       isThisFileStoredInDB = false;
+    } else {
+      isThisFileStoredInDB = true;
     }
-
     //
     // The last partial block of the file has to be filled.
     //
-    if (lastBlock != null) {
+    if (lastBlock != null && !isThisFileStoredInDB) {
+      LOG.debug("SMALL_FILE appending to a file stored on datanodes");
       // indicate that we are appending to an existing block
       bytesCurBlock = lastBlock.getBlockSize();
-      streamer =
-              new DataStreamer(lastBlock, stat, checksum.getBytesPerChecksum());
+      streamer = new DataStreamer(lastBlock, stat, checksum.getBytesPerChecksum());
     } else {
-      computePacketChunkSize(dfsClient.getConf().writePacketSize,
-              checksum.getBytesPerChecksum());
+
+      computePacketChunkSize(dfsClient.getConf().writePacketSize, checksum.getBytesPerChecksum());
       streamer = new DataStreamer();
+      if (isThisFileStoredInDB && lastBlock != null) {
+        bytesCurBlock = 0;
+        write(lastBlock.getData(), 0, lastBlock.getData().length);
+        LOG.debug("SMALL_FILE Putting Existing data in packets");
+      }
     }
   }
 
@@ -1598,10 +1604,6 @@ public class DFSOutputStream extends FSOutputSummer implements Syncable {
         errorMessage = "Invalid paraters for appending a file stored in the database. Files stored in the database " +
                 "can not be larger than a HDFS block";
       }
-    }
-
-    if(saveSmallFilesInDB || lastBlock.isPhantomBlock()){
-      throw new UnsupportedOperationException("Not implemented yet");
     }
 
     if (errorMessage != null) {
@@ -2155,16 +2157,10 @@ public class DFSOutputStream extends FSOutputSummer implements Syncable {
           LOG.debug("SMALL_FILE total data is " + length);
           data = new byte[length];
           int index = 0;
-          long total = 0;
           for (Packet packet : smallFileDataQueue) {
             System.arraycopy(packet.buf, packet.dataStart, data, index, (packet.dataPos - packet.dataStart));
             index += (packet.dataPos - packet.dataStart);
           }
-
-          for (int i = 0; i < data.length; i++) {
-            total += data[i];
-          }
-          LOG.debug("SMALL_FILE index " + index + " Sum of the data is: " + total);
         }
       }
       fileComplete = dfsClient.complete(src, dfsClient.clientName, last, data);
