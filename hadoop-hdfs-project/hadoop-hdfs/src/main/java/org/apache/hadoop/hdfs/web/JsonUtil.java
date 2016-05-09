@@ -284,7 +284,8 @@ public class JsonUtil {
     final long mTime = (Long) m.get("modificationTime");
     final long blockSize = (Long) m.get("blockSize");
     final short replication = (short) (long) (Long) m.get("replication");
-    final boolean isFileStoredInDB = (Boolean) m.get("isFileStoredInDB");
+    final boolean isFileStoredInDB = m.containsKey("isFileStoredInDB")? ((Boolean) m.get("isFileStoredInDB") ): false;
+
     return new HdfsFileStatus(len, type == PathType.DIRECTORY, replication,
         blockSize, mTime, aTime, permission, owner, group, symlink,
         DFSUtil.string2Bytes(localName),isFileStoredInDB);
