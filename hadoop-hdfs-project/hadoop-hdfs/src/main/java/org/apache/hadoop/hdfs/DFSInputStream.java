@@ -17,7 +17,6 @@
  */
 package org.apache.hadoop.hdfs;
 
-import com.mysql.ndbjtie.ndbapi.NdbDictionary;
 import org.apache.hadoop.classification.InterfaceAudience;
 import org.apache.hadoop.fs.ByteBufferReadable;
 import org.apache.hadoop.fs.ChecksumException;
