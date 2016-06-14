@@ -197,7 +197,7 @@ public class INodeFile extends INode implements BlockCollection {
   }
 
   public byte[] getFileDataInDB() throws StorageException {
-
+    HdfsStorageFactory.getConnector().readCommitted();
     FileInodeDataDataAccess fida = (FileInodeDataDataAccess) HdfsStorageFactory
         .getDataAccess(FileInodeDataDataAccess.class);
     FileInodeData fid = (FileInodeData) fida.get(getId());

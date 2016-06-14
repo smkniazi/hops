@@ -280,7 +280,7 @@ public class DFSConfigKeys extends CommonConfigurationKeys {
 
   public static final String DFS_DB_FILE_MAX_SIZE_KEY =
           "dfs.database.file.max.size";
-  public static final int DFS_DB_FILE_MAX_SIZE_DEFAULT = 32*1024; // 32KB
+  public static final int DFS_DB_FILE_MAX_SIZE_DEFAULT = 4*1024; // 4KB
 
   public static final String DFS_BLOCK_SIZE_KEY = "dfs.blocksize";
   public static final long DFS_BLOCK_SIZE_DEFAULT = 64 * 1024 * 1024;

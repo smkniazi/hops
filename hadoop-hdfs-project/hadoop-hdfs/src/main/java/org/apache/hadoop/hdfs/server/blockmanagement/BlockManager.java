@@ -802,7 +802,7 @@ public class BlockManager {
     fakeBlk.setBlockIdNoPersistance(0);
     fakeBlk.setBlockIndexNoPersistance(0);
     fakeBlk.setNumBytesNoPersistance(data.length);
-    fakeBlk.setTimestamp(file.getModificationTime());
+    fakeBlk.setTimestampNoPersistance(file.getModificationTime());
 
     final ExtendedBlock eb =
         new ExtendedBlock(namesystem.getBlockPoolId(),fakeBlk);
