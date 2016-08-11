@@ -338,9 +338,9 @@ public class INodeDirectory extends INode {
       node.setParentNoPersistance(this);
       EntityManager.add(node);
       //add the INodeAttributes if it is Directory with Quota
-      if (this instanceof INodeDirectoryWithQuota) {
-        ((INodeDirectoryWithQuota) this).persistAttributes();
-      }
+//      if (this instanceof INodeDirectoryWithQuota) { // [S] I think this is not necessary now. Quota update manager will take care of this
+//        ((INodeDirectoryWithQuota) this).persistAttributes();
+//      }
     } else {
       node.setParent(this);
     }
