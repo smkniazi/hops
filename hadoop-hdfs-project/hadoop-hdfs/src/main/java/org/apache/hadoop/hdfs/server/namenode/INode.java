@@ -133,6 +133,8 @@ public abstract class INode implements Comparable<byte[]> {
   public static final int NON_EXISTING_ID = 0;
   protected int id = NON_EXISTING_ID;
   protected int parentId = NON_EXISTING_ID;
+  public static int RANDOM_PARTITIONING_MAX_LEVEL=0;
+  protected int partitionId;
 
   protected boolean subtreeLocked;
   protected long subtreeLockOwner;
@@ -791,5 +793,31 @@ public abstract class INode implements Comparable<byte[]> {
       dir = dir.getParent();
     }
     return null;
+  }
+
+  public void setPartitionIdNoPersistance(int partitionId){
+    this.partitionId = partitionId;
+  }
+
+  public void setPartionId(int partitionId) throws TransactionContextException, StorageException {
+    setPartitionIdNoPersistance(partitionId);
+    save();
+  }
+
+  public void calculateAndSetPartitionIdNoPersistance(int parentId, String name, int depth){
+    setPartitionIdNoPersistance(calculatePartitionId(parentId,name,depth));
+  }
+
+  public void calculateAndSetPartitionId(int parentId, String name, int depth)
+      throws TransactionContextException, StorageException {
+    setPartitionIdNoPersistance(calculatePartitionId(parentId,name,depth));
+    save();
+  }
+  public static int calculatePartitionId(int parentId, String name, int depth){
+    if(depth < RANDOM_PARTITIONING_MAX_LEVEL){
+      return (name+parentId).hashCode();
+    }else{
+      return parentId;
+    }
   }
 }
