@@ -251,6 +251,8 @@ public class INodeDALAdaptor
           ((INodeFile) inode).setGenerationStampNoPersistence(
               hopINode.getGenerationStamp());
           ((INodeFile) inode).setSizeNoPersistence(hopINode.getFileSize());
+          ((INodeFile) inode).setHasBlocksNoPersistance(INodeFile.hasBlocks(hopINode.getHeader()));
+          ((INodeFile) inode).setHeader(hopINode.getHeader());
         }
         inode.setIdNoPersistance(hopINode.getId());
         inode.setLocalNameNoPersistance(hopINode.getName());

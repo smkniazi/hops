@@ -310,6 +310,7 @@ public class FSDirectory implements Closeable {
             BlockUCState.UNDER_CONSTRUCTION, targets);
     getBlockManager().addBlockCollection(blockInfo, fileINode);
     fileINode.addBlock(blockInfo);
+    fileINode.setHasBlocks(true);
 
     if (NameNode.stateChangeLog.isDebugEnabled()) {
       NameNode.stateChangeLog.debug(
@@ -2755,7 +2756,7 @@ public class FSDirectory implements Closeable {
           new INodeFileUnderConstruction(name, replication, modificationTime,
               preferredBlockSize, blocks, permissionStatus, clientName,
               clientMachineName, datanodeID, id, pid);
-
+      ((INodeFileUnderConstruction)clone).setHasBlocksNoPersistance(((INodeFileUnderConstruction)inode).hasBlocks());
     } else if (inode instanceof INodeFile) {
       clone = new INodeFile((INodeFile) inode);
     } else if (inode instanceof INodeDirectory) {

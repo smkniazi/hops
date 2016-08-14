@@ -50,7 +50,7 @@ final class BlockLock extends IndividualBlockLock {
     for (INode inode : inodeLock.getAllResolvedINodes()) {
       if (inode instanceof INodeFile) {
         Collection<BlockInfo> inodeBlocks = Collections.EMPTY_LIST;
-        if(((INodeFile) inode).getSize() > 0) {
+        if(((INodeFile) inode).hasBlocks()) {
           inodeBlocks =
                   acquireLockList(DEFAULT_LOCK_TYPE, BlockInfo.Finder.ByINodeId,
                           inode.getId());

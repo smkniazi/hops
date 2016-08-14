@@ -2190,6 +2190,7 @@ public class FSNamesystem
             newBlock = createNewBlock(pendingFile2);
             saveAllocatedBlock(src, inodes2, newBlock, targets);
 
+
             dir.persistBlocks(src, pendingFile2);
             offset = pendingFile2.computeFileSize(true);
 

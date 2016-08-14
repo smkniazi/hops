@@ -327,7 +327,7 @@ abstract class AbstractFileTree {
         fileCount.addAndGet(1);
       } else {
         fileCount.addAndGet(1);
-        diskspaceCount.addAndGet(node.getFileSize()*INodeFile.extractBlockReplication(node.getHeader()));
+        diskspaceCount.addAndGet(node.getFileSize()*INodeFile.getBlockReplication(node.getHeader()));
         fileSizeSummary.addAndGet(node.getFileSize());
       }
     }
@@ -406,7 +406,7 @@ abstract class AbstractFileTree {
       } else {
         namespaceCount.addAndGet(1);
         if (!node.isDirectory() && !node.isSymlink()) {
-          diskspaceCount.addAndGet(node.getFileSize()* INodeFile.extractBlockReplication(node.getHeader()));
+          diskspaceCount.addAndGet(node.getFileSize()* INodeFile.getBlockReplication(node.getHeader()));
         }
       }
     }

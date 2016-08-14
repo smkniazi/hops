@@ -58,13 +58,21 @@ public class INodeFile extends INode implements BlockCollection {
   }
 
   //Number of bits for Block size
-  static final short BLOCKBITS = 48;
-
+  final static short BLOCK_BITS = 48;
+  final static short REPLICATION_BITS = 8;
+  final static short BOOLEAN_BITS = 8;
+  final static short HAS_BLKS_BITS = 1; // this is out of the 8 bits for the storing booleans
   //Header mask 64-bit representation
-  //Format: [16 bits for replication][48 bits for PreferredBlockSize]
-  static final long HEADERMASK = 0xffffL << BLOCKBITS;
+  //Format:[8 bits for flags][8 bits for replication degree][48 bits for PreferredBlockSize]
+  final static long BLOCK_SIZE_MASK =  0x0000FFFFFFFFFFFFL;
+  final static long REPLICATION_MASK = 0x00FF000000000000L;
+  final static long FLAGS_MASK =       0xFF00000000000000L;
+  final static long HAS_BLKS_MASK =    0x0100000000000000L;
+  //[8 bits for flags]
+  //0 bit : 1 if the file has blocks. 0 blocks
+  //remaining bits are not yet used
+  long header;
 
-  private long header;
   private int generationStamp = (int) GenerationStamp.FIRST_VALID_STAMP;
   private long size;
   
@@ -91,6 +99,7 @@ public class INodeFile extends INode implements BlockCollection {
     setPreferredBlockSizeNoPersistance(other.getPreferredBlockSize());
     setGenerationStampNoPersistence(other.getGenerationStamp());
     setSizeNoPersistence(other.getSize());
+    setHasBlocksNoPersistance(other.hasBlocks());
   }
 
   /**
@@ -98,19 +107,21 @@ public class INodeFile extends INode implements BlockCollection {
    */
   @Override
   public short getBlockReplication() {
-    return extractBlockReplication(header);
+    return getBlockReplication(header);
   }
 
-  static short extractBlockReplication(long header) {
-    return (short) ((header & HEADERMASK) >> BLOCKBITS);
+  public static short getBlockReplication(long header) {
+    long val = (header & REPLICATION_MASK);
+    long val2 = val >> BLOCK_BITS;
+    return (short) val2;
   }
 
-  private void setReplicationNoPersistance(short replication) {
-    if (replication <= 0) {
+  void setReplicationNoPersistance(short replication) {
+    if (replication <= 0 || replication > (Math.pow(2, REPLICATION_BITS) - 1)) {
       throw new IllegalArgumentException("Unexpected value for the " +
-          "replication [" + replication + "]");
+          "replication [" + replication + "]. Expected [1:" + (Math.pow(2, REPLICATION_BITS) - 1) + "]");
     }
-    header = ((long) replication << BLOCKBITS) | (header & ~HEADERMASK);
+    header = ((long) replication << BLOCK_BITS) | (header & ~REPLICATION_MASK);
   }
 
   /**
@@ -118,22 +129,22 @@ public class INodeFile extends INode implements BlockCollection {
    */
   @Override
   public long getPreferredBlockSize() {
-    return extractBlockSize(header);
+    return getPreferredBlockSize(header);
   }
 
-  static long extractBlockSize(long header) {
-    return header & ~HEADERMASK;
+  public static long getPreferredBlockSize(long header) {
+    return header & BLOCK_SIZE_MASK;
   }
 
   private void setPreferredBlockSizeNoPersistance(long preferredBlkSize) {
-    if ((preferredBlkSize < 0) || (preferredBlkSize > ~HEADERMASK)) {
+    if ((preferredBlkSize < 0) || (preferredBlkSize > (Math.pow(2, BLOCK_BITS) - 1))) {
       throw new IllegalArgumentException("Unexpected value for the block " +
-          "size [" + preferredBlkSize + "]");
+          "size [" + preferredBlkSize + "]. Expected [1:" + (Math.pow(2, BLOCK_BITS) - 1) + "]");
     }
-    header = (header & HEADERMASK) | (preferredBlkSize & ~HEADERMASK);
+    header = (header & ~BLOCK_SIZE_MASK) | (preferredBlkSize & BLOCK_SIZE_MASK);
   }
 
-  private void setHeader(long header) {
+  public void setHeader(long header) {
     if (header <= 0) {
       throw new IllegalArgumentException("Unexpected value for the " +
           "header [" + header + "]");
@@ -154,6 +165,31 @@ public class INodeFile extends INode implements BlockCollection {
     this.header = header;
   }
 
+  public void setHasBlocks(boolean hasBlocks) throws TransactionContextException, StorageException {
+    setHasBlocksNoPersistance(hasBlocks);
+    save();
+  }
+
+  public void setHasBlocksNoPersistance(boolean hasBlocks) {
+    long val = (hasBlocks) ? 1 : 0;
+    header = ((long) val << (BLOCK_BITS + REPLICATION_BITS)) | (header & ~HAS_BLKS_MASK);
+  }
+
+  public boolean hasBlocks() {
+    long val = (header & HAS_BLKS_MASK);
+    long val2 = val >> (BLOCK_BITS + REPLICATION_BITS);
+    if (val2 == 1) {
+      return true;
+    } else if (val2 == 0) {
+      return false;
+    } else {
+      throw new IllegalStateException("Flags in the inode header are messed up");
+    }
+  }
+
+  public static boolean hasBlocks(long header){
+   return hasBlocks(header);
+  }
   /**
    * @return the blocks of the file.
    */
@@ -339,14 +375,6 @@ public class INodeFile extends INode implements BlockCollection {
     return header;
   }
 
-  public static short getBlockReplication(long header) {
-    return (short) ((header & HEADERMASK) >> BLOCKBITS);
-  }
-
-  public static long getPreferredBlockSize(long header) {
-    return header & ~HEADERMASK;
-  }
-  
   void setReplication(short replication)
       throws StorageException, TransactionContextException {
     setReplicationNoPersistance(replication);
