@@ -276,7 +276,12 @@ public class DFSClient implements java.io.Closeable {
           conf.getLongBytes(DFS_BLOCK_SIZE_KEY, DFS_BLOCK_SIZE_DEFAULT);
       defaultReplication =
           (short) conf.getInt(DFS_REPLICATION_KEY, DFS_REPLICATION_DEFAULT);
-      taskId = conf.get("mapreduce.task.attempt.id", "NONMAPREDUCE");
+      String machineName = "";
+      try {
+        machineName = InetAddress.getLocalHost().getHostName() + "_";
+      } catch (UnknownHostException e) {
+      }
+      taskId = conf.get("mapreduce.task.attempt.id", machineName+"NONMAPREDUCE");
       socketCacheCapacity = conf.getInt(DFS_CLIENT_SOCKET_CACHE_CAPACITY_KEY,
           DFS_CLIENT_SOCKET_CACHE_CAPACITY_DEFAULT);
       socketCacheExpiry = conf.getLong(DFS_CLIENT_SOCKET_CACHE_EXPIRY_MSEC_KEY,

@@ -140,7 +140,11 @@ public class BlockInfoContext extends BaseEntityContext<Long, BlockInfo> {
         deleteBlocksForConcat(trg_param, srcs_param, oldBlks);
         //new blocks have been added by the concat function
         //we just have to delete the blocks rows that dont make sence
-
+        break;
+      case EmptyFile:
+        Integer inodeId = (Integer) params[0];
+        List<BlockInfo> result = Collections.emptyList();
+        inodeBlocks.put(inodeId, syncBlockInfoInstances(result));
         break;
     }
   }
