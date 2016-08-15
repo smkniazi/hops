@@ -54,6 +54,7 @@ public class INodeDirectory extends INode {
   protected static final int DEFAULT_FILES_PER_DIRECTORY = 5;
   public final static String ROOT_NAME = "";
 
+  public static  final short ROOT_DIR_DEPTH =1;
   public final static int ROOT_ID = 1;
   public final static int ROOT_PARENT_ID = NON_EXISTING_ID;
 
@@ -336,6 +337,7 @@ public class INodeDirectory extends INode {
       Integer inodeID = IDsGeneratorFactory.getInstance().getUniqueINodeID();
       node.setIdNoPersistance(inodeID);
       node.setParentNoPersistance(this);
+      node.setDepthNoPersistance(this.getDepth());
       EntityManager.add(node);
       //add the INodeAttributes if it is Directory with Quota
 //      if (this instanceof INodeDirectoryWithQuota) { // [S] I think this is not necessary now. Quota update manager will take care of this
@@ -343,6 +345,7 @@ public class INodeDirectory extends INode {
 //      }
     } else {
       node.setParent(this);
+      node.setDepthNoPersistance(this.getDepth());
     }
     // update modification time of the parent directory
     if (setModTime) {

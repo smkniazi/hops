@@ -214,13 +214,15 @@ public class INodeDirectoryWithQuota extends INodeDirectory {
         new INodeDirectoryWithQuota(ROOT_NAME, permissions);
     newRootINode.setIdNoPersistance(ROOT_ID);
     newRootINode.setParentIdNoPersistance(ROOT_PARENT_ID);
+    newRootINode.setDepthNoPersistance(ROOT_DIR_DEPTH);
     return newRootINode;
   }
 
   public static INodeDirectoryWithQuota getRootDir()
       throws StorageException, TransactionContextException {
-    return (INodeDirectoryWithQuota) EntityManager
+    INode inode = EntityManager
         .find(INode.Finder.ByINodeId, ROOT_ID);
+    return (INodeDirectoryWithQuota) inode;
   }
   
   public INodeAttributes getINodeAttributes()

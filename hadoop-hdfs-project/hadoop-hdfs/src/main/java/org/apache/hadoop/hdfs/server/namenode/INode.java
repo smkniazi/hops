@@ -140,6 +140,24 @@ public abstract class INode implements Comparable<byte[]> {
   protected long subtreeLockOwner;
 
 
+  //Number of bits for Block size
+  final static short BLOCK_BITS = 32;
+  final static short REPLICATION_BITS = 8;
+  final static short BOOLEAN_BITS = 8;
+  final static short HAS_BLKS_BITS = 1; // this is out of the 8 bits for the storing booleans
+  final static short DEPTH_BITS=16;
+  //Header mask 64-bit representation
+  //Format:[16 bits for storing the depth of the inode][8 bits for flags][8 bits for replication degree][32 bits for PreferredBlockSize]
+  final static long BLOCK_SIZE_MASK =  0x00000000FFFFFFFFL;
+  final static long REPLICATION_MASK = 0x000000FF00000000L;
+  final static long FLAGS_MASK =       0x0000FF0000000000L;
+  final static long HAS_BLKS_MASK =    0x0000010000000000L;
+  final static long DEPTH_MASK =       0xFFFF000000000000L;
+  //[8 bits for flags]
+  //0 bit : 1 if the file has blocks. 0 blocks
+  //remaining bits are not yet used
+  long header;
+
   /**
    * Simple wrapper for two counters :
    * nsCount (namespace consumed) and dsCount (diskspace consumed).
@@ -201,6 +219,7 @@ public abstract class INode implements Comparable<byte[]> {
 
     this.parentId = other.getParentId();
     this.id = other.getId();
+    setDepthNoPersistance(other.getDepth());
   }
 
   /**
@@ -819,5 +838,109 @@ public abstract class INode implements Comparable<byte[]> {
     }else{
       return parentId;
     }
+  }
+  public static short getBlockReplication(long header) {
+    long val = (header & REPLICATION_MASK);
+    long val2 = val >> BLOCK_BITS;
+    return (short) val2;
+  }
+
+  void setReplicationNoPersistance(short replication) {
+    if (replication <= 0 || replication > (Math.pow(2, REPLICATION_BITS) - 1)) {
+      throw new IllegalArgumentException("Unexpected value for the " +
+          "replication [" + replication + "]. Expected [1:" + (Math.pow(2, REPLICATION_BITS) - 1) + "]");
+    }
+    header = ((long) replication << BLOCK_BITS) | (header & ~REPLICATION_MASK);
+  }
+  public static long getPreferredBlockSize(long header) {
+    return header & BLOCK_SIZE_MASK;
+  }
+
+  protected void setPreferredBlockSizeNoPersistance(long preferredBlkSize) {
+    if ((preferredBlkSize < 0) || (preferredBlkSize > (Math.pow(2, BLOCK_BITS) - 1))) {
+      throw new IllegalArgumentException("Unexpected value for the block " +
+          "size [" + preferredBlkSize + "]. Expected [1:" + (Math.pow(2, BLOCK_BITS) - 1) + "]");
+    }
+    header = (header & ~BLOCK_SIZE_MASK) | (preferredBlkSize & BLOCK_SIZE_MASK);
+  }
+
+  public long getHeader() {
+    return header;
+  }
+
+  public void setHeader(long header) {
+    if (header == 0) {
+      throw new IllegalArgumentException("Unexpected value for the " +
+          "header [" + header + "]");
+    }
+    long preferecBlkSize = getPreferredBlockSize(header);
+    short replication = getBlockReplication(header);
+    short depth = getDepth(header);
+    if (preferecBlkSize < 0) {
+      throw new IllegalArgumentException("Unexpected value for the " +
+          "block size [" + preferecBlkSize + "]");
+    }
+
+    if (replication < 0) {
+      throw new IllegalArgumentException("Unexpected value for the " +
+          "replication [" + replication + "]");
+    }
+
+    if(depth < 0){
+      throw new IllegalArgumentException("Unexpected value for the " +
+          "depth of inode [" + depth + "]");
+    }
+
+    this.header = header;
+  }
+
+  public void setHasBlocks(boolean hasBlocks) throws TransactionContextException, StorageException {
+    setHasBlocksNoPersistance(hasBlocks);
+    save();
+  }
+
+  public void setHasBlocksNoPersistance(boolean hasBlocks) {
+    long val = (hasBlocks) ? 1 : 0;
+    header = ((long) val << (BLOCK_BITS + REPLICATION_BITS)) | (header & ~HAS_BLKS_MASK);
+  }
+
+  public static boolean hasBlocks(long header) {
+    long val = (header & HAS_BLKS_MASK);
+    long val2 = val >> (BLOCK_BITS + REPLICATION_BITS);
+    if (val2 == 1) {
+      return true;
+    } else if (val2 == 0) {
+      return false;
+    } else {
+      throw new IllegalStateException("Flags in the inode header are messed up");
+    }
+  }
+
+  public boolean hasBlocks(){
+   return hasBlocks(header);
+  }
+
+  public void setDepthNoPersistance(short depth){
+    long depthLong = depth;
+    if (depth < 0 || depth > (Math.pow(2, DEPTH_BITS) - 1)) {
+      throw new IllegalArgumentException("Unexpected value for the " +
+          "depth [" + depth + "]. Expected [0:" + (Math.pow(2, DEPTH_BITS) - 1) + "]");
+    }
+    header = ((long) depth << (BLOCK_BITS+REPLICATION_BITS+BOOLEAN_BITS)) | (header & ~DEPTH_MASK);
+  }
+
+  public void setDepth(short depth) throws TransactionContextException, StorageException {
+    setDepthNoPersistance(depth);
+    save();
+  }
+
+  public static short getDepth(long header){
+    long val = (header & DEPTH_MASK);
+    long val2 = val >> (BLOCK_BITS+REPLICATION_BITS+BOOLEAN_BITS);
+    return (short)val2;
+  }
+
+  public short getDepth(){
+    return getDepth(header);
   }
 }

@@ -723,7 +723,6 @@ public class FSDirectory implements Closeable {
         // update moved leases with new filename
         getFSNamesystem().unprotectedChangeLease(src, dst);
 
-        
         EntityManager.snapshotMaintenance(
             HdfsTransactionContextMaintenanceCmds.INodePKChanged, srcClone,
             dstChild);
@@ -2762,6 +2761,8 @@ public class FSDirectory implements Closeable {
     } else if (inode instanceof INodeDirectory) {
       clone = new INodeDirectory((INodeDirectory) inode);
     }
+    clone.setDepthNoPersistance(inode.getDepth());
+    clone.setHeader(inode.getHeader());
     return clone;
   }
 

@@ -168,6 +168,7 @@ public class INodeDALAdaptor
       hopINode.setPermission(inode.getFsPermission().toShort());
       hopINode.setParentId(inode.getParentId());
       hopINode.setId(inode.getId());
+      hopINode.setIsDir(inode.isDirectory());
 
       if (inode.isDirectory()) {
         hopINode.setUnderConstruction(false);
@@ -179,7 +180,6 @@ public class INodeDALAdaptor
         hopINode
             .setUnderConstruction(inode.isUnderConstruction() ? true : false);
         hopINode.setDirWithQuota(false);
-        hopINode.setHeader(((INodeFile) inode).getHeader());
         if (inode instanceof INodeFileUnderConstruction) {
           hopINode.setClientName(
               ((INodeFileUnderConstruction) inode).getClientName());
@@ -204,6 +204,7 @@ public class INodeDALAdaptor
       hopINode.setSubtreeLocked(inode.isSubtreeLocked());
       hopINode.setSubtreeLockOwner(inode.getSubtreeLockOwner());
     }
+    hopINode.setHeader(inode.getHeader());
     return hopINode;
   }
 
@@ -215,7 +216,7 @@ public class INodeDALAdaptor
       if (hopINode != null) {
         PermissionStatus ps = new PermissionStatus(null, null, new FsPermission
             (hopINode.getPermission()));
-        if (hopINode.isDir()) {
+        if (hopINode.isDirectory()) {
           if (hopINode.isDirWithQuota()) {
             inode = new INodeDirectoryWithQuota(hopINode.getName(), ps);
           } else {
@@ -252,7 +253,6 @@ public class INodeDALAdaptor
               hopINode.getGenerationStamp());
           ((INodeFile) inode).setSizeNoPersistence(hopINode.getFileSize());
           ((INodeFile) inode).setHasBlocksNoPersistance(INodeFile.hasBlocks(hopINode.getHeader()));
-          ((INodeFile) inode).setHeader(hopINode.getHeader());
         }
         inode.setIdNoPersistance(hopINode.getId());
         inode.setLocalNameNoPersistance(hopINode.getName());
@@ -261,6 +261,8 @@ public class INodeDALAdaptor
         inode.setSubtreeLockOwner(hopINode.getSubtreeLockOwner());
         inode.setUserIDNoPersistance(hopINode.getUserID());
         inode.setGroupIDNoPersistance(hopINode.getGroupID());
+        inode.setDepthNoPersistance(org.apache.hadoop.hdfs.server.namenode.INode.getDepth(hopINode.getHeader()));
+        inode.setHeader(hopINode.getHeader());
       }
       return inode;
     }catch (IOException ex){

@@ -1607,9 +1607,15 @@ public class TestFileCreation {
       FSDataOutputStream out = dfs.create(new Path("/test/test/file"));
       out.close();
 
-      dfs.setOwner(new Path("/test/test/file"), "salman", "salman");
-      dfs.setOwner(new Path("/test/test"), "salman", "salman");
+      FSDataInputStream in = dfs.open(new Path("/test/test/file"));
+      in.close();
 
+      out = dfs.create(new Path("/test/test/file1"));
+      writeFile(out,1);
+      out.close();
+
+      in = dfs.open(new Path("/test/test/file1"));
+      in.close();
 
     } finally {
       if (cluster != null) {
