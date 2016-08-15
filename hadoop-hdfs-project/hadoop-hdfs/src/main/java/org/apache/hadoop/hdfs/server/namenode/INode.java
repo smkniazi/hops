@@ -63,11 +63,12 @@ public abstract class INode implements Comparable<byte[]> {
 
   public static enum Finder implements FinderType<INode> {
 
-    ByINodeId,
-    ByParentId,
-    ByNameAndParentId,
-    ByNamesAndParentIdsCheckLocal,
-    ByNamesAndParentIds;
+    ByINodeIdFTIS,//FTIS full table index scan
+    ByParentIdFTIS,
+    ByParentIdAndPartitionId,
+    ByNameParentIdAndPartitionId,
+    ByNamesParentIdsAndPartitionIdsCheckLocal,
+    ByNamesParentIdsAndPartitionIds;
 
     @Override
     public Class getType() {
@@ -77,15 +78,17 @@ public abstract class INode implements Comparable<byte[]> {
     @Override
     public Annotation getAnnotated() {
       switch (this) {
-        case ByINodeId:
+        case ByINodeIdFTIS:
           return Annotation.IndexScan;
-        case ByParentId:
+        case ByParentIdFTIS:
+          return Annotation.IndexScan;
+        case ByParentIdAndPartitionId:
           return Annotation.PrunedIndexScan;
-        case ByNameAndParentId:
+        case ByNameParentIdAndPartitionId:
           return Annotation.PrimaryKey;
-        case ByNamesAndParentIds:
+        case ByNamesParentIdsAndPartitionIds:
           return Annotation.Batched;
-        case ByNamesAndParentIdsCheckLocal:
+        case ByNamesParentIdsAndPartitionIdsCheckLocal:CheckLocal:
           return Annotation.Batched;
         default:
           throw new IllegalStateException();
@@ -450,7 +453,7 @@ public abstract class INode implements Comparable<byte[]> {
     }
     if (parent == null) {
       parent = (INodeDirectory) EntityManager
-          .find(INode.Finder.ByINodeId, getParentId());
+          .find(INode.Finder.ByINodeIdFTIS, getParentId());
     }
 
     return this.parent;
@@ -823,22 +826,31 @@ public abstract class INode implements Comparable<byte[]> {
     save();
   }
 
-  public void calculateAndSetPartitionIdNoPersistance(int parentId, String name, int depth){
+  public void calculateAndSetPartitionIdNoPersistance(int parentId, String name, short depth){
     setPartitionIdNoPersistance(calculatePartitionId(parentId,name,depth));
   }
 
-  public void calculateAndSetPartitionId(int parentId, String name, int depth)
+  public void calculateAndSetPartitionId(int parentId, String name, short depth)
       throws TransactionContextException, StorageException {
     setPartitionIdNoPersistance(calculatePartitionId(parentId,name,depth));
     save();
   }
-  public static int calculatePartitionId(int parentId, String name, int depth){
-    if(depth < RANDOM_PARTITIONING_MAX_LEVEL){
+  public static int calculatePartitionId(int parentId, String name, short depth){
+    if(isTreeLevelRandomPartitioned(depth)){
       return (name+parentId).hashCode();
     }else{
       return parentId;
     }
   }
+
+  public static boolean isTreeLevelRandomPartitioned(short depth){
+    if(depth < RANDOM_PARTITIONING_MAX_LEVEL){
+      return true;
+    }else{
+      return false;
+    }
+  }
+
   public static short getBlockReplication(long header) {
     long val = (header & REPLICATION_MASK);
     long val2 = val >> BLOCK_BITS;

@@ -4851,7 +4851,7 @@ private void commitOrCompleteLastBlock(
             checkUCBlock(block, clientName);
 
             INodeFile pendingFile = (INodeFile) EntityManager
-                .find(INode.Finder.ByINodeId, inodeIdentifier.getInodeId());
+                .find(INode.Finder.ByINodeIdFTIS, inodeIdentifier.getInodeId());
 
             // get a new generation stamp and an access token
             block.setGenerationStamp(pendingFile.nextGenerationStamp());
@@ -6867,7 +6867,7 @@ private void commitOrCompleteLastBlock(
             INodeDataAccess<INode> dataAccess =
                 (INodeDataAccess) HdfsStorageFactory
                     .getDataAccess(INodeDataAccess.class);
-            return dataAccess.indexScanfindInodeById(id);
+            return dataAccess.findInodeByIdFTIS(id);
           }
         };
     return (INode) findHandler.handle();

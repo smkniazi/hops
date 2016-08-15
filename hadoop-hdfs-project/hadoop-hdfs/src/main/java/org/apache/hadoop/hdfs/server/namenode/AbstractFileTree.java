@@ -253,7 +253,7 @@ abstract class AbstractFileTree {
 
         addSubtreeRoot(
             new ProjectedINode(subtreeRoot.getId(), subtreeRoot.getParentId(),
-                subtreeRoot.getLocalName(),subtreeRoot.isDirectory(),subtreeRoot.getFsPermissionShort(),
+                subtreeRoot.getLocalName(), subtreeRoot.getFsPermissionShort(),
                 subtreeRoot.getUserID(), subtreeRoot.getGroupID(),
                 subtreeRoot instanceof INodeFile ?
                     ((INodeFile) subtreeRoot).getHeader() : 0,

@@ -146,9 +146,10 @@ public class INodeDirectory extends INode {
 
   private INode getChildINode(byte[] name)
       throws StorageException, TransactionContextException {
+    int childPartitionId = INode.calculatePartitionId(getId(), DFSUtil.bytes2String(name), ((short)(getDepth()+1)));
     INode existingInode = EntityManager
-        .find(INode.Finder.ByNameAndParentId, DFSUtil.bytes2String(name),
-            getId());
+        .find(Finder.ByNameParentIdAndPartitionId, DFSUtil.bytes2String(name),
+            getId(), childPartitionId);
     if (existingInode != null && existingInode.exists()) {
       return existingInode;
     }
@@ -282,7 +283,6 @@ public class INodeDirectory extends INode {
    * deepest INodes. The array size will be the number of expected
    * components in the path, and non existing components will be
    * filled with null
-   * @see #getExistingPathINodes(byte[][], INode[])
    */
   INode[] getExistingPathINodes(String path, boolean resolveLink)
       throws UnresolvedLinkException, StorageException,
@@ -337,7 +337,6 @@ public class INodeDirectory extends INode {
       Integer inodeID = IDsGeneratorFactory.getInstance().getUniqueINodeID();
       node.setIdNoPersistance(inodeID);
       node.setParentNoPersistance(this);
-      node.setDepthNoPersistance(this.getDepth());
       EntityManager.add(node);
       //add the INodeAttributes if it is Directory with Quota
 //      if (this instanceof INodeDirectoryWithQuota) { // [S] I think this is not necessary now. Quota update manager will take care of this
@@ -345,8 +344,11 @@ public class INodeDirectory extends INode {
 //      }
     } else {
       node.setParent(this);
-      node.setDepthNoPersistance(this.getDepth());
     }
+
+    node.setDepthNoPersistance((short) (this.getDepth()+1));
+    node.setPartionId(INode.calculatePartitionId(node.getParentId(), node.getLocalName(), node.getDepth()));
+
     // update modification time of the parent directory
     if (setModTime) {
       setModificationTime(node.getModificationTime());
@@ -516,8 +518,14 @@ public class INodeDirectory extends INode {
     if (getId() == INode.NON_EXISTING_ID) {
       return null;
     }
-    return (List<INode>) EntityManager
-        .findList(INode.Finder.ByParentId, getId());
+    short childrenDepth = ((short)(getDepth()+1));
+    if(INode.isTreeLevelRandomPartitioned(childrenDepth)){
+       return (List<INode>) EntityManager
+        .findList(INode.Finder.ByParentIdFTIS, getId());
+    }else{
+      return (List<INode>) EntityManager
+        .findList(Finder.ByParentIdAndPartitionId, getId(), getId()/*partition id for all the childred is the parent id*/);
+    }
   }
 
   @Override
@@ -539,5 +547,9 @@ public class INodeDirectory extends INode {
       remove(child);
     }
     return total;
+  }
+
+  public static int getRootDirPartitionKey(){
+    return INode.calculatePartitionId(ROOT_PARENT_ID,ROOT_NAME,ROOT_DIR_DEPTH);
   }
 }

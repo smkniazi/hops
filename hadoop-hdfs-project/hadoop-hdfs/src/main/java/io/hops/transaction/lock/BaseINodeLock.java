@@ -183,20 +183,20 @@ public abstract class BaseINodeLock extends Lock {
   }
 
   protected INode find(TransactionLockTypes.INodeLockType lock, String name,
-      int parentId, int possibleINodeId)
+      int parentId, int partitionId, int possibleINodeId)
       throws StorageException, TransactionContextException {
     setINodeLockType(lock);
     INode inode = EntityManager
-        .find(INode.Finder.ByNameAndParentId, name, parentId, possibleINodeId);
+        .find(INode.Finder.ByNameParentIdAndPartitionId, name, parentId, partitionId, possibleINodeId);
     addLockedINodes(inode, lock);
     return inode;
   }
 
   protected INode find(TransactionLockTypes.INodeLockType lock, String name,
-      int parentId) throws StorageException, TransactionContextException {
+      int parentId, int partitionId) throws StorageException, TransactionContextException {
     setINodeLockType(lock);
     INode inode =
-        EntityManager.find(INode.Finder.ByNameAndParentId, name, parentId);
+        EntityManager.find(INode.Finder.ByNameParentIdAndPartitionId, name, parentId);
     addLockedINodes(inode, lock);
     return inode;
   }
@@ -204,18 +204,18 @@ public abstract class BaseINodeLock extends Lock {
   protected INode find(TransactionLockTypes.INodeLockType lock, int id)
       throws StorageException, TransactionContextException {
     setINodeLockType(lock);
-    INode inode = EntityManager.find(INode.Finder.ByINodeId, id);
+    INode inode = EntityManager.find(INode.Finder.ByINodeIdFTIS, id);
     addLockedINodes(inode, lock);
     return inode;
   }
 
   protected List<INode> find(TransactionLockTypes.INodeLockType lock,
-      String[] names, int[] parentIds, boolean checkLocalCache)
+      String[] names, int[] parentIds, int[] partitionIds, boolean checkLocalCache)
       throws StorageException, TransactionContextException {
     setINodeLockType(lock);
     List<INode> inodes = (List<INode>) EntityManager.findList(checkLocalCache ? INode.Finder
-                .ByNamesAndParentIdsCheckLocal : INode.Finder
-                .ByNamesAndParentIds, names, parentIds);
+                .ByNamesParentIdsAndPartitionIdsCheckLocal : INode.Finder
+                .ByNamesParentIdsAndPartitionIds, names, parentIds, parentIds);
     if(inodes != null) {
       for (INode inode : inodes) {
         addLockedINodes(inode, lock);

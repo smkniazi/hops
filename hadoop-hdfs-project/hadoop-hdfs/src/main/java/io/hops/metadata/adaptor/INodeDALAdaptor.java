@@ -51,43 +51,63 @@ public class INodeDALAdaptor
   }
 
   @Override
-  public org.apache.hadoop.hdfs.server.namenode.INode indexScanfindInodeById(
+  public org.apache.hadoop.hdfs.server.namenode.INode findInodeByIdFTIS(
       int inodeId) throws StorageException {
-    return convertDALtoHDFS(dataAccess.indexScanfindInodeById(inodeId));
+    return convertDALtoHDFS(dataAccess.findInodeByIdFTIS(inodeId));
   }
 
   @Override
-  public List<org.apache.hadoop.hdfs.server.namenode.INode> indexScanFindInodesByParentId(
+  public List<org.apache.hadoop.hdfs.server.namenode.INode> findInodesByParentIdFTIS(
       int parentId) throws StorageException {
     List<org.apache.hadoop.hdfs.server.namenode.INode> list =
         (List) convertDALtoHDFS(
-            dataAccess.indexScanFindInodesByParentId(parentId));
+            dataAccess.findInodesByParentIdFTIS(parentId));
     Collections
         .sort(list, org.apache.hadoop.hdfs.server.namenode.INode.Order.ByName);
     return list;
   }
 
   @Override
-  public List<ProjectedINode> findInodesForSubtreeOperationsWithWriteLock(
-      int parentId) throws StorageException {
+  public List<org.apache.hadoop.hdfs.server.namenode.INode> findInodesByParentIdAndPartitionIdPPIS(
+          int parentId, int partitionId) throws StorageException {
+    List<org.apache.hadoop.hdfs.server.namenode.INode> list =
+            (List) convertDALtoHDFS(
+                    dataAccess.findInodesByParentIdAndPartitionIdPPIS(parentId, partitionId));
+    Collections
+            .sort(list, org.apache.hadoop.hdfs.server.namenode.INode.Order.ByName);
+    return list;
+  }
+
+  @Override
+  public List<ProjectedINode> findInodesForSubtreeOperationsWithWriteLockPPIS(
+          int parentId, int partitionId) throws StorageException {
     List<ProjectedINode> list =
-        dataAccess.findInodesForSubtreeOperationsWithWriteLock(parentId);
+            dataAccess.findInodesForSubtreeOperationsWithWriteLockPPIS(parentId, partitionId);
     Collections.sort(list);
     return list;
   }
 
   @Override
-  public org.apache.hadoop.hdfs.server.namenode.INode pkLookUpFindInodeByNameAndParentId(
-      String name, int parentId) throws StorageException {
+  public List<ProjectedINode> findInodesForSubtreeOperationsWithWriteLockFTIS(
+      int parentId) throws StorageException {
+    List<ProjectedINode> list =
+        dataAccess.findInodesForSubtreeOperationsWithWriteLockFTIS(parentId);
+    Collections.sort(list);
+    return list;
+  }
+
+  @Override
+  public org.apache.hadoop.hdfs.server.namenode.INode findInodeByNameParentIdAndPartitionIdPK(
+      String name, int parentId, int partitionId) throws StorageException {
     return convertDALtoHDFS(
-        dataAccess.pkLookUpFindInodeByNameAndParentId(name, parentId));
+        dataAccess.findInodeByNameParentIdAndPartitionIdPK(name, parentId, partitionId));
   }
 
   @Override
   public List<org.apache.hadoop.hdfs.server.namenode.INode> getINodesPkBatched(
-      String[] names, int[] parentIds) throws StorageException {
+      String[] names, int[] parentIds, int[] partitionIds) throws StorageException {
     return (List<org.apache.hadoop.hdfs.server.namenode.INode>) convertDALtoHDFS(
-        dataAccess.getINodesPkBatched(names, parentIds));
+        dataAccess.getINodesPkBatched(names, parentIds, partitionIds));
   }
 
   @Override

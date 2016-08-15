@@ -1286,11 +1286,7 @@ public class FSDirectory implements Closeable {
   /**
    * Delete a path from the name space
    * Update the count at each ancestor directory with quota
-   * <br>
-   * Note: This is to be used by {@link FSEditLog} only.
-   * <br>
-   *
-   * @param src
+  * @param src
    *     a string representation of a path to an inode
    * @param mtime
    *     the time the inode is removed
@@ -1463,7 +1459,6 @@ public class FSDirectory implements Closeable {
    * deepest INodes. The array size will be the number of expected
    * components in the path, and non existing components will be
    * filled with null
-   * @see INodeDirectory#getExistingPathINodes(byte[][], INode[])
    */
   INode[] getExistingPathINodes(String path)
       throws UnresolvedLinkException, StorageException,
@@ -1522,9 +1517,7 @@ public class FSDirectory implements Closeable {
    *     the delta change of diskspace
    * @throws QuotaExceededException
    *     if the new count violates any quota limit
-   * @throws FileNotFound
-   *     if path does not exist.
-   */
+  */
   void updateSpaceConsumed(String path, long nsDelta, long dsDelta)
       throws QuotaExceededException, FileNotFoundException,
       UnresolvedLinkException, StorageException, TransactionContextException {
@@ -1661,11 +1654,6 @@ public class FSDirectory implements Closeable {
    *     string representation of the path to the directory
    * @param permissions
    *     the permission of the directory
-   * @param isAutocreate
-   *     if the permission of the directory should inherit
-   *     from its parent or not. u+wx is implicitly added to
-   *     the automatically created directories, and to the
-   *     given directory if inheritPermission is true
    * @param now
    *     creation time
    * @return true if the operation succeeds false otherwise
@@ -2240,7 +2228,7 @@ public class FSDirectory implements Closeable {
    *
    * @param dir
    *     the root of the tree that represents the directory
-   * @param counters
+   * @param counts
    *     counters for name space and disk space
    * @param nodesInPath
    *     INodes for the each of components in the path.
@@ -2691,8 +2679,8 @@ public class FSDirectory implements Closeable {
             INodeDataAccess da = (INodeDataAccess) HdfsStorageFactory
                 .getDataAccess(INodeDataAccess.class);
             INodeDirectoryWithQuota rootInode = (INodeDirectoryWithQuota) da
-                .pkLookUpFindInodeByNameAndParentId(INodeDirectory.ROOT_NAME,
-                    INodeDirectory.ROOT_PARENT_ID);
+                .findInodeByNameParentIdAndPartitionIdPK(INodeDirectory.ROOT_NAME,
+                    INodeDirectory.ROOT_PARENT_ID, INodeDirectory.getRootDirPartitionKey());
             if (rootInode == null || overwrite == true) {
               newRootINode = INodeDirectoryWithQuota.createRootDir(ps);
               List<INode> newINodes = new ArrayList();
