@@ -817,6 +817,10 @@ public abstract class INode implements Comparable<byte[]> {
     return null;
   }
 
+  public int getPartitionId(){
+    return  partitionId;
+  }
+
   public void setPartitionIdNoPersistance(int partitionId){
     this.partitionId = partitionId;
   }

@@ -1,4 +1,4 @@
-/**
+/*
  * Licensed to the Apache Software Foundation (ASF) under one
  * or more contributor license agreements.  See the NOTICE file
  * distributed with this work for additional information
@@ -97,14 +97,16 @@ public class INodeContext extends BaseEntityContext<Integer, INode> {
   public void remove(INode iNode) throws TransactionContextException {
     super.remove(iNode);
     inodesNameParentIndex.remove(iNode.nameParentKey());
-    log("removed-inode", "id", iNode.getId(), "name", iNode.getLocalName());
+    log("removed-inode", "id", iNode.getId(), "name", iNode.getLocalName(), "parent_id", iNode.getParentId(),
+        "partition_id", iNode.getParentId(), "depth", iNode.getDepth());
   }
 
   @Override
   public void update(INode iNode) throws TransactionContextException {
     super.update(iNode);
     inodesNameParentIndex.put(iNode.nameParentKey(), iNode);
-    log("updated-inode", "id", iNode.getId(), "name", iNode.getLocalName());
+    log("updated-inode", "id", iNode.getId(), "name", iNode.getLocalName(), "parent_id", iNode.getParentId(),
+        "partition_id", iNode.getParentId(), "depth", iNode.getDepth());
   }
 
   @Override
@@ -170,12 +172,12 @@ public class INodeContext extends BaseEntityContext<Integer, INode> {
         renamedInodes.add(inodeAfterChange);
         log("snapshot-maintenance-inode-pk-change", "Before inodeId",
             inodeBeforeChange.getId(), "name", inodeBeforeChange.getLocalName(),
-            "pid", inodeBeforeChange.getParentId(), "After inodeId",
+            "parent_id", inodeBeforeChange.getParentId(), "After inodeId",
             inodeAfterChange.getId(), "name", inodeAfterChange.getLocalName(),
-            "pid", inodeAfterChange.getParentId());
+            "parent_id", inodeAfterChange.getParentId());
         log("snapshot-maintenance-removed-inode", "name",
             inodeBeforeChange.getLocalName(), "inodeId",
-            inodeBeforeChange.getId(), "pid", inodeBeforeChange.getParentId());
+            inodeBeforeChange.getId(), "parent_id", inodeBeforeChange.getParentId());
         break;
       case Concat:
         // do nothing
@@ -198,15 +200,23 @@ public class INodeContext extends BaseEntityContext<Integer, INode> {
     final Integer inodeId = (Integer) params[0];
     if (contains(inodeId)) {
       result = get(inodeId);
-      hit(inodeFinder, result, "id", inodeId);
+      if(result!=null) {
+        hit(inodeFinder, result, "id", inodeId, "name", result.getLocalName(), "parent_id", result.getParentId(),
+            "partition_id", result.getParentId(), "depth", result.getDepth());
+      }else{
+        hit(inodeFinder, result, "id", inodeId);
+      }
     } else {
       aboutToAccessStorage(inodeFinder, params);
       result = dataAccess.findInodeByIdFTIS(inodeId);
       gotFromDB(inodeId, result);
       if (result != null) {
         inodesNameParentIndex.put(result.nameParentKey(), result);
+        miss(inodeFinder, result, "id", inodeId, "name", result.getLocalName(), "parent_id", result.getParentId(),
+          "partition_id", result.getParentId(), "depth", result.getDepth());
+      }else {
+        miss(inodeFinder, result, "id");
       }
-      miss(inodeFinder, result, "id", inodeId);
     }
     return result;
   }
@@ -233,9 +243,9 @@ public class INodeContext extends BaseEntityContext<Integer, INode> {
         result = dataAccess.findInodeByNameParentIdAndPartitionIdPK(name, parentId, partitionId);
         gotFromDBWithPossibleInodeId(result, possibleInodeId);
         inodesNameParentIndex.put(nameParentKey, result);
-        missUpgrade(inodeFinder, result, "name", name, "pid", parentId);
+        missUpgrade(inodeFinder, result, "name", name, "parent_id", parentId, "partition_id", partitionId);
       } else {
-        hit(inodeFinder, result, "name", name, "pid", parentId);
+        hit(inodeFinder, result, "name", name, "parent_id", parentId, "partition_id", partitionId);
       }
     } else {
       if (!isNewlyAdded(parentId) && !containsRemoved(parentId, name)) {
@@ -243,7 +253,8 @@ public class INodeContext extends BaseEntityContext<Integer, INode> {
         result = dataAccess.findInodeByNameParentIdAndPartitionIdPK(name, parentId, parentId);
         gotFromDBWithPossibleInodeId(result, possibleInodeId);
         inodesNameParentIndex.put(nameParentKey, result);
-        miss(inodeFinder, result, "name", name, "pid", parentId);
+        miss(inodeFinder, result, "name", name, "parent_id", parentId, "partition_id", partitionId,
+            "possible_inode_id",possibleInodeId);
       }
     }
     return result;
@@ -255,13 +266,13 @@ public class INodeContext extends BaseEntityContext<Integer, INode> {
     List<INode> result = null;
     if (inodesParentIndex.containsKey(parentId)) {
       result = inodesParentIndex.get(parentId);
-      hit(inodeFinder, result, "pid", parentId);
+      hit(inodeFinder, result, "parent_id", parentId );
     } else {
       aboutToAccessStorage(inodeFinder, params);
       result = syncInodeInstances(
           dataAccess.findInodesByParentIdFTIS(parentId));
       inodesParentIndex.put(parentId, result);
-      miss(inodeFinder, result, "pid", parentId);
+      miss(inodeFinder, result, "parent_id", parentId);
     }
     return result;
   }
@@ -273,13 +284,13 @@ public class INodeContext extends BaseEntityContext<Integer, INode> {
     List<INode> result = null;
     if (inodesParentIndex.containsKey(parentId)) {
       result = inodesParentIndex.get(parentId);
-      hit(inodeFinder, result, "pid", parentId);
+      hit(inodeFinder, result, "parent_id", parentId);
     } else {
       aboutToAccessStorage(inodeFinder, params);
       result = syncInodeInstances(
               dataAccess.findInodesByParentIdAndPartitionIdPPIS(parentId, partitionId));
       inodesParentIndex.put(parentId, result);
-      miss(inodeFinder, result, "pid", parentId);
+      miss(inodeFinder, result, "parent_id", parentId);
     }
     return result;
   }
@@ -312,7 +323,7 @@ public class INodeContext extends BaseEntityContext<Integer, INode> {
       INode node = inodesNameParentIndex.get(nameParentKey);
       if(node != null){
         result.set(i, node);
-        hit(inodeFinder, node, "name", names[i], "pid", parentIds[i]);
+        hit(inodeFinder, node, "name", names[i], "parent_id", parentIds[i], "partition_id", partitionIds[i]);
       }else{
         namesRest.add(names[i]);
         parentIdsRest.add(parentIds[i]);
@@ -343,8 +354,8 @@ public class INodeContext extends BaseEntityContext<Integer, INode> {
   private List<INode> findBatch(INode.Finder inodeFinder, String[] names,
       int[] parentIds, int[] partitionIds) throws StorageException {
     List<INode> batch = dataAccess.getINodesPkBatched(names, parentIds, partitionIds);
-    miss(inodeFinder, batch, "name", Arrays.toString(names), "pid",
-        Arrays.toString(parentIds));
+    miss(inodeFinder, batch, "names", Arrays.toString(names), "parent_ids",
+        Arrays.toString(parentIds), "partition_ids", Arrays.toString(partitionIds));
     return syncInodeInstances(batch);
   }
 

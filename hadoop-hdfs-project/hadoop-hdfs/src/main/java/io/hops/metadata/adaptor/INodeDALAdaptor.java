@@ -189,6 +189,7 @@ public class INodeDALAdaptor
       hopINode.setParentId(inode.getParentId());
       hopINode.setId(inode.getId());
       hopINode.setIsDir(inode.isDirectory());
+      hopINode.setPartitionId(inode.getPartitionId());
 
       if (inode.isDirectory()) {
         hopINode.setUnderConstruction(false);
@@ -283,6 +284,7 @@ public class INodeDALAdaptor
         inode.setGroupIDNoPersistance(hopINode.getGroupID());
         inode.setDepthNoPersistance(org.apache.hadoop.hdfs.server.namenode.INode.getDepth(hopINode.getHeader()));
         inode.setHeader(hopINode.getHeader());
+        inode.setPartitionIdNoPersistance(hopINode.getPartitionId());
       }
       return inode;
     }catch (IOException ex){

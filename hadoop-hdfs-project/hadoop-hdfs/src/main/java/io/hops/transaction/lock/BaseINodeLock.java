@@ -196,7 +196,7 @@ public abstract class BaseINodeLock extends Lock {
       int parentId, int partitionId) throws StorageException, TransactionContextException {
     setINodeLockType(lock);
     INode inode =
-        EntityManager.find(INode.Finder.ByNameParentIdAndPartitionId, name, parentId);
+        EntityManager.find(INode.Finder.ByNameParentIdAndPartitionId, name, parentId, partitionId);
     addLockedINodes(inode, lock);
     return inode;
   }

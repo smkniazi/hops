@@ -76,8 +76,8 @@ public class INodeUtil {
   private static INode findINodeWithNoTransaction(String name, int parentId, int partitionId)
       throws StorageException {
     LOG.debug(String
-        .format("Read inode with no transaction by parent-id=%d, name=%s",
-            parentId, name));
+        .format("Read inode with no transaction by parent_id=%d, name=%s, partitionId=%s",
+            parentId, name, parentId));
     INodeDataAccess<INode> da = (INodeDataAccess) HdfsStorageFactory
         .getDataAccess(INodeDataAccess.class);
     return da.findInodeByNameParentIdAndPartitionIdPK(name, parentId, parentId);
@@ -207,6 +207,7 @@ public class INodeUtil {
         if (inode != null) {
           inodeIdent.setName(inode.getLocalName());
           inodeIdent.setPid(inode.getParentId());
+          inodeIdent.setPartitionId(inode.getPartitionId());
         }
         return inodeIdent;
       }
@@ -231,6 +232,7 @@ public class INodeUtil {
       if (inode != null) {
         inodeIden.setName(inode.getLocalName());
         inodeIden.setPid(inode.getParentId());
+        inodeIden.setPartitionId(inode.getPartitionId());
       }
       return inodeIden;
     } else {
@@ -273,6 +275,7 @@ public class INodeUtil {
             if (inode != null) {
               inodeIdent.setName(inode.getLocalName());
               inodeIdent.setPid(inode.getParentId());
+              inodeIdent.setPartitionId(inode.getPartitionId());
             }
             return inodeIdent;
           }

@@ -160,9 +160,17 @@ class INodeLock extends BaseINodeLock {
         }
         final String[] names = INode.getPathNames(path);
         final int[] parentIds = getParentIds(inodeIds);
+        final int[] partitionIds = new int[parentIds.length];
+
+        short depth = INodeDirectory.ROOT_DIR_DEPTH;
+        partitionIds[0] = INodeDirectory.getRootDirPartitionKey();
+        for(int i = 1; i < partitionIds.length; i++){
+          depth++;
+          partitionIds[i] = INode.calculatePartitionId(parentIds[i], names[i], depth);
+        }
 
         List<INode> inodes = readINodesWhileRespectingLocks(path,names,
-            parentIds);
+            parentIds,partitionIds);
         if (inodes != null) {
           if (verifyINodes(inodes, names, parentIds, inodeIds)) {
             addPathINodes(path, inodes);
@@ -182,7 +190,7 @@ class INodeLock extends BaseINodeLock {
     }
 
     protected List<INode> readINodesWhileRespectingLocks(final String path,
-        final String[] names, final int[] parentIds)
+        final String[] names, final int[] parentIds, final int[] partitionIds)
         throws TransactionContextException, StorageException,
         UnresolvedPathException {
       int rowsToReadWithDefaultLock = names.length;
@@ -202,6 +210,7 @@ class INodeLock extends BaseINodeLock {
       if (rowsToReadWithDefaultLock > 0) {
         inodes = find(DEFAULT_INODE_LOCK_TYPE,
             Arrays.copyOf(names, rowsToReadWithDefaultLock),
+            Arrays.copyOf(parentIds, rowsToReadWithDefaultLock),
             Arrays.copyOf(parentIds, rowsToReadWithDefaultLock), true);
       }
 
@@ -259,9 +268,17 @@ class INodeLock extends BaseINodeLock {
         }
 
         final int[] parentIds = getParentIds(inodeIds, partial);
+        final int[] partitionIds = new int[parentIds.length];
+
+        short depth = INodeDirectory.ROOT_DIR_DEPTH;
+        partitionIds[0] = INodeDirectory.getRootDirPartitionKey();
+        for(int i = 1; i < partitionIds.length;i++){
+          depth++;
+          partitionIds[i] = INode.calculatePartitionId(parentIds[i], names[i], depth);
+        }
 
         List<INode> inodes = readINodesWhileRespectingLocks(path, names,
-            parentIds);
+            parentIds, partitionIds);
         if (inodes != null && !inodes.isEmpty()) {
           final int unverifiedInode = verifyINodesPartial(inodes, names,
               parentIds, inodeIds);
@@ -496,9 +513,11 @@ class INodeLock extends BaseINodeLock {
         inodeToReread = resolvedINodes.get(resolvedINodes.size() - 1);
       }
 
+      int partitionIdOfINodeToBeReRead = INode.calculatePartitionId(inodeToReread.getParentId(), inodeToReread
+          .getLocalName(), inodeToReread.getDepth());
       if (inodeToReread != null) {
         INode inode = find(lockType, inodeToReread.getLocalName(),
-            inodeToReread.getParentId());
+            inodeToReread.getParentId(), partitionIdOfINodeToBeReRead);
         if (inode != null) {
           // re-read after taking write lock to make sure that no one has created the same inode.
           addLockedINodes(inode, lockType);
@@ -573,7 +592,7 @@ class INodeLock extends BaseINodeLock {
   private INode acquireLockOnRoot(TransactionLockTypes.INodeLockType lock)
       throws StorageException, TransactionContextException {
     LOG.debug("Acquiring " + lock + " on the root node");
-    return find(lock, INodeDirectory.ROOT_NAME, INodeDirectory.ROOT_PARENT_ID);
+    return find(lock, INodeDirectory.ROOT_NAME, INodeDirectory.ROOT_PARENT_ID, INodeDirectory.getRootDirPartitionKey());
   }
 
   private String buildPath(String path, int size) {
@@ -594,8 +613,8 @@ class INodeLock extends BaseINodeLock {
     return builder.toString();
   }
   
-  protected INode find(String name, int parentId)
+  protected INode find(String name, int parentId, int partitionId)
       throws StorageException, TransactionContextException {
-    return find(lockType, name, parentId);
+    return find(lockType, name, parentId, partitionId);
   }
 }
