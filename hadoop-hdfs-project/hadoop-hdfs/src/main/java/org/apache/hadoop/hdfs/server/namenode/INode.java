@@ -136,7 +136,7 @@ public abstract class INode implements Comparable<byte[]> {
   public static final int NON_EXISTING_ID = 0;
   protected int id = NON_EXISTING_ID;
   protected int parentId = NON_EXISTING_ID;
-  public static int RANDOM_PARTITIONING_MAX_LEVEL=0;
+  public static int RANDOM_PARTITIONING_MAX_LEVEL=2;
   protected int partitionId;
 
   protected boolean subtreeLocked;
@@ -822,10 +822,11 @@ public abstract class INode implements Comparable<byte[]> {
   }
 
   public void setPartitionIdNoPersistance(int partitionId){
+    FSNamesystem.LOG.debug("Setting partition_id for Inode id="+this.getId()+" parent_id="+this.getParentId()+" name="+getLocalName()+" depth="+getDepth()+" partition_id="+partitionId);
     this.partitionId = partitionId;
   }
 
-  public void setPartionId(int partitionId) throws TransactionContextException, StorageException {
+  public void setPartitionId(int partitionId) throws TransactionContextException, StorageException {
     setPartitionIdNoPersistance(partitionId);
     save();
   }
@@ -841,17 +842,23 @@ public abstract class INode implements Comparable<byte[]> {
   }
   public static int calculatePartitionId(int parentId, String name, short depth){
     if(isTreeLevelRandomPartitioned(depth)){
-      return (name+parentId).hashCode();
+      return partitionIdHashFunction(parentId,name,depth);
     }else{
       return parentId;
     }
   }
 
+  private static int partitionIdHashFunction(int parentId, String name, short depth){
+    //return (name+parentId).hashCode();
+    String partitionid = String.format("%04d%04d",parentId,depth);
+    return Integer.parseInt(partitionid);
+  }
+
   public static boolean isTreeLevelRandomPartitioned(short depth){
-    if(depth < RANDOM_PARTITIONING_MAX_LEVEL){
-      return true;
-    }else{
+    if(depth > RANDOM_PARTITIONING_MAX_LEVEL){
       return false;
+    }else{
+      return true;
     }
   }
 
@@ -884,11 +891,11 @@ public abstract class INode implements Comparable<byte[]> {
     return header;
   }
 
-  public void setHeader(long header) {
-    if (header == 0) {
-      throw new IllegalArgumentException("Unexpected value for the " +
-          "header [" + header + "]");
-    }
+  public void setHeaderNoPersistance(long header) {
+//    if (header == 0) {
+//      throw new IllegalArgumentException("Unexpected value for the " +
+//          "header [" + header + "]");
+//    }
     long preferecBlkSize = getPreferredBlockSize(header);
     short replication = getBlockReplication(header);
     short depth = getDepth(header);

@@ -103,8 +103,8 @@ abstract class AbstractFileTree {
               INodeDataAccess<INode> dataAccess =
                   (INodeDataAccess) HdfsStorageFactory
                       .getDataAccess(INodeDataAccess.class);
-              List<ProjectedINode> children = dataAccess
-                  .findInodesForSubtreeOperationsWithWriteLock(parentId);
+              List<ProjectedINode> children = Collections.EMPTY_LIST;
+//[S] FIXME             children = dataAccess.findInodesForSubtreeOperationsWithWriteLock(parentId);
               for (ProjectedINode child : children) {
                 if (namesystem.isPermissionEnabled() && subAccess != null) {
                   checkAccess(child, subAccess);
@@ -236,7 +236,8 @@ abstract class AbstractFileTree {
             (INodeDataAccess) HdfsStorageFactory
                 .getDataAccess(INodeDataAccess.class);
         // No need to acquire a lock as the locking flag was already set
-        INode subtreeRoot = dataAccess.indexScanfindInodeById(subtreeRootId);
+        INode subtreeRoot = null;
+//[S] FIXME        INode subtreeRoot = dataAccess.indexScanfindInodeById(subtreeRootId);
         if (subtreeRoot == null) {
           throw new BuildingUpFileTreeFailedException(
               "Subtree root does not exist");
@@ -250,18 +251,18 @@ abstract class AbstractFileTree {
         if(subtreeRoot.isFile()){
             size = ((INodeFile)subtreeRoot).getSize();
         }
-
-        addSubtreeRoot(
-            new ProjectedINode(subtreeRoot.getId(), subtreeRoot.getParentId(),
-                subtreeRoot.getLocalName(), subtreeRoot.getFsPermissionShort(),
-                subtreeRoot.getUserID(), subtreeRoot.getGroupID(),
-                subtreeRoot instanceof INodeFile ?
-                    ((INodeFile) subtreeRoot).getHeader() : 0,
-                subtreeRoot.isSymlink(),
-                subtreeRoot instanceof INodeDirectoryWithQuota ? true : false,
-                subtreeRoot.isUnderConstruction(),
-                subtreeRoot.isSubtreeLocked(),
-                subtreeRoot.getSubtreeLockOwner(),size));
+//[S] FIXME
+//        addSubtreeRoot(
+//            new ProjectedINode(subtreeRoot.getId(), subtreeRoot.getParentId(),
+//                subtreeRoot.getLocalName(), subtreeRoot.getFsPermissionShort(),
+//                subtreeRoot.getUserID(), subtreeRoot.getGroupID(),
+//                subtreeRoot instanceof INodeFile ?
+//                    ((INodeFile) subtreeRoot).getHeader() : 0,
+//                subtreeRoot.isSymlink(),
+//                subtreeRoot instanceof INodeDirectoryWithQuota ? true : false,
+//                subtreeRoot.isUnderConstruction(),
+//                subtreeRoot.isSubtreeLocked(),
+//                subtreeRoot.getSubtreeLockOwner(),size));
         return subtreeRoot;
       }
     }.handle(this);

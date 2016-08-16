@@ -1597,26 +1597,33 @@ public class TestFileCreation {
       conf.setBoolean(DFSConfigKeys.ERASURE_CODING_ENABLED_KEY, false);
       conf.setBoolean(DFSConfigKeys.DFS_NAMENODE_QUOTA_ENABLED_KEY,false);
 
-      cluster = new MiniDFSCluster.Builder(conf).numDataNodes(1).build();
+      cluster = new MiniDFSCluster.Builder(conf).format(true).numDataNodes(1).build();
       cluster.waitActive();
 
       DistributedFileSystem dfs = cluster.getFileSystem();
 
 
-      dfs.mkdirs(new Path("/test/test"));
-      FSDataOutputStream out = dfs.create(new Path("/test/test/file"));
+      dfs.mkdirs(new Path("/dir1/dir2"));
+      dfs.mkdirs(new Path("/dir1/dir2/dir3/dir4/dir5/dir6"));
+
+      FSDataOutputStream out = dfs.create(new Path("/dir1/dir2/dir3/fileindir3"));
       out.close();
 
-      FSDataInputStream in = dfs.open(new Path("/test/test/file"));
+      FSDataInputStream in = dfs.open(new Path("/dir1/dir2/dir3/fileindir3"));
       in.close();
 
-      out = dfs.create(new Path("/test/test/file1"));
+      out = dfs.create(new Path("/dir1/dir2/fileindir2"));
       writeFile(out,1);
       out.close();
 
-      in = dfs.open(new Path("/test/test/file1"));
+      in = dfs.open(new Path("/dir1/dir2/fileindir2"));
       in.close();
 
+
+      FileStatus[] status = dfs.listStatus(new Path("/dir1/dir2"));
+      if(status.length != 2){
+        fail();
+      }
     } finally {
       if (cluster != null) {
         cluster.shutdown();

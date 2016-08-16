@@ -27,6 +27,7 @@ import org.apache.hadoop.fs.permission.PermissionStatus;
 import org.apache.hadoop.hdfs.DFSUtil;
 import org.apache.hadoop.hdfs.protocol.Block;
 import org.apache.hadoop.hdfs.protocol.UnresolvedPathException;
+import org.tukaani.xz.UnsupportedOptionsException;
 
 import java.io.FileNotFoundException;
 import java.io.IOException;
@@ -337,6 +338,8 @@ public class INodeDirectory extends INode {
       Integer inodeID = IDsGeneratorFactory.getInstance().getUniqueINodeID();
       node.setIdNoPersistance(inodeID);
       node.setParentNoPersistance(this);
+      node.setDepthNoPersistance((short) (this.getDepth()+1));
+      node.setPartitionIdNoPersistance(INode.calculatePartitionId(node.getParentId(), node.getLocalName(), node.getDepth()));
       EntityManager.add(node);
       //add the INodeAttributes if it is Directory with Quota
 //      if (this instanceof INodeDirectoryWithQuota) { // [S] I think this is not necessary now. Quota update manager will take care of this
@@ -344,10 +347,9 @@ public class INodeDirectory extends INode {
 //      }
     } else {
       node.setParent(this);
+      throw new UnsupportedOptionsException("Move operation is not yet implemented");
     }
 
-    node.setDepthNoPersistance((short) (this.getDepth()+1));
-    node.setPartionId(INode.calculatePartitionId(node.getParentId(), node.getLocalName(), node.getDepth()));
 
     // update modification time of the parent directory
     if (setModTime) {
@@ -525,6 +527,7 @@ public class INodeDirectory extends INode {
     }else{
       return (List<INode>) EntityManager
         .findList(Finder.ByParentIdAndPartitionId, getId(), getId()/*partition id for all the childred is the parent id*/);
+       //[S] FIXME
     }
   }
 

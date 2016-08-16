@@ -67,7 +67,7 @@ public class INodeUtil {
     String nameString = DFSUtil.bytes2String(name);
     if (transactional) {
       return EntityManager
-          .find(INode.Finder.ByNameParentIdAndPartitionId, nameString, parentId, parentId);
+          .find(INode.Finder.ByNameParentIdAndPartitionId, nameString, parentId, partitionId);
     } else {
       return findINodeWithNoTransaction(nameString, parentId, partitionId);
     }

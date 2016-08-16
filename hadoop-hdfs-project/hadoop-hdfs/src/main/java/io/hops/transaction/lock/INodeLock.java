@@ -211,7 +211,7 @@ class INodeLock extends BaseINodeLock {
         inodes = find(DEFAULT_INODE_LOCK_TYPE,
             Arrays.copyOf(names, rowsToReadWithDefaultLock),
             Arrays.copyOf(parentIds, rowsToReadWithDefaultLock),
-            Arrays.copyOf(parentIds, rowsToReadWithDefaultLock), true);
+            Arrays.copyOf(partitionIds, rowsToReadWithDefaultLock), true);
       }
 
       if(inodes != null) {
@@ -513,9 +513,9 @@ class INodeLock extends BaseINodeLock {
         inodeToReread = resolvedINodes.get(resolvedINodes.size() - 1);
       }
 
-      int partitionIdOfINodeToBeReRead = INode.calculatePartitionId(inodeToReread.getParentId(), inodeToReread
-          .getLocalName(), inodeToReread.getDepth());
-      if (inodeToReread != null) {
+     if (inodeToReread != null) {
+        int partitionIdOfINodeToBeReRead = INode.calculatePartitionId(inodeToReread.getParentId(), inodeToReread
+        .getLocalName(), inodeToReread.getDepth());
         INode inode = find(lockType, inodeToReread.getLocalName(),
             inodeToReread.getParentId(), partitionIdOfINodeToBeReRead);
         if (inode != null) {

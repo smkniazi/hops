@@ -1035,7 +1035,7 @@ public class FSNamesystem
           @Override
           public void acquireLock(TransactionLocks locks) throws IOException {
             LockFactory lf = getInstance();
-            locks.add(lf.getINodeLock(!dir.isQuotaEnabled()?true:false,nameNode, INodeLockType.WRITE,
+            locks.add(lf.getINodeLock(!dir.isQuotaEnabled()?true:false,nameNode, INodeLockType.READ,
                 INodeResolveType.PATH, src)).add(lf.getBlockLock())
                 .add(lf.getBlockRelated(BLK.RE, BLK.ER, BLK.CR, BLK.UC));
           }

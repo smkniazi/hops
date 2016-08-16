@@ -215,7 +215,7 @@ public abstract class BaseINodeLock extends Lock {
     setINodeLockType(lock);
     List<INode> inodes = (List<INode>) EntityManager.findList(checkLocalCache ? INode.Finder
                 .ByNamesParentIdsAndPartitionIdsCheckLocal : INode.Finder
-                .ByNamesParentIdsAndPartitionIds, names, parentIds, parentIds);
+                .ByNamesParentIdsAndPartitionIds, names, parentIds, partitionIds);
     if(inodes != null) {
       for (INode inode : inodes) {
         addLockedINodes(inode, lock);

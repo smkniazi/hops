@@ -215,7 +215,7 @@ public class INodeDirectoryWithQuota extends INodeDirectory {
     newRootINode.setIdNoPersistance(ROOT_ID);
     newRootINode.setParentIdNoPersistance(ROOT_PARENT_ID);
     newRootINode.setDepthNoPersistance(ROOT_DIR_DEPTH);
-    newRootINode.setPartionId(getRootDirPartitionKey());
+    newRootINode.setPartitionIdNoPersistance(getRootDirPartitionKey());
     return newRootINode;
   }
 

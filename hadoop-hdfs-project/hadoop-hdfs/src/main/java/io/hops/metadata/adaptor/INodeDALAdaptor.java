@@ -30,10 +30,6 @@ import org.apache.hadoop.hdfs.server.namenode.INodeDirectoryWithQuota;
 import org.apache.hadoop.hdfs.server.namenode.INodeFile;
 import org.apache.hadoop.hdfs.server.namenode.INodeFileUnderConstruction;
 import org.apache.hadoop.hdfs.server.namenode.INodeSymlink;
-import org.apache.hadoop.hdfs.util.MD5FileUtils;
-import org.apache.hadoop.io.DataInputBuffer;
-import org.apache.hadoop.io.DataOutputBuffer;
-import org.apache.hadoop.io.MD5Hash;
 
 import java.io.IOException;
 import java.util.Collection;
@@ -283,7 +279,7 @@ public class INodeDALAdaptor
         inode.setUserIDNoPersistance(hopINode.getUserID());
         inode.setGroupIDNoPersistance(hopINode.getGroupID());
         inode.setDepthNoPersistance(org.apache.hadoop.hdfs.server.namenode.INode.getDepth(hopINode.getHeader()));
-        inode.setHeader(hopINode.getHeader());
+        inode.setHeaderNoPersistance(hopINode.getHeader());
         inode.setPartitionIdNoPersistance(hopINode.getPartitionId());
       }
       return inode;

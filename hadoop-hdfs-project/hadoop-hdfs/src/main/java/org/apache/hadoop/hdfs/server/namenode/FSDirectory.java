@@ -23,10 +23,8 @@ import io.hops.exception.StorageException;
 import io.hops.exception.TransactionContextException;
 import io.hops.resolvingcache.Cache;
 import io.hops.metadata.HdfsStorageFactory;
-import io.hops.metadata.hdfs.dal.AccessTimeLogDataAccess;
 import io.hops.metadata.hdfs.dal.INodeAttributesDataAccess;
 import io.hops.metadata.hdfs.dal.INodeDataAccess;
-import io.hops.metadata.hdfs.entity.AccessTimeLogEntry;
 import io.hops.metadata.hdfs.entity.INodeCandidatePrimaryKey;
 import io.hops.metadata.hdfs.entity.MetadataLogEntry;
 import io.hops.metadata.hdfs.entity.QuotaUpdate;
@@ -74,7 +72,6 @@ import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
-import org.apache.commons.compress.archivers.tar.TarArchiveEntry;
 
 import static org.apache.hadoop.hdfs.server.namenode.FSNamesystem.LOG;
 import static org.apache.hadoop.util.Time.now;
@@ -2750,7 +2747,7 @@ public class FSDirectory implements Closeable {
       clone = new INodeDirectory((INodeDirectory) inode);
     }
     clone.setDepthNoPersistance(inode.getDepth());
-    clone.setHeader(inode.getHeader());
+    clone.setHeaderNoPersistance(inode.getHeader());
     return clone;
   }
 
