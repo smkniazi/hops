@@ -98,7 +98,7 @@ public class INodeContext extends BaseEntityContext<Integer, INode> {
     super.remove(iNode);
     inodesNameParentIndex.remove(iNode.nameParentKey());
     log("removed-inode", "id", iNode.getId(), "name", iNode.getLocalName(), "parent_id", iNode.getParentId(),
-        "partition_id", iNode.getPartitionId(), "depth", iNode.getDepth());
+        "partition_id", iNode.getPartitionId());
   }
 
   @Override
@@ -106,7 +106,7 @@ public class INodeContext extends BaseEntityContext<Integer, INode> {
     super.update(iNode);
     inodesNameParentIndex.put(iNode.nameParentKey(), iNode);
     log("updated-inode", "id", iNode.getId(), "name", iNode.getLocalName(), "parent_id", iNode.getParentId(),
-        "partition_id", iNode.getPartitionId(), "depth", iNode.getDepth());
+        "partition_id", iNode.getPartitionId());
 //    for(int i = 0; i < Thread.currentThread().getStackTrace().length; i++){
 //      System.out.println(Thread.currentThread().getStackTrace()[i]) ;
 //    }
@@ -205,7 +205,7 @@ public class INodeContext extends BaseEntityContext<Integer, INode> {
       result = get(inodeId);
       if(result!=null) {
         hit(inodeFinder, result, "id", inodeId, "name", result.getLocalName(), "parent_id", result.getParentId(),
-            "partition_id", result.getPartitionId(), "depth", result.getDepth());
+            "partition_id", result.getPartitionId());
       }else{
         hit(inodeFinder, result, "id", inodeId);
       }
@@ -216,7 +216,7 @@ public class INodeContext extends BaseEntityContext<Integer, INode> {
       if (result != null) {
         inodesNameParentIndex.put(result.nameParentKey(), result);
         miss(inodeFinder, result, "id", inodeId, "name", result.getLocalName(), "parent_id", result.getParentId(),
-          "partition_id", result.getPartitionId(), "depth", result.getDepth());
+          "partition_id", result.getPartitionId());
       }else {
         miss(inodeFinder, result, "id");
       }

@@ -147,7 +147,8 @@ public class INodeDirectory extends INode {
 
   private INode getChildINode(byte[] name)
       throws StorageException, TransactionContextException {
-    int childPartitionId = INode.calculatePartitionId(getId(), DFSUtil.bytes2String(name), ((short)(getDepth()+1)));
+    short myDepth = myDepth();
+    int childPartitionId = INode.calculatePartitionId(getId(), DFSUtil.bytes2String(name), (short)(myDepth+1));
     INode existingInode = EntityManager
         .find(Finder.ByNameParentIdAndPartitionId, DFSUtil.bytes2String(name),
             getId(), childPartitionId);
@@ -338,8 +339,8 @@ public class INodeDirectory extends INode {
       Integer inodeID = IDsGeneratorFactory.getInstance().getUniqueINodeID();
       node.setIdNoPersistance(inodeID);
       node.setParentNoPersistance(this);
-      node.setDepthNoPersistance((short) (this.getDepth()+1));
-      node.setPartitionIdNoPersistance(INode.calculatePartitionId(node.getParentId(), node.getLocalName(), node.getDepth()));
+      short childDepth = (short)(myDepth()+1);
+      node.setPartitionIdNoPersistance(INode.calculatePartitionId(node.getParentId(), node.getLocalName(), childDepth));
       EntityManager.add(node);
       //add the INodeAttributes if it is Directory with Quota
 //      if (this instanceof INodeDirectoryWithQuota) { // [S] I think this is not necessary now. Quota update manager will take care of this
@@ -520,7 +521,8 @@ public class INodeDirectory extends INode {
     if (getId() == INode.NON_EXISTING_ID) {
       return null;
     }
-    short childrenDepth = ((short)(getDepth()+1));
+
+    short childrenDepth = ((short)(myDepth()+1));
     if(INode.isTreeLevelRandomPartitioned(childrenDepth)){
        return (List<INode>) EntityManager
         .findList(INode.Finder.ByParentIdFTIS, getId());

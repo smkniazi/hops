@@ -2746,7 +2746,6 @@ public class FSDirectory implements Closeable {
     } else if (inode instanceof INodeDirectory) {
       clone = new INodeDirectory((INodeDirectory) inode);
     }
-    clone.setDepthNoPersistance(inode.getDepth());
     clone.setHeaderNoPersistance(inode.getHeader());
     return clone;
   }

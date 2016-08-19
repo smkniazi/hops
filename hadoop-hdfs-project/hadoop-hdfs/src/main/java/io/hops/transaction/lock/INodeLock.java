@@ -511,7 +511,7 @@ class INodeLock extends BaseINodeLock {
 
      if (inodeToReread != null) {
         int partitionIdOfINodeToBeReRead = INode.calculatePartitionId(inodeToReread.getParentId(), inodeToReread
-        .getLocalName(), inodeToReread.getDepth());
+        .getLocalName(), inodeToReread.myDepth());
         INode inode = find(lockType, inodeToReread.getLocalName(),
             inodeToReread.getParentId(), partitionIdOfINodeToBeReRead);
         if (inode != null) {

@@ -1624,8 +1624,8 @@ public class TestFileCreation {
         fail();
       }
 
-      status = dfs.listStatus(new Path("/dir1/dir2/dir3"));
-      if(status.length != 2){
+      status = dfs.listStatus(new Path("/dir1/dir2/dir3/dir4/dir5/dir6"));
+      if(status.length != 0){
         fail();
       }
       dfs.getFileStatus(new Path("/dir1/dir2"));

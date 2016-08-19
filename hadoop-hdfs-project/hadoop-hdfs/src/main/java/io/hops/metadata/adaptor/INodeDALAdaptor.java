@@ -278,7 +278,6 @@ public class INodeDALAdaptor
         inode.setSubtreeLockOwner(hopINode.getSubtreeLockOwner());
         inode.setUserIDNoPersistance(hopINode.getUserID());
         inode.setGroupIDNoPersistance(hopINode.getGroupID());
-        inode.setDepthNoPersistance(org.apache.hadoop.hdfs.server.namenode.INode.getDepth(hopINode.getHeader()));
         inode.setHeaderNoPersistance(hopINode.getHeader());
         inode.setPartitionIdNoPersistance(hopINode.getPartitionId());
       }

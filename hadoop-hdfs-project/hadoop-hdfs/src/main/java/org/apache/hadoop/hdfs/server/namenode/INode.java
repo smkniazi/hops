@@ -18,9 +18,7 @@
 package org.apache.hadoop.hdfs.server.namenode;
 
 import com.google.common.primitives.SignedBytes;
-import io.hops.security.Users;
 import io.hops.erasure_coding.ErasureCodingManager;
-import io.hops.exception.HopsException;
 import io.hops.exception.StorageException;
 import io.hops.exception.TransactionContextException;
 import io.hops.metadata.HdfsStorageFactory;
@@ -144,18 +142,16 @@ public abstract class INode implements Comparable<byte[]> {
 
 
   //Number of bits for Block size
-  final static short BLOCK_BITS = 32;
+  final static short BLOCK_BITS = 48;
   final static short REPLICATION_BITS = 8;
   final static short BOOLEAN_BITS = 8;
   final static short HAS_BLKS_BITS = 1; // this is out of the 8 bits for the storing booleans
-  final static short DEPTH_BITS=16;
   //Header mask 64-bit representation
-  //Format:[16 bits for storing the depth of the inode][8 bits for flags][8 bits for replication degree][32 bits for PreferredBlockSize]
-  final static long BLOCK_SIZE_MASK =  0x00000000FFFFFFFFL;
-  final static long REPLICATION_MASK = 0x000000FF00000000L;
-  final static long FLAGS_MASK =       0x0000FF0000000000L;
-  final static long HAS_BLKS_MASK =    0x0000010000000000L;
-  final static long DEPTH_MASK =       0xFFFF000000000000L;
+  //Format:[8 bits for flags][8 bits for replication degree][48 bits for PreferredBlockSize]
+  final static long BLOCK_SIZE_MASK =  0x0000FFFFFFFFFFFFL;
+  final static long REPLICATION_MASK = 0x00FF000000000000L;
+  final static long FLAGS_MASK =       0xFF00000000000000L;
+  final static long HAS_BLKS_MASK =    0x0100000000000000L;
   //[8 bits for flags]
   //0 bit : 1 if the file has blocks. 0 blocks
   //remaining bits are not yet used
@@ -222,7 +218,6 @@ public abstract class INode implements Comparable<byte[]> {
 
     this.parentId = other.getParentId();
     this.id = other.getId();
-    setDepthNoPersistance(other.getDepth());
   }
 
   /**
@@ -822,7 +817,6 @@ public abstract class INode implements Comparable<byte[]> {
   }
 
   public void setPartitionIdNoPersistance(int partitionId){
-    FSNamesystem.LOG.debug("Setting partition_id for Inode id="+this.getId()+" parent_id="+this.getParentId()+" name="+getLocalName()+" depth="+getDepth()+" partition_id="+partitionId);
     this.partitionId = partitionId;
   }
 
@@ -875,6 +869,7 @@ public abstract class INode implements Comparable<byte[]> {
     }
     header = ((long) replication << BLOCK_BITS) | (header & ~REPLICATION_MASK);
   }
+
   public static long getPreferredBlockSize(long header) {
     return header & BLOCK_SIZE_MASK;
   }
@@ -896,9 +891,9 @@ public abstract class INode implements Comparable<byte[]> {
 //      throw new IllegalArgumentException("Unexpected value for the " +
 //          "header [" + header + "]");
 //    }
+
     long preferecBlkSize = getPreferredBlockSize(header);
     short replication = getBlockReplication(header);
-    short depth = getDepth(header);
     if (preferecBlkSize < 0) {
       throw new IllegalArgumentException("Unexpected value for the " +
           "block size [" + preferecBlkSize + "]");
@@ -907,11 +902,6 @@ public abstract class INode implements Comparable<byte[]> {
     if (replication < 0) {
       throw new IllegalArgumentException("Unexpected value for the " +
           "replication [" + replication + "]");
-    }
-
-    if(depth < 0){
-      throw new IllegalArgumentException("Unexpected value for the " +
-          "depth of inode [" + depth + "]");
     }
 
     this.header = header;
@@ -943,27 +933,16 @@ public abstract class INode implements Comparable<byte[]> {
    return hasBlocks(header);
   }
 
-  public void setDepthNoPersistance(short depth){
-    long depthLong = depth;
-    if (depth < 0 || depth > (Math.pow(2, DEPTH_BITS) - 1)) {
-      throw new IllegalArgumentException("Unexpected value for the " +
-          "depth [" + depth + "]. Expected [0:" + (Math.pow(2, DEPTH_BITS) - 1) + "]");
+  public short myDepth() throws TransactionContextException, StorageException {
+    if(id == NON_EXISTING_ID){
+      throw new IllegalStateException("INode is not connected to the file system tree yet");
     }
-    header = ((long) depth << (BLOCK_BITS+REPLICATION_BITS+BOOLEAN_BITS)) | (header & ~DEPTH_MASK);
-  }
 
-  public void setDepth(short depth) throws TransactionContextException, StorageException {
-    setDepthNoPersistance(depth);
-    save();
-  }
+    if(id == INodeDirectory.ROOT_ID){
+      return INodeDirectory.ROOT_DIR_DEPTH;
+    }
 
-  public static short getDepth(long header){
-    long val = (header & DEPTH_MASK);
-    long val2 = val >> (BLOCK_BITS+REPLICATION_BITS+BOOLEAN_BITS);
-    return (short)val2;
-  }
-
-  public short getDepth(){
-    return getDepth(header);
+    INode parentInode = EntityManager.find(Finder.ByINodeIdFTIS, getParentId());
+    return (short) (parentInode.myDepth()+1);
   }
 }
