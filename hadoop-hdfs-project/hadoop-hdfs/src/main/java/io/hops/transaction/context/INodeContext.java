@@ -287,13 +287,13 @@ public class INodeContext extends BaseEntityContext<Integer, INode> {
     List<INode> result = null;
     if (inodesParentIndex.containsKey(parentId)) {
       result = inodesParentIndex.get(parentId);
-      hit(inodeFinder, result, "parent_id", parentId);
+      hit(inodeFinder, result, "parent_id", parentId, "partition_id",partitionId);
     } else {
       aboutToAccessStorage(inodeFinder, params);
       result = syncInodeInstances(
               dataAccess.findInodesByParentIdAndPartitionIdPPIS(parentId, partitionId));
       inodesParentIndex.put(parentId, result);
-      miss(inodeFinder, result, "parent_id", parentId);
+      miss(inodeFinder, result, "parent_id", parentId, "partition_id",partitionId);
     }
     return result;
   }

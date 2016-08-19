@@ -273,7 +273,11 @@ public class DFSConfigKeys extends CommonConfigurationKeys {
   public static final String DFS_BR_LB_UPDATE_THRESHOLD_TIME =
           "dfs.blk.report.load.balancing.update.threashold.time";
   public static final long DFS_BR_LB_UPDATE_THRESHOLD_TIME_DEFAULT = 60*1000;
-  
+
+//  public static final String DFS_BR_LB_UPDATE_THRESHOLD_TIME =
+//          "dfs.inode.rand.partition.max.level";
+//  public static final long DFS_BR_LB_UPDATE_THRESHOLD_TIME_DEFAULT = 60*1000;
+
 
 
   public static final String DFS_BLOCK_SIZE_KEY = "dfs.blocksize";

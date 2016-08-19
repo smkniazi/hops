@@ -1700,7 +1700,7 @@ public class FSNamesystem
             lf.getINodeLock(!dir.isQuotaEnabled()?true:false/*skip INode Attr Lock*/,nameNode, INodeLockType.WRITE_ON_TARGET_AND_PARENT,
                 INodeResolveType.PATH, false, src)).add(lf.getBlockLock())
             .add(lf.getLeaseLock(LockType.WRITE, holder))
-            .add(lf.getLeasePathLock(LockType.WRITE)).add(
+            .add(lf.getLeasePathLock(LockType.READ_COMMITTED)).add(
             lf.getBlockRelated(BLK.RE, BLK.CR, BLK.ER, BLK.UC, BLK.UR, BLK.PE,
                 BLK.IV));
 
@@ -1915,7 +1915,7 @@ public class FSNamesystem
             locks.add(lf.getINodeLock(nameNode, INodeLockType.WRITE,
                     INodeResolveType.PATH, src))
                 .add(lf.getLeaseLock(LockType.WRITE, holder))
-                .add(lf.getLeasePathLock(LockType.WRITE)).add(lf.getBlockLock())
+                .add(lf.getLeasePathLock(LockType.READ_COMMITTED)).add(lf.getBlockLock())
                 .add(
                     lf.getBlockRelated(BLK.RE, BLK.CR, BLK.ER, BLK.UC, BLK.UR));
           }
@@ -2040,7 +2040,7 @@ public class FSNamesystem
                 INodeLockType.WRITE_ON_TARGET_AND_PARENT, INodeResolveType.PATH,
                 src)).add(lf.getBlockLock())
                 .add(lf.getLeaseLock(LockType.WRITE, holder))
-                .add(lf.getLeasePathLock(LockType.WRITE)).add(
+                .add(lf.getLeasePathLock(LockType.READ_COMMITTED)).add(
                 lf.getBlockRelated(BLK.RE, BLK.CR, BLK.ER, BLK.UC, BLK.UR,
                     BLK.IV, BLK.PE));
             // Always needs to be read. Erasure coding might have been
@@ -2124,7 +2124,7 @@ public class FSNamesystem
             locks.add(lf.getINodeLock(nameNode, INodeLockType.WRITE,
                     INodeResolveType.PATH, src))
                 .add(lf.getLeaseLock(LockType.READ, clientName))
-                .add(lf.getLeasePathLock(LockType.READ)).add(lf.getBlockLock())
+                .add(lf.getLeasePathLock(LockType.READ_COMMITTED)).add(lf.getBlockLock())
                 .add(lf.getBlockRelated(BLK.RE, BLK.CR, BLK.ER, BLK.UC));
           }
 
@@ -2463,7 +2463,7 @@ public class FSNamesystem
             locks.add(lf.getINodeLock(!dir.isQuotaEnabled()?true:false/*skip Inode Atrr*/,nameNode, INodeLockType.WRITE,
                 INodeResolveType.PATH, src))
                 .add(lf.getLeaseLock(LockType.WRITE, holder))
-                .add(lf.getLeasePathLock(LockType.WRITE)).add(lf.getBlockLock())
+                .add(lf.getLeasePathLock(LockType.READ_COMMITTED)).add(lf.getBlockLock())
                 .add(lf.getBlockRelated(BLK.RE, BLK.CR, BLK.ER, BLK.UC, BLK.UR,
                     BLK.IV));
           }
@@ -2637,7 +2637,7 @@ public class FSNamesystem
                 INodeLockType.WRITE_ON_TARGET_AND_PARENT,
                 INodeResolveType.PATH, src, dst))
                 .add(lf.getLeaseLock(LockType.WRITE))
-                .add(lf.getLeasePathLock(LockType.WRITE)).add(lf.getBlockLock())
+                .add(lf.getLeasePathLock(LockType.READ_COMMITTED)).add(lf.getBlockLock())
                 .add(lf.getBlockRelated(BLK.RE, BLK.UC, BLK.IV, BLK.CR, BLK.ER,
                     BLK.PE, BLK.UR));
             if (dir.isQuotaEnabled()) {
@@ -2722,7 +2722,7 @@ public class FSNamesystem
             INodeLockType.WRITE_ON_TARGET_AND_PARENT,
             INodeResolveType.PATH, src, dst))
             .add(lf.getLeaseLock(LockType.WRITE))
-            .add(lf.getLeasePathLock(LockType.WRITE)).add(lf.getBlockLock())
+            .add(lf.getLeasePathLock(LockType.READ_COMMITTED)).add(lf.getBlockLock())
             .add(lf.getBlockRelated(BLK.RE, BLK.CR, BLK.UC, BLK.UR, BLK.IV,
                 BLK.PE, BLK.ER));
         if (dir.isQuotaEnabled()) {
@@ -2786,7 +2786,7 @@ public class FSNamesystem
                 INodeLockType.WRITE_ON_TARGET_AND_PARENT,
                 INodeResolveType.PATH_AND_IMMEDIATE_CHILDREN, false, src))
                 .add(lf.getLeaseLock(LockType.WRITE))
-                .add(lf.getLeasePathLock(LockType.WRITE)).add(lf.getBlockLock())
+                .add(lf.getLeasePathLock(LockType.READ_COMMITTED)).add(lf.getBlockLock())
                 .add(lf.getBlockRelated(BLK.RE, BLK.CR, BLK.UC, BLK.UR, BLK.PE,
                     BLK.IV));
             if (dir.isQuotaEnabled()) {
@@ -3372,7 +3372,7 @@ private void commitOrCompleteLastBlock(
         locks.add(
             lf.getIndividualINodeLock(INodeLockType.WRITE, inodeIdentifier,
                 true)).add(lf.getLeaseLock(LockType.WRITE))
-            .add(lf.getLeasePathLock(LockType.WRITE))
+            .add(lf.getLeasePathLock(LockType.READ_COMMITTED))
             .add(lf.getBlockLock(lastblock.getBlockId(), inodeIdentifier))
             .add(lf.getBlockRelated(BLK.RE, BLK.CR, BLK.ER, BLK.UC, BLK.UR));
       }
@@ -4895,7 +4895,7 @@ private void commitOrCompleteLastBlock(
         locks.add(
             lf.getIndividualINodeLock(INodeLockType.WRITE, inodeIdentifier))
             .add(lf.getLeaseLock(LockType.READ))
-            .add(lf.getLeasePathLock(LockType.READ))
+            .add(lf.getLeasePathLock(LockType.READ_COMMITTED))
             .add(lf.getBlockLock(oldBlock.getBlockId(), inodeIdentifier))
             .add(lf.getBlockRelated(BLK.UC));
       }
@@ -6182,7 +6182,7 @@ private void commitOrCompleteLastBlock(
         }
         if(!isUsingSubTreeLocks){
           locks.add(lf.getLeaseLock(LockType.WRITE))
-            .add(lf.getLeasePathLock(LockType.WRITE));
+            .add(lf.getLeasePathLock(LockType.READ_COMMITTED));
         }else{
           locks.add(lf.getLeaseLock(LockType.WRITE))
             .add(lf.getLeasePathLock(LockType.WRITE, src));
@@ -6414,7 +6414,7 @@ private void commitOrCompleteLastBlock(
                     BLK.PE, BLK.UR));
             if(!isUsingSubTreeLocks){
               locks.add(lf.getLeaseLock(LockType.WRITE))
-                .add(lf.getLeasePathLock(LockType.WRITE));
+                .add(lf.getLeasePathLock(LockType.READ_COMMITTED));
             }else{
               locks.add(lf.getLeaseLock(LockType.READ_COMMITTED))
                 .add(lf.getLeasePathLock(LockType.READ_COMMITTED,src));
@@ -6560,7 +6560,7 @@ private void commitOrCompleteLastBlock(
                       INodeLockType.WRITE_ON_TARGET_AND_PARENT,
                       INodeResolveType.PATH, false, true, path))
                       .add(lf.getLeaseLock(LockType.WRITE))
-                      .add(lf.getLeasePathLock(LockType.WRITE))
+                      .add(lf.getLeasePathLock(LockType.READ_COMMITTED))
                       .add(lf.getBlockLock()).add(
                       lf.getBlockRelated(BLK.RE, BLK.CR, BLK.UC, BLK.UR, BLK.PE,
                           BLK.IV));

@@ -1619,11 +1619,16 @@ public class TestFileCreation {
       in = dfs.open(new Path("/dir1/dir2/fileindir2"));
       in.close();
 
-
       FileStatus[] status = dfs.listStatus(new Path("/dir1/dir2"));
       if(status.length != 2){
         fail();
       }
+
+      status = dfs.listStatus(new Path("/dir1/dir2/dir3"));
+      if(status.length != 2){
+        fail();
+      }
+      dfs.getFileStatus(new Path("/dir1/dir2"));
     } finally {
       if (cluster != null) {
         cluster.shutdown();

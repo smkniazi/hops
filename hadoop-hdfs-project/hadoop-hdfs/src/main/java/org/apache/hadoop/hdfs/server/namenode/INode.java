@@ -136,7 +136,7 @@ public abstract class INode implements Comparable<byte[]> {
   public static final int NON_EXISTING_ID = 0;
   protected int id = NON_EXISTING_ID;
   protected int parentId = NON_EXISTING_ID;
-  public static int RANDOM_PARTITIONING_MAX_LEVEL=2;
+  public static int RANDOM_PARTITIONING_MAX_LEVEL=1;
   protected int partitionId;
 
   protected boolean subtreeLocked;
@@ -849,9 +849,9 @@ public abstract class INode implements Comparable<byte[]> {
   }
 
   private static int partitionIdHashFunction(int parentId, String name, short depth){
-    //return (name+parentId).hashCode();
-    String partitionid = String.format("%04d%04d",parentId,depth);
-    return Integer.parseInt(partitionid);
+    return (name+parentId).hashCode();
+//    String partitionid = String.format("%04d%04d",parentId,depth);
+//    return Integer.parseInt(partitionid);
   }
 
   public static boolean isTreeLevelRandomPartitioned(short depth){

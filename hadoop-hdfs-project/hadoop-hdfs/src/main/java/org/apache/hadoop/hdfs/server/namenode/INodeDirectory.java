@@ -527,7 +527,6 @@ public class INodeDirectory extends INode {
     }else{
       return (List<INode>) EntityManager
         .findList(Finder.ByParentIdAndPartitionId, getId(), getId()/*partition id for all the childred is the parent id*/);
-       //[S] FIXME
     }
   }
 

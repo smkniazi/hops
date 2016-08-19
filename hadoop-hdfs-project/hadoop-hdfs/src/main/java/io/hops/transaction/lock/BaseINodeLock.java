@@ -18,6 +18,7 @@ package io.hops.transaction.lock;
 import com.google.common.collect.Iterables;
 import io.hops.exception.StorageException;
 import io.hops.exception.TransactionContextException;
+import io.hops.metadata.hdfs.dal.INodeDataAccess;
 import io.hops.resolvingcache.Cache;
 import io.hops.metadata.hdfs.dal.BlockInfoDataAccess;
 import io.hops.metadata.hdfs.entity.INodeCandidatePrimaryKey;
@@ -46,11 +47,11 @@ public abstract class BaseINodeLock extends Lock {
   protected static TransactionLockTypes.INodeLockType DEFAULT_INODE_LOCK_TYPE =
       TransactionLockTypes.INodeLockType.READ_COMMITTED;
 
-  private static boolean setPartitionKeyEnabled = false;
+  protected static boolean setPartitionKeyEnabled = false;
 
-  private static boolean setRandomParitionKeyEnabled = false;
+  protected static boolean setRandomParitionKeyEnabled = false;
 
-  private static Random rand = new Random(System.currentTimeMillis());
+  protected static Random rand = new Random(System.currentTimeMillis());
 
   public static void setDefaultLockType(
       TransactionLockTypes.INodeLockType defaultLockType) {
@@ -265,32 +266,19 @@ public abstract class BaseINodeLock extends Lock {
     acquireLockList(DEFAULT_LOCK_TYPE, INodeAttributes.Finder.ByINodeIds, pks);
   }
 
-  protected void setPartitioningKey(Integer inodeId)
-      throws StorageException, TransactionContextException {
-    if (!setPartitionKeyEnabled) {
+  protected void setPartitioningKey(Integer partitionId)
+          throws StorageException, TransactionContextException {
+    if (setPartitionKeyEnabled && partitionId != null) {
+      //set partitioning key
+      Object[] key = new Object[3];
+      key[0] = partitionId;
+      key[1] = 0;
+      key[2] = "";
+      EntityManager.setPartitionKey(INodeDataAccess.class, key);
+      LOG.debug("Setting PartitionKey to be " + partitionId);
+    } else {
       LOG.debug("Transaction PartitionKey is not Set");
-      return;
     }
-
-    if(setRandomParitionKeyEnabled && inodeId == null){
-      LOG.debug("Setting Random PartitionKey");
-      inodeId = Math.abs(rand.nextInt());
-    }
-
-    if(inodeId == null){
-      LOG.debug("Transaction PartitionKey is not Set");
-      return;
-    }
-
-    //set partitioning key
-    Object[] key = new Object[2];
-    key[0] = inodeId;
-    key[1] = new Long(0);
-
-    EntityManager.setPartitionKey(BlockInfoDataAccess.class, key);
-    LOG.debug("Setting PartitionKey to be " + inodeId);
-    //EntityManager.find(BlockInfo.Finder.ByBlockIdAndINodeId, key[1],
-    // key[0]);
   }
 
   @Override
