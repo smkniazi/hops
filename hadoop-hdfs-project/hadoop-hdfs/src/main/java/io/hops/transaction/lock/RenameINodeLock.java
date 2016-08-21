@@ -75,7 +75,7 @@ final class RenameINodeLock extends INodeLock {
 
   @Override
   protected void acquire(TransactionLocks locks) throws IOException {
-    //[S] consider src = /a/b/c and dst = /d
+    //consider src = /a/b/c and dst = /d
     //during the acquire lock of src write locks will be acquired on parent of c and c
     //during the acquire lock of dst write lock on the root will be acquired but the snapshot 
     //layer will not let the request go to the db as it has already cached the root inode

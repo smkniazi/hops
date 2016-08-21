@@ -792,7 +792,7 @@ public class FSNamesystem
       UnresolvedLinkException, IOException {  
     
     boolean txFailed = true;
-    INode inode = null;
+    INodeIdentifier inode = null;
     try {
       inode = lockSubtreeAndCheckPathPermission(src,
             true, null, null, null, null, SubTreeOperation.StoOperationType.SET_PERMISSION_STO);
@@ -905,7 +905,7 @@ public class FSNamesystem
       UnresolvedLinkException, IOException {
 
     boolean txFailed = true;
-    INode inode = null;;
+    INodeIdentifier inode = null;;
     try{
     inode = lockSubtreeAndCheckPathPermission(src,
             true, null, null, null, null, SubTreeOperation.StoOperationType.SET_OWNER_STO);
@@ -1576,9 +1576,9 @@ public class FSNamesystem
     void setMetaEnabled(final String src, final boolean metaEnabled)
       throws IOException {
     try {
-      INode inode = lockSubtree(src, SubTreeOperation.StoOperationType.META_ENABLE);
+      INodeIdentifier inode = lockSubtree(src, SubTreeOperation.StoOperationType.META_ENABLE);
       final AbstractFileTree.FileTree fileTree = new AbstractFileTree.FileTree(
-          FSNamesystem.this, inode.getId());
+          FSNamesystem.this, inode);
       fileTree.buildUp();
       new HopsTransactionalRequestHandler(HDFSOperationType.SET_META_ENABLED,
           src) {
@@ -5833,8 +5833,7 @@ private void commitOrCompleteLastBlock(
       throw new RuntimeException("Asked non leading node to setQuota");
     }
 
-    INode subtreeRoot = null;
-    int subtreeRootId = Integer.MIN_VALUE;
+    INodeIdentifier subtreeRoot = null;
     boolean removeSTOLock = false;
     
     try {
@@ -5851,21 +5850,21 @@ private void commitOrCompleteLastBlock(
       }
 
       //check if the path is root
-      if(INode.getPathNames(path).length == 0){ // this method return empty array in case of path = "/"
-        subtreeRootId = INodeDirectory.ROOT_ID; // locking root id is not yet properly implemented
+      if(INode.getPathNames(path).length == 0){ // this method return empty array in case of
+        // path = "/"
+        subtreeRoot = INodeDirectory.getRootIdentifier();
       }else{
         subtreeRoot = lockSubtree(path, SubTreeOperation.StoOperationType.QUOTA_STO);      
         if(subtreeRoot == null){
           // in the mean while the dir has been deleted by someone
           throw new FileNotFoundException("Directory does not exist: " + path);
         }
-        subtreeRootId = subtreeRoot.getId();
         removeSTOLock = true;
       }
       
       final AbstractFileTree.IdCollectingCountingFileTree fileTree =
           new AbstractFileTree.IdCollectingCountingFileTree(this,
-              subtreeRootId);
+              subtreeRoot);
       fileTree.buildUp();
       Iterator<Integer> idIterator =
           fileTree.getOrderedIds().descendingIterator();
@@ -5920,7 +5919,7 @@ private void commitOrCompleteLastBlock(
    * @throws IOException
    */
   // [S] what if you call content summary on the root
-  // I have remote sub tree locking from the content summary for now
+  // I have removed sub tree locking from the content summary for now
   // TODO : fix content summary sub tree locking
   // 
     ContentSummary multiTransactionalGetContentSummary(final String path)
@@ -5933,10 +5932,12 @@ private void commitOrCompleteLastBlock(
         throw new FileNotFoundException("File does not exist: " + path);
       }
       final INode subtreeRoot = pathInfo.getPathInodes()[pathInfo.getPathComponents().length-1];
+      final INodeIdentifier subtreeRootIdentifer = new INodeIdentifier(subtreeRoot.getId(),subtreeRoot.getParentId(),
+          subtreeRoot.getLocalName(),subtreeRoot.getPartitionId());
+      subtreeRootIdentifer.setDepth(((short) (INodeDirectory.ROOT_DIR_DEPTH + pathInfo.getPathComponents().length-1 )));
 
       final AbstractFileTree.CountingFileTree fileTree =
-              new AbstractFileTree.CountingFileTree(this, subtreeRoot.getId(),
-              FsAction.READ_EXECUTE);
+              new AbstractFileTree.CountingFileTree(this, subtreeRootIdentifer, FsAction.READ_EXECUTE);
       fileTree.buildUp();
       return (ContentSummary) new LightWeightRequestHandler(
               HDFSOperationType.GET_SUBTREE_ATTRIBUTES) {
@@ -6059,7 +6060,9 @@ private void commitOrCompleteLastBlock(
         throw new FileAlreadyExistsException(error);
       }
 
-      if (dstInode.isDirectory() && dir.hasChildren(dstInode.getId())) {
+      short depth = (short) (INodeDirectory.ROOT_DIR_DEPTH + dstInfo.getPathInodes().length-1);
+      boolean areChildrenRandomlyPartitioned = INode.isTreeLevelRandomPartitioned(depth);
+      if (dstInode.isDirectory() && dir.hasChildren(dstInode.getId(),areChildrenRandomlyPartitioned)) {
         error =
                 "rename cannot overwrite non empty destination directory " + dst;
         NameNode.stateChangeLog
@@ -6095,8 +6098,7 @@ private void commitOrCompleteLastBlock(
     long dstDsCount = dstInfo.getDsCount();
     boolean isUsingSubTreeLocks = srcInfo.isDir();
     boolean renameTransactionCommitted = false;
-    INode srcSubTreeRoot = null;
-    INode dstSubTreeRoot = null;
+    INodeIdentifier srcSubTreeRoot = null;
     String subTreeLockDst = INode.constructPath(dstInfo.getPathComponents(),
             0, dstInfo.getNumExistingComp());
     if(subTreeLockDst.equals(INodeDirectory.ROOT_NAME)){
@@ -6112,12 +6114,12 @@ private void commitOrCompleteLastBlock(
           AbstractFileTree.QuotaCountingFileTree srcFileTree;
           if (pathIsMetaEnabled(srcInodes) || pathIsMetaEnabled(dstInodes)) {
             srcFileTree = new AbstractFileTree.LoggingQuotaCountingFileTree(this,
-                    srcSubTreeRoot.getId(), srcDataset, dstDataset);
+                    srcSubTreeRoot, srcDataset, dstDataset);
             srcFileTree.buildUp();
             logEntries = ((AbstractFileTree.LoggingQuotaCountingFileTree) srcFileTree).getMetadataLogEntries();
           } else {
             srcFileTree = new AbstractFileTree.QuotaCountingFileTree(this,
-                    srcSubTreeRoot.getId());
+                    srcSubTreeRoot);
             srcFileTree.buildUp();
           }
           srcNsCount = srcFileTree.getNamespaceCount();
@@ -6134,9 +6136,6 @@ private void commitOrCompleteLastBlock(
       if (!renameTransactionCommitted) {
         if (srcSubTreeRoot != null) { //only unlock if locked
           unlockSubtree(src);
-        }
-        if (dstSubTreeRoot != null) { //only unlock if locked
-          unlockSubtree(subTreeLockDst);
         }
       }
     }
@@ -6333,9 +6332,8 @@ private void commitOrCompleteLastBlock(
     long dstDsCount = dstInfo.getDsCount();  
     boolean isUsingSubTreeLocks = srcInfo.isDir();
     boolean renameTransactionCommitted = false;
-    INode srcSubTreeRoot = null;
-    INode dstSubTreeRoot = null;
-    
+    INodeIdentifier srcSubTreeRoot = null;
+
     String subTreeLockDst = INode.constructPath(dstInfo.getPathComponents(),
             0,  dstInfo.getNumExistingComp());
     if(subTreeLockDst.equals(INodeDirectory.ROOT_NAME)){
@@ -6351,12 +6349,12 @@ private void commitOrCompleteLastBlock(
           AbstractFileTree.QuotaCountingFileTree srcFileTree;
           if (pathIsMetaEnabled(srcInfo.pathInodes) || pathIsMetaEnabled(dstInfo.pathInodes)) {
             srcFileTree = new AbstractFileTree.LoggingQuotaCountingFileTree(this,
-                    srcSubTreeRoot.getId(), srcDataset, dstDataset);
+                    srcSubTreeRoot, srcDataset, dstDataset);
             srcFileTree.buildUp();
             logEntries = ((AbstractFileTree.LoggingQuotaCountingFileTree) srcFileTree).getMetadataLogEntries();
           } else {
             srcFileTree = new AbstractFileTree.QuotaCountingFileTree(this,
-                    srcSubTreeRoot.getId());
+                    srcSubTreeRoot);
             srcFileTree.buildUp();
           }
           srcNsCount = srcFileTree.getNamespaceCount();
@@ -6379,10 +6377,7 @@ private void commitOrCompleteLastBlock(
         if (srcSubTreeRoot != null) { //only unlock if locked
           unlockSubtree(src);
         }
-        if (dstSubTreeRoot != null) { //only unlock if locked
-          unlockSubtree(subTreeLockDst);
-        }
-      }
+     }
     }
   }
 
@@ -6512,7 +6507,7 @@ private void commitOrCompleteLastBlock(
       return false;
     }
 
-    INode subtreeRoot = null;
+    INodeIdentifier subtreeRoot = null;
     if (pathInode.isFile()) {
       return deleteWithTransaction(path, recursive);
     } else {
@@ -6523,7 +6518,7 @@ private void commitOrCompleteLastBlock(
                 SubTreeOperation.StoOperationType.DELETE_STO);
 
         AbstractFileTree.FileTree fileTree =
-                new AbstractFileTree.FileTree(this, subtreeRoot.getId(), FsAction.ALL);
+                new AbstractFileTree.FileTree(this, subtreeRoot, FsAction.ALL);
         fileTree.buildUp();
 
         for (int i = fileTree.getHeight(); i > 0; i--) {
@@ -6632,7 +6627,7 @@ private void commitOrCompleteLastBlock(
    * @throws IOException
    */
   @VisibleForTesting
-  INode lockSubtree(final String path, SubTreeOperation.StoOperationType stoType) throws IOException {
+  INodeIdentifier lockSubtree(final String path, SubTreeOperation.StoOperationType stoType) throws IOException {
     return lockSubtreeAndCheckPathPermission(path, false, null, null, null,
         null, stoType);
   }
@@ -6659,13 +6654,13 @@ private void commitOrCompleteLastBlock(
    * @throws IOException
    */
   @VisibleForTesting
-  INode lockSubtreeAndCheckPathPermission(final String path,
+  INodeIdentifier lockSubtreeAndCheckPathPermission(final String path,
       final boolean doCheckOwner, final FsAction ancestorAccess,
       final FsAction parentAccess, final FsAction access,
       final FsAction subAccess,
       final SubTreeOperation.StoOperationType stoType) throws IOException {
     
-    return (INode) new HopsTransactionalRequestHandler(
+    return (INodeIdentifier) new HopsTransactionalRequestHandler(
         HDFSOperationType.SET_SUBTREE_LOCK) {
 
       @Override
@@ -6708,7 +6703,10 @@ private void commitOrCompleteLastBlock(
           
           EntityManager.update(new SubTreeOperation(getSubTreeLockPathPrefix(path)
                 ,nameNode.getId(),stoType));
-          return inode;
+          INodeIdentifier iNodeIdentifier =  new INodeIdentifier(inode.getId(), inode.getParentId(),
+              inode.getLocalName(), inode.getPartitionId());
+          iNodeIdentifier.setDepth(inode.myDepth());
+          return  iNodeIdentifier;
         }else{
           log.info("No componenet was locked in the path using sub tree flag. "
                   + "Path: \""+path+"\"");

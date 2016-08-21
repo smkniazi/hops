@@ -503,7 +503,9 @@ public class FSDirectory implements Closeable {
         INodeDataAccess ida = (INodeDataAccess) HdfsStorageFactory
                 .getDataAccess(INodeDataAccess.class);
 
-        if (ida.hasChildren(dstInode.getId())) {
+        Short depth = dstInode.myDepth();
+        boolean areChildrenRandomlyPartitioned = INode.isTreeLevelRandomPartitioned((short) (depth+1));
+        if (ida.hasChildren(dstInode.getId(), areChildrenRandomlyPartitioned)) {
           error =
                   "rename cannot overwrite non empty destination directory " + dst;
           NameNode.stateChangeLog
@@ -2714,10 +2716,7 @@ public class FSDirectory implements Closeable {
           ((INodeSymlink) inode).getModificationTime(),
           ((INodeSymlink) inode).getAccessTime(),
           ((INodeSymlink) inode).getPermissionStatus());
-      clone.setLocalNameNoPersistance(inode.getLocalName());
-      clone.setIdNoPersistance(inode.getId());
-      clone.setParentIdNoPersistance(inode.getParentId());
-      clone.setUser(inode.getUserName());
+
     } else if (inode instanceof INodeFileUnderConstruction) {
       int id = ((INodeFileUnderConstruction) inode).getId();
       int pid = ((INodeFileUnderConstruction) inode).getParentId();
@@ -2747,17 +2746,22 @@ public class FSDirectory implements Closeable {
       clone = new INodeDirectory((INodeDirectory) inode);
     }
     clone.setHeaderNoPersistance(inode.getHeader());
+    clone.setPartitionIdNoPersistance(inode.getPartitionId());
+    clone.setLocalNameNoPersistance(inode.getLocalName());
+    clone.setIdNoPersistance(inode.getId());
+    clone.setParentIdNoPersistance(inode.getParentId());
+    clone.setUser(inode.getUserName());
     return clone;
   }
 
-  public boolean hasChildren(final int parentId) throws IOException {
+  public boolean hasChildren(final int parentId, final boolean areChildrenRandomlyPartitioned) throws IOException {
     LightWeightRequestHandler hasChildrenHandler =
             new LightWeightRequestHandler(HDFSOperationType.HAS_CHILDREN) {
       @Override
       public Object performTask() throws IOException {
         INodeDataAccess ida = (INodeDataAccess) HdfsStorageFactory
                 .getDataAccess(INodeDataAccess.class);
-        return ida.hasChildren(parentId);
+        return ida.hasChildren(parentId, areChildrenRandomlyPartitioned);
       }
     };
     return (Boolean) hasChildrenHandler.handle();

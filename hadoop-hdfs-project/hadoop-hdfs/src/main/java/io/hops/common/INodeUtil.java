@@ -80,7 +80,7 @@ public class INodeUtil {
             parentId, name, parentId));
     INodeDataAccess<INode> da = (INodeDataAccess) HdfsStorageFactory
         .getDataAccess(INodeDataAccess.class);
-    return da.findInodeByNameParentIdAndPartitionIdPK(name, parentId, parentId);
+    return da.findInodeByNameParentIdAndPartitionIdPK(name, parentId, partitionId);
   }
 
   public static void resolvePathWithNoTransaction(String path,

@@ -155,8 +155,8 @@ public class INodeDALAdaptor
   }
   
   @Override
-  public boolean hasChildren(int parentId) throws StorageException {
-    return dataAccess.hasChildren(parentId);
+  public boolean hasChildren(int parentId, boolean areChildrenRandomlyPartitioned ) throws StorageException {
+    return dataAccess.hasChildren(parentId, areChildrenRandomlyPartitioned);
   }
   
   //Only for testing

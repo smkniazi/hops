@@ -20,6 +20,7 @@ import io.hops.exception.StorageException;
 import io.hops.metadata.HdfsStorageFactory;
 import io.hops.metadata.hdfs.dal.INodeDataAccess;
 import io.hops.metadata.hdfs.dal.OngoingSubTreeOpsDataAccess;
+import io.hops.metadata.hdfs.entity.INodeIdentifier;
 import io.hops.metadata.hdfs.entity.SubTreeOperation;
 import io.hops.transaction.handler.HDFSOperationType;
 import io.hops.transaction.handler.LightWeightRequestHandler;
@@ -763,7 +764,7 @@ public class TestSubtreeLock extends TestCase {
       Exception exception = null;
 
 
-      INode inode = cluster.getNamesystem().lockSubtree("/foo/file1.txt", SubTreeOperation.StoOperationType.NA);
+      INodeIdentifier inode = cluster.getNamesystem().lockSubtree("/foo/file1.txt", SubTreeOperation.StoOperationType.NA);
       if (inode != null) {
         fail("nothing should have been locked");
       }

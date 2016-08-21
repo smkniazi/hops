@@ -43,6 +43,7 @@ public abstract class BaseINodeLock extends Lock {
   private final Map<INode, TransactionLockTypes.INodeLockType>
       allLockedInodesInTx;
   private final ResolvedINodesMap resolvedINodesMap;
+  private boolean isPartitionKeyAlreaySet = false;
 
   protected static TransactionLockTypes.INodeLockType DEFAULT_INODE_LOCK_TYPE =
       TransactionLockTypes.INodeLockType.READ_COMMITTED;
@@ -268,13 +269,14 @@ public abstract class BaseINodeLock extends Lock {
 
   protected void setPartitioningKey(Integer partitionId)
           throws StorageException, TransactionContextException {
-    if (setPartitionKeyEnabled && partitionId != null) {
+    if (setPartitionKeyEnabled && partitionId != null && !isPartitionKeyAlreaySet ) {
       //set partitioning key
       Object[] key = new Object[3];
       key[0] = partitionId;
       key[1] = 0;
       key[2] = "";
       EntityManager.setPartitionKey(INodeDataAccess.class, key);
+      isPartitionKeyAlreaySet=true; //to avoid setting partition key multiple times. It can happen during rename
       LOG.debug("Setting PartitionKey to be " + partitionId);
     } else {
       LOG.debug("Transaction PartitionKey is not Set");

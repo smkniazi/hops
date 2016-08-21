@@ -20,6 +20,7 @@ package org.apache.hadoop.hdfs.server.namenode;
 import io.hops.common.IDsGeneratorFactory;
 import io.hops.exception.StorageException;
 import io.hops.exception.TransactionContextException;
+import io.hops.metadata.hdfs.entity.INodeIdentifier;
 import io.hops.metadata.hdfs.entity.MetadataLogEntry;
 import io.hops.transaction.EntityManager;
 import org.apache.hadoop.fs.UnresolvedLinkException;
@@ -136,6 +137,9 @@ public class INodeDirectory extends INode {
       if (existingINode.getParentId() != newChild.getParentId()) {
         throw new IllegalArgumentException("Invalid parentid");
       }
+      short depth = myDepth();
+      int childPartitionKey  = INode.calculatePartitionId(getId(), newChild.getLocalName(), (short) (myDepth()+1));
+      newChild.setPartitionId(childPartitionKey);
       EntityManager.update(newChild);
     }
   }
@@ -348,7 +352,6 @@ public class INodeDirectory extends INode {
 //      }
     } else {
       node.setParent(this);
-      throw new UnsupportedOptionsException("Move operation is not yet implemented");
     }
 
 
@@ -555,5 +558,10 @@ public class INodeDirectory extends INode {
 
   public static int getRootDirPartitionKey(){
     return INode.calculatePartitionId(ROOT_PARENT_ID,ROOT_NAME,ROOT_DIR_DEPTH);
+  }
+
+  public static INodeIdentifier getRootIdentifier(){
+    return new INodeIdentifier(INodeDirectory.ROOT_ID,INodeDirectory.ROOT_PARENT_ID, INodeDirectory.ROOT_NAME,
+        INodeDirectory.getRootDirPartitionKey());
   }
 }

@@ -172,15 +172,19 @@ public class INodeContext extends BaseEntityContext<Integer, INode> {
         INode inodeBeforeChange = (INode) params[0];
         INode inodeAfterChange = (INode) params[1];
         super.remove(inodeBeforeChange);
+        try {
+          inodeAfterChange.setPartitionIdNoPersistance(INode.calculatePartitionId(inodeAfterChange.getParentId(),inodeAfterChange
+              .getLocalName(), inodeAfterChange.myDepth()));
+        } catch (StorageException e) {
+          throw new TransactionContextException(e);
+        }
         renamedInodes.add(inodeAfterChange);
-        log("snapshot-maintenance-inode-pk-change", "Before inodeId",
-            inodeBeforeChange.getId(), "name", inodeBeforeChange.getLocalName(),
-            "parent_id", inodeBeforeChange.getParentId(), "After inodeId",
+       log("removed-inode-snapshot-maintenance", "id", inodeBeforeChange.getId(), "name",
+            inodeBeforeChange.getLocalName(), "parent_id", inodeBeforeChange.getParentId(),"partition_id", inodeBeforeChange
+                .getPartitionId());
+        log("added-inode-snapshot-maintenance", "id",
             inodeAfterChange.getId(), "name", inodeAfterChange.getLocalName(),
-            "parent_id", inodeAfterChange.getParentId());
-        log("snapshot-maintenance-removed-inode", "name",
-            inodeBeforeChange.getLocalName(), "inodeId",
-            inodeBeforeChange.getId(), "parent_id", inodeBeforeChange.getParentId());
+            "parent_id", inodeAfterChange.getParentId(),"partition_id", inodeAfterChange.getPartitionId());
         break;
       case Concat:
         // do nothing
