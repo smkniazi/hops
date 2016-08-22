@@ -843,9 +843,13 @@ public abstract class INode implements Comparable<byte[]> {
   }
 
   private static int partitionIdHashFunction(int parentId, String name, short depth){
-    return (name+parentId).hashCode();
-//    String partitionid = String.format("%04d%04d",parentId,depth);
-//    return Integer.parseInt(partitionid);
+    if(depth == INodeDirectory.ROOT_DIR_DEPTH){
+      return INodeDirectory.ROOT_DIR_PARTITION_KEY;
+    }else{
+      return (name+parentId).hashCode();
+      //    String partitionid = String.format("%04d%04d",parentId,depth);
+      //    return Integer.parseInt(partitionid);
+    }
   }
 
   public static boolean isTreeLevelRandomPartitioned(short depth){
@@ -887,11 +891,6 @@ public abstract class INode implements Comparable<byte[]> {
   }
 
   public void setHeaderNoPersistance(long header) {
-//    if (header == 0) {
-//      throw new IllegalArgumentException("Unexpected value for the " +
-//          "header [" + header + "]");
-//    }
-
     long preferecBlkSize = getPreferredBlockSize(header);
     short replication = getBlockReplication(header);
     if (preferecBlkSize < 0) {
