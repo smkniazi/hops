@@ -29,8 +29,10 @@ import io.hops.transaction.lock.BaseINodeLock;
 import io.hops.transaction.lock.Lock;
 import io.hops.transaction.lock.TransactionLockTypes;
 import io.hops.transaction.lock.TransactionLocks;
+import org.apache.commons.logging.Log;
+import org.apache.commons.logging.LogFactory;
 import org.apache.hadoop.hdfs.server.namenode.INode;
-import org.apache.hadoop.hdfs.server.namenode.INodeFile;
+import org.apache.hadoop.hdfs.server.namenode.INodeDirectory;
 
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -42,6 +44,8 @@ import java.util.List;
 import java.util.Map;
 
 public class INodeContext extends BaseEntityContext<Integer, INode> {
+
+  protected final static Log LOG = LogFactory.getLog(INodeContext.class);
 
   private final INodeDataAccess<INode> dataAccess;
 
@@ -256,8 +260,13 @@ public class INodeContext extends BaseEntityContext<Integer, INode> {
       }
     } else {
       if (!isNewlyAdded(parentId) && !containsRemoved(parentId, name)) {
-        aboutToAccessStorage(inodeFinder, params);
-        result = dataAccess.findInodeByNameParentIdAndPartitionIdPK(name, parentId, partitionId);
+        if (canReadCachedRootINode(name, parentId)) {
+          LOG.debug("Returning cached root inode ");
+          result = RootINodeCache.getRootINode();
+       } else {
+          aboutToAccessStorage(inodeFinder, params);
+          result = dataAccess.findInodeByNameParentIdAndPartitionIdPK(name, parentId, partitionId);
+        }
         gotFromDBWithPossibleInodeId(result, possibleInodeId);
         inodesNameParentIndex.put(nameParentKey, result);
         miss(inodeFinder, result, "name", name, "parent_id", parentId, "partition_id", partitionId,
@@ -359,10 +368,24 @@ public class INodeContext extends BaseEntityContext<Integer, INode> {
   }
 
   private List<INode> findBatch(INode.Finder inodeFinder, String[] names,
-      int[] parentIds, int[] partitionIds) throws StorageException {
+                                int[] parentIds, int[] partitionIds) throws StorageException {
+    INode rootINode = null;
+    if (canReadCachedRootINode(names[0], parentIds[0])) {
+      rootINode = RootINodeCache.getRootINode();
+      if (rootINode != null) {
+        names = Arrays.copyOfRange(names, 1, names.length);
+        parentIds = Arrays.copyOfRange(parentIds, 1, parentIds.length);
+        partitionIds = Arrays.copyOfRange(partitionIds, 1, partitionIds.length);
+        LOG.debug("Returning cached root inode ");
+      }
+    }
+
     List<INode> batch = dataAccess.getINodesPkBatched(names, parentIds, partitionIds);
     miss(inodeFinder, batch, "names", Arrays.toString(names), "parent_ids",
-        Arrays.toString(parentIds), "partition_ids", Arrays.toString(partitionIds));
+            Arrays.toString(parentIds), "partition_ids", Arrays.toString(partitionIds));
+    if (rootINode != null) {
+      batch.add(0, rootINode);
+    }
     return syncInodeInstances(batch);
   }
 
@@ -409,5 +432,16 @@ public class INodeContext extends BaseEntityContext<Integer, INode> {
     } else {
       gotFromDB(result);
     }
+  }
+
+  private boolean canReadCachedRootINode(String name, int parentId) {
+    if (name.equals(INodeDirectory.ROOT_NAME) && parentId == INodeDirectory.ROOT_PARENT_ID) {
+      if (RootINodeCache.isRootInCache() && currentLockMode.get() == LockMode.READ_COMMITTED) {
+        return true;
+      } else {
+        return false;
+      }
+    }
+    return false;
   }
 }

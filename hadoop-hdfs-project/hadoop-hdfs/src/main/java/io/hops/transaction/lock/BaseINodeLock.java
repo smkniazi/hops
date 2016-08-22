@@ -234,9 +234,6 @@ public abstract class BaseINodeLock extends Lock {
     TransactionLockTypes.INodeLockType oldLock = allLockedInodesInTx.get(inode);
     if (oldLock == null || oldLock.compareTo(lock) < 0) {
       allLockedInodesInTx.put(inode, lock);
-      LOG.debug("INode locked id="+inode.getId()+" lock type="+lock+" old "+oldLock);
-    }else{
-      LOG.debug("INode not added in the locked list  id="+inode.getId()+" lock type="+lock+" old "+oldLock);
     }
   }
 

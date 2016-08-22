@@ -1604,6 +1604,7 @@ public class TestFileCreation {
 
 
       dfs.mkdirs(new Path("/dir1/dir2"));
+      dfs.mkdirs(new Path("/dirx/dir2"));
 //      dfs.mkdirs(new Path("/dir1/dir2/dir3/dir4/dir5/dir6"));
 //
 //      FSDataOutputStream out = dfs.create(new Path("/dir1/dir2/dir3/fileindir3"));

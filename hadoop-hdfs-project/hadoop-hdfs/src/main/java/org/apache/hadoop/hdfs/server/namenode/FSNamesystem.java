@@ -48,6 +48,7 @@ import io.hops.metadata.hdfs.entity.SizeLogEntry;
 import io.hops.metadata.hdfs.entity.SubTreeOperation;
 import io.hops.resolvingcache.Cache;
 import io.hops.transaction.EntityManager;
+import io.hops.transaction.context.RootINodeCache;
 import io.hops.transaction.handler.EncodingStatusOperationType;
 import io.hops.transaction.handler.HDFSOperationType;
 import io.hops.transaction.handler.HopsTransactionalRequestHandler;
@@ -638,6 +639,7 @@ public class FSNamesystem
       performPendingSafeModeOperation();
     }
     blockManager.activate(conf);
+    RootINodeCache.start();
     if (dir.isQuotaEnabled()) {
       quotaUpdateManager.activate();
     }
@@ -657,6 +659,7 @@ public class FSNamesystem
     if (quotaUpdateManager != null) {
       quotaUpdateManager.close();
     }
+    RootINodeCache.stop();
   }
   
   /**

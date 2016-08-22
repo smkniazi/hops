@@ -495,8 +495,6 @@ class INodeLock extends BaseINodeLock {
       byte[][] components, String path)
       throws StorageException, UnresolvedPathException,
       TransactionContextException {
-    LOG.debug("Handle Lock Upgrade. Resolved INodes: "+resolvedINodes.size()+" components "+components.length+" path " +
-        ""+path);
     // TODO Handle the case that predecessing nodes get deleted before locking
     // lock upgrade if the path was not fully resolved
     if (resolvedINodes.size() != components.length) {
