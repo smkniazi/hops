@@ -507,7 +507,7 @@ abstract class AbstractFileTree {
     protected void addSubtreeRoot(ProjectedINode node) {
       inodesByLevel.put(ROOT_LEVEL, node);
       inodesById.put(node.getId(), node);
-      dirsByLevel.put(node.getId(), node);
+      dirsByLevel.put(ROOT_LEVEL, node);
     }
 
     @Override

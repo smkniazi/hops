@@ -403,22 +403,37 @@ public class TestSubtreeLock extends TestCase {
       cluster = new MiniDFSCluster.Builder(conf).numDataNodes(1).build();
       cluster.waitActive();
       DistributedFileSystem fs = cluster.getFileSystem();
-      assertTrue(fs.mkdir(new Path("/foo"), FsPermission.getDefault()));
-      assertTrue(fs.mkdir(new Path("/foo/bar"), FsPermission.getDefault()));
-      for(int i = 0; i < 10; i++) {
-        assertTrue(fs.mkdir(new Path("/foo/bar/dir"+i), FsPermission.getDefault()));
-      }
-      assertTrue(fs.mkdir(new Path("/foo/dar"), FsPermission.getDefault()));
-      for(int i = 0; i < 6;i ++){
-        TestFileCreation.createFile(fs, new Path("/foo/dar/file"+i), 1).close();
+      assertTrue(fs.mkdir(new Path("/a"), FsPermission.getDefault()));
+
+      assertTrue(fs.mkdir(new Path("/a/b"), FsPermission.getDefault()));
+      assertTrue(fs.mkdir(new Path("/a/c"), FsPermission.getDefault()));
+      assertTrue(fs.mkdir(new Path("/a/d"), FsPermission.getDefault()));
+
+      for(int i = 0; i < 5; i++) {
+        TestFileCreation.createFile(fs, new Path("/a/b/a_b_file_"+i), 1).close();
       }
 
-      assertTrue(fs.mkdir(new Path("/foo"), FsPermission.getDefault()));
-      for(int i = 0; i < 3;i ++){
-        TestFileCreation.createFile(fs, new Path("/foo/file"+i), 1).close();
+      for(int i = 0; i < 5; i++) {
+        TestFileCreation.createFile(fs, new Path("/a/b/a_b_file_"+i), 1).close();
       }
-      assertTrue(fs.delete(new Path("/foo")));
-      assertFalse(fs.exists(new Path("/foo")));
+
+      for(int i = 0; i < 5; i++) {
+        TestFileCreation.createFile(fs, new Path("/a/c/a_c_file_"+i), 1).close();
+      }
+
+      for(int i = 0; i < 10;i ++){
+        assertTrue(fs.mkdirs( new Path("/a/b/c/a_b_c_dir_"+i)));
+      }
+
+      for(int i = 0; i < 3;i ++){
+        assertTrue(fs.mkdirs( new Path("/a/b/a_b_dir_"+i)));
+      }
+
+      for(int i = 0; i < 3;i ++){
+        TestFileCreation.createFile(fs, new Path("/a/b/c/b/a_b_c_d_file_"+i), 1).close();
+      }
+      assertTrue(fs.delete(new Path("/a")));
+      assertFalse(fs.exists(new Path("/a")));
 
       assertFalse("Not All subtree locks were removed after operation ", subTreeLocksExists());
     } finally {

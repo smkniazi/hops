@@ -398,7 +398,7 @@ public class FSNamesystem
   private final ExecutorService subtreeOperationsExecutor;
   private final boolean erasureCodingEnabled;
   private final ErasureCodingManager erasureCodingManager;
-
+  private final long BIGGEST_DELETEABLE_DIR = 30;
   /**
    * Clear all loaded data
    */
@@ -6543,29 +6543,25 @@ private void commitOrCompleteLastBlock(
     ArrayList<Future> barrier = new ArrayList<Future>();
 
      for (final ProjectedINode dir : fileTree.getDirsByLevel(level)) {
-       LOG.debug("xxx Dir "+dir.getName()+" at level "+level);
-       if (fileTree.countChildren(dir.getId()) <= 5) {
+       if (fileTree.countChildren(dir.getId()) <= BIGGEST_DELETEABLE_DIR) {
          final String path = fileTree.createAbsolutePath(subtreeRootPath, dir);
-         LOG.debug("xxx Deleting a dir "+dir);
          Future f = multiTransactionDeleteInternal(path);
          barrier.add(f);
        } else {
+         //delete the content of the direcotry one by one.
          for (final ProjectedINode inode : fileTree.getChildren(dir.getId())) {
-           final String path = fileTree.createAbsolutePath(subtreeRootPath, inode);
-           LOG.debug("xxx deleting a file "+path);
-           Future f = multiTransactionDeleteInternal(path);
-           barrier.add(f);
+           if(!inode.isDirectory()) {
+             final String path = fileTree.createAbsolutePath(subtreeRootPath, inode);
+             Future f = multiTransactionDeleteInternal(path);
+             barrier.add(f);
+           }
          }
+         // the dir is empty now. delete it.
+         final String path = fileTree.createAbsolutePath(subtreeRootPath, dir);
+         Future f = multiTransactionDeleteInternal(path);
+         barrier.add(f);
        }
      }
-
-//    for (final ProjectedINode inode : fileTree.getInodesByLevel(level)) {
-//      if (inode.isDirectory()) {
-//        final String path = fileTree.createAbsolutePath(subtreeRootPath, inode);
-//        Future f = multiTransactionDeleteInternal(path);
-//        barrier.add(f);
-//      }
-//    }
 
     boolean result = true;
     for (Future f : barrier) {
