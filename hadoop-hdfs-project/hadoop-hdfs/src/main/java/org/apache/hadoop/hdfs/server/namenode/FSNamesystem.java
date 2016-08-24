@@ -6542,68 +6542,30 @@ private void commitOrCompleteLastBlock(
       final AbstractFileTree.FileTree fileTree, int level) {
     ArrayList<Future> barrier = new ArrayList<Future>();
 
-    for (final ProjectedINode inode : fileTree.getInodesByLevel(level)) {
-      final String path = fileTree.createAbsolutePath(subtreeRootPath, inode);
+     for (final ProjectedINode dir : fileTree.getDirsByLevel(level)) {
+       LOG.debug("xxx Dir "+dir.getName()+" at level "+level);
+       if (fileTree.countChildren(dir.getId()) <= 5) {
+         final String path = fileTree.createAbsolutePath(subtreeRootPath, dir);
+         LOG.debug("xxx Deleting a dir "+dir);
+         Future f = multiTransactionDeleteInternal(path);
+         barrier.add(f);
+       } else {
+         for (final ProjectedINode inode : fileTree.getChildren(dir.getId())) {
+           final String path = fileTree.createAbsolutePath(subtreeRootPath, inode);
+           LOG.debug("xxx deleting a file "+path);
+           Future f = multiTransactionDeleteInternal(path);
+           barrier.add(f);
+         }
+       }
+     }
 
-      Future f = subtreeOperationsExecutor.submit(new Callable<Boolean>() {
-        @Override
-        public Boolean call() throws Exception {
-          HopsTransactionalRequestHandler deleteHandler =
-              new HopsTransactionalRequestHandler(HDFSOperationType.SUBTREE_DELETE) {
-                @Override
-                public void acquireLock(TransactionLocks locks)
-                    throws IOException {
-                  LockFactory lf = LockFactory.getInstance();
-                  locks.add(lf.getINodeLock(nameNode,
-                      INodeLockType.WRITE_ON_TARGET_AND_PARENT,
-                      INodeResolveType.PATH, false, true, path))
-                      .add(lf.getLeaseLock(LockType.WRITE))
-                      .add(lf.getLeasePathLock(LockType.READ_COMMITTED))
-                      .add(lf.getBlockLock()).add(
-                      lf.getBlockRelated(BLK.RE, BLK.CR, BLK.UC, BLK.UR, BLK.PE,
-                          BLK.IV));
-                  if (dir.isQuotaEnabled()) {
-                    locks.add(lf.getQuotaUpdateLock(path));
-                  }
-                  if (erasureCodingEnabled) {
-                    locks.add(lf.getEncodingStatusLock(LockType.WRITE, path));
-                  }
-                }
-
-                @Override
-                public Object performTask() throws IOException {
-                  INode[] pathComponents =
-                      dir.getRootDir().getExistingPathINodes(path, false);
-                  INode inode = pathComponents[pathComponents.length - 1];
-                  if (inode == null) {
-                    LOG.error("INode disappeared during deletion");
-                    return false;
-                  }
-                  INodeDirectory parent =
-                      (INodeDirectory) pathComponents[pathComponents.length -
-                          2];
-                  dir.removeChildNonRecursively(pathComponents,
-                      pathComponents.length - 1);
-                  parent.setModificationTime(now());
-
-                  NameNode.getNameNodeMetrics().incrFilesDeleted(1);
-
-                  if (inode instanceof INodeFile) {
-                    INodeFile file = (INodeFile) inode;
-                    ArrayList<Block> collectedBlocks = new ArrayList<Block>();
-                    file.collectSubtreeBlocksAndClear(collectedBlocks);
-                    removeBlocks(
-                        collectedBlocks); // Incremental deletion of blocks
-                    collectedBlocks.clear();
-                  }
-                  return true;
-                }
-              };
-          return (Boolean) deleteHandler.handle(this);
-        }
-      });
-      barrier.add(f);
-    }
+//    for (final ProjectedINode inode : fileTree.getInodesByLevel(level)) {
+//      if (inode.isDirectory()) {
+//        final String path = fileTree.createAbsolutePath(subtreeRootPath, inode);
+//        Future f = multiTransactionDeleteInternal(path);
+//        barrier.add(f);
+//      }
+//    }
 
     boolean result = true;
     for (Future f : barrier) {
@@ -6618,6 +6580,67 @@ private void commitOrCompleteLastBlock(
     }
     return result;
   }
+
+  private Future multiTransactionDeleteInternal(final String path){
+   return  subtreeOperationsExecutor.submit(new Callable<Boolean>() {
+        @Override
+        public Boolean call() throws Exception {
+          HopsTransactionalRequestHandler deleteHandler =
+                  new HopsTransactionalRequestHandler(HDFSOperationType.SUBTREE_DELETE) {
+                    @Override
+                    public void acquireLock(TransactionLocks locks)
+                            throws IOException {
+                      LockFactory lf = LockFactory.getInstance();
+                      locks.add(lf.getINodeLock(nameNode,
+                              INodeLockType.WRITE_ON_TARGET_AND_PARENT,
+                              INodeResolveType.PATH_AND_ALL_CHILDREN_RECURSIVELY, false, true, path))
+                              .add(lf.getLeaseLock(LockType.WRITE))
+                              .add(lf.getLeasePathLock(LockType.READ_COMMITTED))
+                              .add(lf.getBlockLock()).add(
+                              lf.getBlockRelated(BLK.RE, BLK.CR, BLK.UC, BLK.UR, BLK.PE,
+                                      BLK.IV));
+                      if (dir.isQuotaEnabled()) {
+                        locks.add(lf.getQuotaUpdateLock(path));
+                      }
+                      if (erasureCodingEnabled) {
+                        locks.add(lf.getEncodingStatusLock(LockType.WRITE, path));
+                      }
+                    }
+
+                    @Override
+                    public Object performTask() throws IOException {
+                      INode[] pathComponents =
+                              dir.getRootDir().getExistingPathINodes(path, false);
+                      INode inode = pathComponents[pathComponents.length - 1];
+                      if (inode == null) {
+                        LOG.error("INode disappeared during deletion");
+                        return false;
+                      }
+                      INodeDirectory parent =
+                              (INodeDirectory) pathComponents[pathComponents.length -
+                                      2];
+                      dir.removeChildNonRecursively(pathComponents,
+                              pathComponents.length - 1);
+                      parent.setModificationTime(now());
+
+                      NameNode.getNameNodeMetrics().incrFilesDeleted(1);
+
+                      if (inode instanceof INodeFile) {
+                        INodeFile file = (INodeFile) inode;
+                        ArrayList<Block> collectedBlocks = new ArrayList<Block>();
+                        file.collectSubtreeBlocksAndClear(collectedBlocks);
+                        removeBlocks(
+                                collectedBlocks); // Incremental deletion of blocks
+                        collectedBlocks.clear();
+                      }
+                      return true;
+                    }
+                  };
+          return (Boolean) deleteHandler.handle(this);
+        }
+      });
+  }
+
 
   /**
    * Lock a subtree of the filesystem tree.

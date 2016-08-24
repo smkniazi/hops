@@ -59,8 +59,12 @@ public class RootINodeCache {
   }
 
   public static INode getRootINode() {
-    synchronized (rootCacheUpdater) {
-      return rootINode;
+    if(rootCacheUpdater!=null) {
+      synchronized (rootCacheUpdater) {
+        return rootINode;
+      }
+    }else{
+      return null;
     }
   }
 

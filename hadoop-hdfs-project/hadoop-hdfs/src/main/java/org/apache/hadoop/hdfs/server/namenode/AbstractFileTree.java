@@ -483,6 +483,7 @@ abstract class AbstractFileTree {
 
     private final SetMultimap<Integer, ProjectedINode> inodesByParent;
     private final SetMultimap<Integer, ProjectedINode> inodesByLevel;
+    private final SetMultimap<Integer, ProjectedINode> dirsByLevel;
     private final ConcurrentHashMap<Integer, ProjectedINode> inodesById =
         new ConcurrentHashMap<Integer, ProjectedINode>();
 
@@ -498,12 +499,15 @@ abstract class AbstractFileTree {
       inodesByParent = Multimaps.synchronizedSetMultimap(parentMap);
       HashMultimap<Integer, ProjectedINode> levelMap = HashMultimap.create();
       inodesByLevel = Multimaps.synchronizedSetMultimap(levelMap);
+      HashMultimap<Integer, ProjectedINode> dirsLevelMap = HashMultimap.create();
+      dirsByLevel = Multimaps.synchronizedSetMultimap(dirsLevelMap);
     }
 
     @Override
     protected void addSubtreeRoot(ProjectedINode node) {
       inodesByLevel.put(ROOT_LEVEL, node);
       inodesById.put(node.getId(), node);
+      dirsByLevel.put(node.getId(), node);
     }
 
     @Override
@@ -512,6 +516,9 @@ abstract class AbstractFileTree {
       inodesByParent.put(node.getParentId(), node);
       inodesByLevel.put(level, node);
       inodesById.put(node.getId(), node);
+      if(node.isDirectory()){
+        dirsByLevel.put(level,node);
+      }
     }
 
     public Collection<ProjectedINode> getAll() {
@@ -536,6 +543,14 @@ abstract class AbstractFileTree {
 
     public Collection<ProjectedINode> getInodesByLevel(int level) {
       return inodesByLevel.get(level);
+    }
+
+    public Collection<ProjectedINode> getDirsByLevel(int level) {
+      return dirsByLevel.get(level);
+    }
+
+    public int countChildren(int inodeId){
+      return getChildren(inodeId).size();
     }
 
     public ProjectedINode getInodeById(int id) {
