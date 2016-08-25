@@ -6681,7 +6681,11 @@ private void commitOrCompleteLastBlock(
       final FsAction parentAccess, final FsAction access,
       final FsAction subAccess,
       final SubTreeOperation.StoOperationType stoType) throws IOException {
-    
+
+    if(path.compareTo("/")==0){
+      return null;
+    }
+
     return (INodeIdentifier) new HopsTransactionalRequestHandler(
         HDFSOperationType.SET_SUBTREE_LOCK) {
 
