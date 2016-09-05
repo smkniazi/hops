@@ -2832,9 +2832,13 @@ public class FSNamesystem
     return status;
   }
 
+  static FSPermissionChecker pc = null;
   FSPermissionChecker getPermissionChecker()
       throws AccessControlException {
-    return new FSPermissionChecker(fsOwnerShortUserName, supergroup);
+    if(pc == null){
+      pc = new FSPermissionChecker(fsOwnerShortUserName, supergroup);
+    }
+    return pc;
   }
 
   /**
