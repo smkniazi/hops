@@ -47,9 +47,13 @@ public class INodeAttributesContext
       throws TransactionContextException {
     if (iNodeAttributes.getInodeId() != INode.NON_EXISTING_ID) {
       super.update(iNodeAttributes);
-      log("updated-attributes", "id", iNodeAttributes.getInodeId(), "DS", iNodeAttributes.getDiskspace(), "NS", iNodeAttributes.getNsCount());
+      if(isLogDebugEnabled()){
+        log("updated-attributes", "id", iNodeAttributes.getInodeId(), "DS", iNodeAttributes.getDiskspace(), "NS", iNodeAttributes.getNsCount());
+      }
     } else {
-      log("updated-attributes -- IGNORED as id is not set");
+      if(isLogDebugEnabled()) {
+        log("updated-attributes -- IGNORED as id is not set");
+      }
     }
   }
 
@@ -57,7 +61,9 @@ public class INodeAttributesContext
   public void remove(INodeAttributes iNodeAttributes)
       throws TransactionContextException {
     super.remove(iNodeAttributes);
-    log("removed-attributes", "id", iNodeAttributes.getInodeId());
+    if(isLogDebugEnabled()) {
+      log("removed-attributes", "id", iNodeAttributes.getInodeId());
+    }
   }
 
   @Override
@@ -183,12 +189,16 @@ public class INodeAttributesContext
         INodeAttributes toBeAdded = clone(toBeDeleted, trg_param.getInodeId());
 
         remove(toBeDeleted);
-        log("snapshot-maintenance-removed-inode-attribute", "inodeId",
-            toBeDeleted.getInodeId());
+        if(isLogDebugEnabled()) {
+          log("snapshot-maintenance-removed-inode-attribute", "inodeId",
+                  toBeDeleted.getInodeId());
+        }
 
         add(toBeAdded);
-        log("snapshot-maintenance-added-inode-attribute", "inodeId",
-            toBeAdded.getInodeId());
+        if(isLogDebugEnabled()) {
+          log("snapshot-maintenance-added-inode-attribute", "inodeId",
+                  toBeAdded.getInodeId());
+        }
       }
     }
   }

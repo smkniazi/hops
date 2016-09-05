@@ -687,7 +687,7 @@ public class TestSubtreeLock extends TestCase {
         if (ops != null && !ops.isEmpty()) {
           subTreeLockExists = true;
           for (SubTreeOperation op : ops) {
-            log.error("On going sub tree operations table contains: \" " + op.getPath()
+            LOG.error("On going sub tree operations table contains: \" " + op.getPath()
                     + "\" NameNode id: " + op.getNameNodeId() + " OpType: " + op.getOpType());
           }
         }
@@ -696,7 +696,7 @@ public class TestSubtreeLock extends TestCase {
           for (INode inode : inodes) {
             if (inode.isSubtreeLocked()) {
               subTreeLockExists = true;
-              log.error("INode lock flag is set. Name " + inode.getLocalName()
+              LOG.error("INode lock flag is set. Name " + inode.getLocalName()
                       + " id: " + inode.getId() + " pid: " + inode.getParentId()
                       + " locked by " + inode.getSubtreeLockOwner());
             }

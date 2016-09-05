@@ -29,8 +29,6 @@ import io.hops.transaction.lock.BaseINodeLock;
 import io.hops.transaction.lock.Lock;
 import io.hops.transaction.lock.TransactionLockTypes;
 import io.hops.transaction.lock.TransactionLocks;
-import org.apache.commons.logging.Log;
-import org.apache.commons.logging.LogFactory;
 import org.apache.hadoop.hdfs.server.namenode.INode;
 import org.apache.hadoop.hdfs.server.namenode.INodeDirectory;
 
@@ -44,8 +42,6 @@ import java.util.List;
 import java.util.Map;
 
 public class INodeContext extends BaseEntityContext<Integer, INode> {
-
-  protected final static Log LOG = LogFactory.getLog(INodeContext.class);
 
   private final INodeDataAccess<INode> dataAccess;
 
@@ -101,19 +97,20 @@ public class INodeContext extends BaseEntityContext<Integer, INode> {
   public void remove(INode iNode) throws TransactionContextException {
     super.remove(iNode);
     inodesNameParentIndex.remove(iNode.nameParentKey());
-    log("removed-inode", "id", iNode.getId(), "name", iNode.getLocalName(), "parent_id", iNode.getParentId(),
-        "partition_id", iNode.getPartitionId());
+    if (isLogDebugEnabled()) {
+      log("removed-inode", "id", iNode.getId(), "name", iNode.getLocalName(), "parent_id", iNode.getParentId(),
+              "partition_id", iNode.getPartitionId());
+    }
   }
 
   @Override
   public void update(INode iNode) throws TransactionContextException {
     super.update(iNode);
     inodesNameParentIndex.put(iNode.nameParentKey(), iNode);
-    log("updated-inode", "id", iNode.getId(), "name", iNode.getLocalName(), "parent_id", iNode.getParentId(),
-        "partition_id", iNode.getPartitionId());
-//    for(int i = 0; i < Thread.currentThread().getStackTrace().length; i++){
-//      System.out.println(Thread.currentThread().getStackTrace()[i]) ;
-//    }
+    if(isLogDebugEnabled()) {
+      log("updated-inode", "id", iNode.getId(), "name", iNode.getLocalName(), "parent_id", iNode.getParentId(),
+              "partition_id", iNode.getPartitionId());
+    }
   }
 
   @Override
@@ -183,12 +180,14 @@ public class INodeContext extends BaseEntityContext<Integer, INode> {
           throw new TransactionContextException(e);
         }
         renamedInodes.add(inodeAfterChange);
-       log("removed-inode-snapshot-maintenance", "id", inodeBeforeChange.getId(), "name",
-            inodeBeforeChange.getLocalName(), "parent_id", inodeBeforeChange.getParentId(),"partition_id", inodeBeforeChange
-                .getPartitionId());
-        log("added-inode-snapshot-maintenance", "id",
-            inodeAfterChange.getId(), "name", inodeAfterChange.getLocalName(),
-            "parent_id", inodeAfterChange.getParentId(),"partition_id", inodeAfterChange.getPartitionId());
+        if (isLogDebugEnabled()) {
+          log("removed-inode-snapshot-maintenance", "id", inodeBeforeChange.getId(), "name",
+                  inodeBeforeChange.getLocalName(), "parent_id", inodeBeforeChange.getParentId(), "partition_id", inodeBeforeChange
+                          .getPartitionId());
+          log("added-inode-snapshot-maintenance", "id",
+                  inodeAfterChange.getId(), "name", inodeAfterChange.getLocalName(),
+                  "parent_id", inodeAfterChange.getParentId(), "partition_id", inodeAfterChange.getPartitionId());
+        }
         break;
       case Concat:
         // do nothing
@@ -261,7 +260,6 @@ public class INodeContext extends BaseEntityContext<Integer, INode> {
     } else {
       if (!isNewlyAdded(parentId) && !containsRemoved(parentId, name)) {
         if (canReadCachedRootINode(name, parentId)) {
-          LOG.debug("Returning cached root inode ");
           result = RootINodeCache.getRootINode();
        } else {
           aboutToAccessStorage(inodeFinder, params);
@@ -376,7 +374,6 @@ public class INodeContext extends BaseEntityContext<Integer, INode> {
         names = Arrays.copyOfRange(names, 1, names.length);
         parentIds = Arrays.copyOfRange(parentIds, 1, parentIds.length);
         partitionIds = Arrays.copyOfRange(partitionIds, 1, partitionIds.length);
-        LOG.debug("Returning cached root inode ");
       }
     }
 

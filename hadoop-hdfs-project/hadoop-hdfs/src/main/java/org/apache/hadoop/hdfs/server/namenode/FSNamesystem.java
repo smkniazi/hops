@@ -6691,8 +6691,10 @@ private void commitOrCompleteLastBlock(
 
       @Override
       public void setUp() throws IOException {
-        super.setUp(); 
-        log.debug("About to lock \""+path+"\"");
+        super.setUp();
+        if(LOG.isDebugEnabled()) {
+          LOG.debug("About to lock \"" + path + "\"");
+        }
       }
       
       @Override
@@ -6723,9 +6725,11 @@ private void commitOrCompleteLastBlock(
           inode.setSubtreeLocked(true);
           inode.setSubtreeLockOwner(getNamenodeId());
           EntityManager.update(inode);
-          log.debug("Lock the INode with sub tree lock flag. Path: \""+path+"\" "
-                  +" id: "+ inode.getId()
-                  +" pid: "+inode.getParentId()+" name: "+inode.getLocalName());
+          if(LOG.isDebugEnabled()) {
+            LOG.debug("Lock the INode with sub tree lock flag. Path: \"" + path + "\" "
+                    + " id: " + inode.getId()
+                    + " pid: " + inode.getParentId() + " name: " + inode.getLocalName());
+          }
           
           EntityManager.update(new SubTreeOperation(getSubTreeLockPathPrefix(path)
                 ,nameNode.getId(),stoType));
@@ -6734,8 +6738,10 @@ private void commitOrCompleteLastBlock(
           iNodeIdentifier.setDepth(inode.myDepth());
           return  iNodeIdentifier;
         }else{
-          log.info("No componenet was locked in the path using sub tree flag. "
-                  + "Path: \""+path+"\"");
+          if(LOG.isInfoEnabled()) {
+            LOG.info("No componenet was locked in the path using sub tree flag. "
+                    + "Path: \"" + path + "\"");
+          }
           return null;
         }
       }

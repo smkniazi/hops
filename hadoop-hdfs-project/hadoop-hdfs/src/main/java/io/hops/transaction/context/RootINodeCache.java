@@ -2,9 +2,7 @@ package io.hops.transaction.context;
 
 import io.hops.exception.StorageException;
 import io.hops.metadata.HdfsStorageFactory;
-import io.hops.metadata.adaptor.INodeDALAdaptor;
 import io.hops.metadata.hdfs.dal.INodeDataAccess;
-import io.hops.metadata.ndb.ClusterjConnector;
 import io.hops.transaction.handler.HDFSOperationType;
 import io.hops.transaction.handler.LightWeightRequestHandler;
 import org.apache.commons.logging.Log;
@@ -24,7 +22,6 @@ public class RootINodeCache {
   private static RootINodeCacheUpdaterThread rootCacheUpdater;
   private static INode rootINode = null;
   private static boolean running = false;
-  private static ClusterjConnector connector = ClusterjConnector.getInstance();
   private static RootINodeCache instance;
   private static final boolean ENABLE_CACHE = true;
 
