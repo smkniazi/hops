@@ -562,7 +562,9 @@ public class INodeDirectory extends INode {
   }
 
   public static INodeIdentifier getRootIdentifier(){
-    return new INodeIdentifier(INodeDirectory.ROOT_ID,INodeDirectory.ROOT_PARENT_ID, INodeDirectory.ROOT_NAME,
+    INodeIdentifier rootINodeIdentifier = new INodeIdentifier(INodeDirectory.ROOT_ID,INodeDirectory.ROOT_PARENT_ID, INodeDirectory.ROOT_NAME,
         INodeDirectory.getRootDirPartitionKey());
+    rootINodeIdentifier.setDepth(INodeDirectory.ROOT_DIR_DEPTH);
+    return rootINodeIdentifier;
   }
 }
