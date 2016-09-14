@@ -2205,10 +2205,6 @@ public class DFSClient implements java.io.Closeable {
    * with older HDFS versions which did not include the checksum type in
    * OpBlockChecksumResponseProto.
    *
-   * @param in
-   *     input stream from datanode
-   * @param out
-   *     output stream to datanode
    * @param lb
    *     the located block
    * @param clientName
@@ -3183,5 +3179,9 @@ public class DFSClient implements java.io.Closeable {
       }
     }
     return null;
+  }
+
+  public int getNameNodesCount() throws IOException {
+    return namenodeSelector.getNameNodesCount();
   }
 }

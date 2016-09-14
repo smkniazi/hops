@@ -407,7 +407,7 @@ public class NamenodeSelector extends Thread {
             anl = null;
             continue;
           } else {
-            // we got a fresh list of anl
+            // we get a fresh list of anl
             refreshNamenodeList(anl);
             return;
           }
@@ -539,6 +539,11 @@ public class NamenodeSelector extends Thread {
     synchronized (wiatObjectForUpdate) {
       wiatObjectForUpdate.notify();
     }
+  }
+
+  public int getNameNodesCount() throws IOException {
+//    periodicNamenodeClientsUpdate();
+    return nnList.size();
   }
 }
 
