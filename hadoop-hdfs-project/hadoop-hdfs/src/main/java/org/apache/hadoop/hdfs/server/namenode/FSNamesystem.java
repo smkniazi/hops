@@ -804,8 +804,8 @@ public class FSNamesystem
         @Override
         public void acquireLock(TransactionLocks locks) throws IOException {
           LockFactory lf = getInstance();
-          locks.add(lf.getINodeLock(nameNode, INodeLockType.WRITE,
-                  INodeResolveType.PATH,false, true, src)).add(lf.getBlockLock());
+          locks.add(lf.getINodeLock(!dir.isQuotaEnabled()?true:false/*skip INode Attr Lock*/, nameNode,
+              INodeLockType.WRITE, INodeResolveType.PATH,false, true, src)).add(lf.getBlockLock());
         }
 
         @Override
@@ -917,8 +917,8 @@ public class FSNamesystem
       @Override
       public void acquireLock(TransactionLocks locks) throws IOException {
         LockFactory lf = getInstance();
-        locks.add(lf.getINodeLock(nameNode, INodeLockType.WRITE,
-            INodeResolveType.PATH, false, true,src)).add(lf.getBlockLock());
+        locks.add(lf.getINodeLock(!dir.isQuotaEnabled()?true:false/*skip INode Attr Lock*/,nameNode, INodeLockType.WRITE,
+            INodeResolveType.PATH, false, true, src)).add(lf.getBlockLock());
       }
 
       @Override
@@ -1530,7 +1530,7 @@ public class FSNamesystem
           @Override
           public void acquireLock(TransactionLocks locks) throws IOException {
             LockFactory lf = getInstance();
-            locks.add(lf.getINodeLock(nameNode,
+            locks.add(lf.getINodeLock(!dir.isQuotaEnabled()?true:false/*skip INode Attr Lock*/,nameNode,
                 INodeLockType.WRITE_ON_TARGET_AND_PARENT, INodeResolveType.PATH,
                 src)).add(lf.getBlockLock()).add(
                 lf.getBlockRelated(BLK.RE, BLK.ER, BLK.CR, BLK.UC, BLK.UR,
@@ -2636,7 +2636,7 @@ public class FSNamesystem
           @Override
           public void acquireLock(TransactionLocks locks) throws IOException {
             LockFactory lf = getInstance();
-            locks.add(lf.getLegacyRenameINodeLock(nameNode,
+            locks.add(lf.getLegacyRenameINodeLock(!dir.isQuotaEnabled()?true:false/*skip INode Attr Lock*/, nameNode,
                 INodeLockType.WRITE_ON_TARGET_AND_PARENT,
                 INodeResolveType.PATH, src, dst))
                 .add(lf.getLeaseLock(LockType.WRITE))
@@ -2785,7 +2785,7 @@ public class FSNamesystem
           @Override
           public void acquireLock(TransactionLocks locks) throws IOException {
             LockFactory lf = getInstance();
-            locks.add(lf.getINodeLock( nameNode,
+            locks.add(lf.getINodeLock(!dir.isQuotaEnabled()?true:false/*skip INode Attr Lock*/, nameNode,
                 INodeLockType.WRITE_ON_TARGET_AND_PARENT,
                 INodeResolveType.PATH_AND_IMMEDIATE_CHILDREN, false, src))
                 .add(lf.getLeaseLock(LockType.WRITE))
@@ -6408,7 +6408,7 @@ private void commitOrCompleteLastBlock(
           @Override
           public void acquireLock(TransactionLocks locks) throws IOException {
             LockFactory lf = LockFactory.getInstance();
-            locks.add(lf.getLegacyRenameINodeLock(nameNode,
+            locks.add(lf.getLegacyRenameINodeLock(!dir.isQuotaEnabled()?true:false/*skip INode Attr Lock*/, nameNode,
                 INodeLockType.WRITE_ON_TARGET_AND_PARENT,
                 INodeResolveType.PATH, true, src, dst))
                 .add(lf.getBlockLock())
@@ -6591,7 +6591,7 @@ private void commitOrCompleteLastBlock(
                     public void acquireLock(TransactionLocks locks)
                             throws IOException {
                       LockFactory lf = LockFactory.getInstance();
-                      locks.add(lf.getINodeLock(nameNode,
+                      locks.add(lf.getINodeLock(!dir.isQuotaEnabled()?true:false/*skip INode Attr Lock*/, nameNode,
                               INodeLockType.WRITE_ON_TARGET_AND_PARENT,
                               INodeResolveType.PATH_AND_ALL_CHILDREN_RECURSIVELY, false, true, path))
                               .add(lf.getLeaseLock(LockType.WRITE))
@@ -6704,7 +6704,8 @@ private void commitOrCompleteLastBlock(
       @Override
       public void acquireLock(TransactionLocks locks) throws IOException {
         LockFactory lf = LockFactory.getInstance();
-        locks.add(lf.getINodeLock(nameNode, INodeLockType.WRITE,
+        locks.add(lf.getINodeLock(!dir.isQuotaEnabled()?true:false/*skip INode Attr Lock*/, nameNode, INodeLockType
+            .WRITE,
             INodeResolveType.PATH, false, path)).
                 //READ_COMMITTED because it is index scan and locking is bad idea
                 //INode lock is sufficient
@@ -6809,7 +6810,7 @@ private void commitOrCompleteLastBlock(
       @Override
       public void acquireLock(TransactionLocks locks) throws IOException {
         LockFactory lf = LockFactory.getInstance();
-        locks.add(lf.getINodeLock(nameNode, INodeLockType.WRITE,
+        locks.add(lf.getINodeLock(!dir.isQuotaEnabled()?true:false/*skip INode Attr Lock*/,nameNode, INodeLockType.WRITE,
             INodeResolveType.PATH, false, true, path));
       }
 
@@ -7354,7 +7355,7 @@ private void commitOrCompleteLastBlock(
           @Override
           public void acquireLock(TransactionLocks locks) throws IOException {
             LockFactory lf = LockFactory.getInstance();
-            locks.add(lf.getINodeLock(nameNode, INodeLockType.READ_COMMITTED,
+            locks.add(lf.getINodeLock(!dir.isQuotaEnabled()?true:false/*skip INode Attr Lock*/,nameNode, INodeLockType.READ_COMMITTED,
                 INodeResolveType.PATH, false, 
                 path)).add(lf.getBlockLock()); // blk lock only if file
           }

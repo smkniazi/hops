@@ -1588,7 +1588,7 @@ public class TestFileCreation {
     }
   
   @Test
-  public void testFilesWithLotsOfBlocks() throws IOException {
+  public void eyeBallTest() throws IOException {
     MiniDFSCluster cluster = null;
     try {
       Configuration conf = new HdfsConfiguration();
@@ -1603,33 +1603,24 @@ public class TestFileCreation {
       DistributedFileSystem dfs = cluster.getFileSystem();
 
 
-      dfs.mkdirs(new Path("/dir1/dir2"));
-      dfs.mkdirs(new Path("/dirx/dir2"));
-//      dfs.mkdirs(new Path("/dir1/dir2/dir3/dir4/dir5/dir6"));
-//
-//      FSDataOutputStream out = dfs.create(new Path("/dir1/dir2/dir3/fileindir3"));
-//      out.close();
-//
-//      FSDataInputStream in = dfs.open(new Path("/dir1/dir2/dir3/fileindir3"));
-//      in.close();
-//
-//      out = dfs.create(new Path("/dir1/dir2/fileindir2"));
-//      writeFile(out,1);
-//      out.close();
-//
-//      in = dfs.open(new Path("/dir1/dir2/fileindir2"));
-//      in.close();
-//
-//      FileStatus[] status = dfs.listStatus(new Path("/dir1/dir2"));
-//      if(status.length != 2){
-//        fail();
-//      }
-//
-//      status = dfs.listStatus(new Path("/dir1/dir2/dir3/dir4/dir5/dir6"));
-//      if(status.length != 0){
-//        fail();
-//      }
-//      dfs.getFileStatus(new Path("/dir1/dir2"));
+      Path dir = new Path("/dir");
+      Path file = new Path("/dir/file");
+      dfs.mkdirs(dir);
+      dfs.create(file).close();
+      dfs.open(file).close();
+      dfs.append(file).close();
+      dfs.listStatus(file);
+      dfs.listStatus(dir);
+      dfs.getFileStatus(file);
+      dfs.getFileStatus(dir);
+      dfs.setPermission(file,new FsPermission((short)0777));
+      dfs.setPermission(dir,new FsPermission((short)0777));
+      dfs.setOwner(file, System.getProperty("user.name"), System.getProperty("user.name"));
+      dfs.setOwner(dir, System.getProperty("user.name"), System.getProperty("user.name"));
+      dfs.setReplication(file, (short)3);
+      dfs.rename(file, new Path("/dir/file2"));
+      dfs.delete(new Path("/dir/file2"));
+      dfs.delete(dir);
     } finally {
       if (cluster != null) {
         cluster.shutdown();

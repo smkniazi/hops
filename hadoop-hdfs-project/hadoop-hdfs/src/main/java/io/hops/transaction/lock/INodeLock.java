@@ -49,7 +49,7 @@ class INodeLock extends BaseINodeLock {
   private final Collection<ActiveNode> activeNamenodes;
   private final boolean ignoreLocalSubtreeLocks;
   private final long namenodeId;
-  private final boolean skipReadingQuotaAttr;
+  protected final boolean skipReadingQuotaAttr;
 
 
   INodeLock(TransactionLockTypes.INodeLockType lockType,
@@ -67,10 +67,10 @@ class INodeLock extends BaseINodeLock {
     this.skipReadingQuotaAttr = skipReadingQuotaAttr;
   }
 
-  INodeLock(TransactionLockTypes.INodeLockType lockType,
+  INodeLock(boolean skipReadingQuotaAttr, TransactionLockTypes.INodeLockType lockType,
       TransactionLockTypes.INodeResolveType resolveType, boolean resolveLink,
       Collection<ActiveNode> activeNamenodes, String... paths) {
-    this(lockType, resolveType, resolveLink, false, false, -1, activeNamenodes, paths);
+    this(lockType, resolveType, resolveLink, false, skipReadingQuotaAttr, -1, activeNamenodes, paths);
   }
 
   INodeLock(TransactionLockTypes.INodeLockType lockType,
