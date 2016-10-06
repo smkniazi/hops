@@ -20,10 +20,7 @@ package org.apache.hadoop.hdfs;
 import io.hops.exception.StorageException;
 import io.hops.metadata.HdfsStorageFactory;
 import io.hops.metadata.hdfs.TablesDef;
-import io.hops.metadata.hdfs.dal.INodeDataAccess;
 import io.hops.metadata.hdfs.dal.QuotaUpdateDataAccess;
-import io.hops.metadata.ndb.mysqlserver.MySQLQueryHelper;
-import io.hops.metadata.ndb.mysqlserver.MysqlServerConnector;
 import io.hops.transaction.handler.HDFSOperationType;
 import io.hops.transaction.handler.LightWeightRequestHandler;
 import org.apache.commons.logging.Log;
@@ -37,7 +34,6 @@ import org.apache.hadoop.hdfs.protocol.QuotaExceededException;
 import org.apache.hadoop.hdfs.tools.DFSAdmin;
 import org.apache.hadoop.hdfs.web.WebHdfsFileSystem;
 import org.apache.hadoop.io.IOUtils;
-import org.apache.hadoop.ipc.Server;
 import org.apache.hadoop.security.UserGroupInformation;
 import org.junit.Test;
 
@@ -45,7 +41,6 @@ import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.io.OutputStream;
 import java.security.PrivilegedExceptionAction;
-import java.sql.Connection;
 
 import org.apache.hadoop.hdfs.server.namenode.TestSubtreeLock;
 
@@ -53,10 +48,6 @@ import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertTrue;
 import static org.junit.Assert.fail;
-import java.sql.Connection;
-import java.sql.PreparedStatement;
-import java.sql.ResultSet;
-import java.sql.SQLException;
 /**
  * A class for testing quota-related commands
  */
@@ -1209,7 +1200,10 @@ public class TestQuota {
           try {
             Thread.sleep(500);
           }catch(InterruptedException e){}
-          int count = MySQLQueryHelper.countAll(TablesDef.QuotaUpdateTableDef.TABLE_NAME);
+
+          QuotaUpdateDataAccess da = (QuotaUpdateDataAccess)HdfsStorageFactory.getDataAccess(QuotaUpdateDataAccess.class);
+          int count = da.getCount();
+
           if(count==0){
             return null;
           }
