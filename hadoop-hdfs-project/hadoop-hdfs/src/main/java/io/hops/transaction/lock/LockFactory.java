@@ -327,6 +327,10 @@ public class LockFactory {
     return new BaseEncodingStatusLock.EncodingStatusLock(lockType, targets);
   }
 
+  public Lock getEncodingStatusLock(boolean includeChildren, TransactionLockTypes.LockType lockType,
+      String... targets) {
+    return new BaseEncodingStatusLock.EncodingStatusLock(includeChildren, lockType, targets);
+  }
   public Lock getIndivdualEncodingStatusLock(
       TransactionLockTypes.LockType lockType, int inodeId) {
     return new BaseEncodingStatusLock.IndividualEncodingStatusLock(lockType,

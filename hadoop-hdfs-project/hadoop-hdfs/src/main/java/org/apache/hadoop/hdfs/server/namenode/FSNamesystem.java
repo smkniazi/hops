@@ -5955,6 +5955,11 @@ private void commitOrCompleteLastBlock(
                   .getDataAccess(INodeAttributesDataAccess.class);
           INodeAttributes attributes =
                   dataAccess.findAttributesByPk(subtreeRoot.getId());
+          if(attributes!=null){
+
+            assert fileTree.getDiskspaceCount() == attributes.getDiskspace(): "Diskspace count did not match fileTree "+fileTree.getDiskspaceCount()+" attributes "+attributes.getDiskspace();
+            assert fileTree.getNamespaceCount() == attributes.getNsCount(): "Namespace count did not match fileTree "+fileTree.getNamespaceCount()+" attributes "+attributes.getNsCount();
+          }
           return new ContentSummary(fileTree.getFileSizeSummary(),
                   fileTree.getFileCount(), fileTree.getDirectoryCount(),
                   attributes == null ? subtreeRoot.getNsQuota()
@@ -6528,6 +6533,20 @@ private void commitOrCompleteLastBlock(
                 new AbstractFileTree.FileTree(this, subtreeRoot, FsAction.ALL);
         fileTree.buildUp();
 
+        if (dir.isQuotaEnabled()) {
+          Iterator<Integer> idIterator =
+                  fileTree.getAllINodesIds().iterator();
+          synchronized (idIterator) {
+            quotaUpdateManager.addPrioritizedUpdates(idIterator);
+            try {
+              idIterator.wait();
+            } catch (InterruptedException e) {
+              // Not sure if this can happend if we are not shutting down but we need to abort in case it happens.
+              throw new IOException("Operation failed due to an Interrupt");
+            }
+          }
+        }
+
         for (int i = fileTree.getHeight(); i > 0; i--) {
           if (deleteTreeLevel(path, fileTree, i) == false) {
             return false;
@@ -6600,40 +6619,37 @@ private void commitOrCompleteLastBlock(
                               lf.getBlockRelated(BLK.RE, BLK.CR, BLK.UC, BLK.UR, BLK.PE,
                                       BLK.IV));
                       if (dir.isQuotaEnabled()) {
-                        locks.add(lf.getQuotaUpdateLock(path));
+                        locks.add(lf.getQuotaUpdateLock(true, path));
                       }
                       if (erasureCodingEnabled) {
-                        locks.add(lf.getEncodingStatusLock(LockType.WRITE, path));
+                        locks.add(lf.getEncodingStatusLock(true,LockType.WRITE, path));
                       }
                     }
 
                     @Override
                     public Object performTask() throws IOException {
-                      INode[] pathComponents =
-                              dir.getRootDir().getExistingPathINodes(path, false);
-                      INode inode = pathComponents[pathComponents.length - 1];
-                      if (inode == null) {
-                        LOG.error("INode disappeared during deletion");
-                        return false;
-                      }
-                      INodeDirectory parent =
-                              (INodeDirectory) pathComponents[pathComponents.length -
-                                      2];
-                      dir.removeChildNonRecursively(pathComponents,
-                              pathComponents.length - 1);
-                      parent.setModificationTime(now());
+//                      INode[] pathComponents =
+//                              dir.getRootDir().getExistingPathINodes(path, false);
+//                      INode inode = pathComponents[pathComponents.length - 1];
+//                      if (inode == null) {
+//                        LOG.error("INode disappeared during deletion");
+//                        return false;
+//                      }
+//                      INodeDirectory parent = (INodeDirectory) pathComponents[pathComponents.length - 2];
+//                      dir.removeChildNonRecursively(pathComponents, pathComponents.length - 1);
+//                      parent.setModificationTime(now());
+//                      NameNode.getNameNodeMetrics().incrFilesDeleted(1);
+//
+//                      if (inode instanceof INodeFile) {
+//                        INodeFile file = (INodeFile) inode;
+//                        ArrayList<Block> collectedBlocks = new ArrayList<Block>();
+//                        file.collectSubtreeBlocksAndClear(collectedBlocks);
+//                        removeBlocks(collectedBlocks); // Incremental deletion of blocks
+//                        collectedBlocks.clear();
+//                      }
+//                      return true;
 
-                      NameNode.getNameNodeMetrics().incrFilesDeleted(1);
-
-                      if (inode instanceof INodeFile) {
-                        INodeFile file = (INodeFile) inode;
-                        ArrayList<Block> collectedBlocks = new ArrayList<Block>();
-                        file.collectSubtreeBlocksAndClear(collectedBlocks);
-                        removeBlocks(
-                                collectedBlocks); // Incremental deletion of blocks
-                        collectedBlocks.clear();
-                      }
-                      return true;
+                      return deleteInternal(path,true,true);
                     }
                   };
           return (Boolean) deleteHandler.handle(this);

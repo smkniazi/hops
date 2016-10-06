@@ -1341,7 +1341,7 @@ public class FSDirectory implements Closeable {
     }
     // set the parent's modification time
     inodes[pos - 1].setModificationTime(mtime);
-    
+
     int filesRemoved = targetNode.collectSubtreeBlocksAndClear(collectedBlocks);
     if (NameNode.stateChangeLog.isDebugEnabled()) {
       NameNode.stateChangeLog
@@ -2082,10 +2082,15 @@ public class FSDirectory implements Closeable {
   INode removeChild(INode[] pathComponents, int pos, boolean forRename)
       throws StorageException, TransactionContextException {
     INode removedNode = null;
+    INode.DirCounts counts = new INode.DirCounts();
     if (forRename) {
       removedNode = pathComponents[pos];
       removedNode.logMetadataEvent(MetadataLogEntry.Operation.DELETE);
     } else {
+      if(isQuotaEnabled()){
+        INode nodeToBeRemored = pathComponents[pos];
+        nodeToBeRemored.spaceConsumedInTree(counts);
+      }
       removedNode = ((INodeDirectory) pathComponents[pos - 1])
           .removeChild(pathComponents[pos]);
     }
@@ -2098,8 +2103,6 @@ public class FSDirectory implements Closeable {
         nsDelta += update.getNamespaceDelta();
         dsDelta += update.getDiskspaceDelta();
       }
-      INode.DirCounts counts = new INode.DirCounts();
-      removedNode.spaceConsumedInTree(counts);
       updateCountNoQuotaCheck(pathComponents, pos,
           -counts.getNsCount() + nsDelta, -counts.getDsCount() + dsDelta);
     }

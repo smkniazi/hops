@@ -24,11 +24,14 @@ import io.hops.metadata.common.FinderType;
 import io.hops.metadata.hdfs.dal.INodeAttributesDataAccess;
 import io.hops.metadata.hdfs.entity.INodeCandidatePrimaryKey;
 import io.hops.transaction.lock.TransactionLocks;
+import org.apache.commons.lang.exception.ExceptionUtils;
 import org.apache.hadoop.hdfs.server.blockmanagement.BlockInfo;
+import org.apache.hadoop.hdfs.server.namenode.FSNamesystem;
 import org.apache.hadoop.hdfs.server.namenode.INode;
 import org.apache.hadoop.hdfs.server.namenode.INodeAttributes;
 
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Collection;
 import java.util.List;
 
@@ -48,7 +51,7 @@ public class INodeAttributesContext
     if (iNodeAttributes.getInodeId() != INode.NON_EXISTING_ID) {
       super.update(iNodeAttributes);
       if(isLogDebugEnabled()){
-        log("updated-attributes", "id", iNodeAttributes.getInodeId(), "DS", iNodeAttributes.getDiskspace(), "NS", iNodeAttributes.getNsCount());
+        log("updated-attributes", "id", iNodeAttributes.getInodeId(), "DSQ", iNodeAttributes.getDsQuota(),"DS", iNodeAttributes.getDiskspace(), "NSQ", iNodeAttributes.getNsQuota(), "NS", iNodeAttributes.getNsCount());
       }
     } else {
       if(isLogDebugEnabled()) {
@@ -63,6 +66,9 @@ public class INodeAttributesContext
     super.remove(iNodeAttributes);
     if(isLogDebugEnabled()) {
       log("removed-attributes", "id", iNodeAttributes.getInodeId());
+      for(int i = 0; i < Thread.currentThread().getStackTrace().length;i++){
+       System.out.println(Thread.currentThread().getStackTrace()[i]) ;
+      }
     }
   }
 
@@ -155,6 +161,12 @@ public class INodeAttributesContext
       result = dataAccess.findAttributesByPkList(inodePks);
       gotFromDB(result);
       miss(qfinder, result, "inodeids", inodePks);
+      if(result!=null){
+        for(INodeAttributes iNodeAttributes:result){
+          log("read-attributes", "id", iNodeAttributes.getInodeId(), "DSQ", iNodeAttributes.getDsQuota(),"DS", iNodeAttributes.getDiskspace(), "NSQ", iNodeAttributes.getNsQuota(), "NS", iNodeAttributes.getNsCount());
+        }
+
+      }
     }
     return result;
   }

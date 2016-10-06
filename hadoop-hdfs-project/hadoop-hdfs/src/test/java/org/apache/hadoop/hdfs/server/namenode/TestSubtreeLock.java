@@ -61,7 +61,7 @@ public class TestSubtreeLock extends TestCase {
     try {
       Configuration conf = new HdfsConfiguration();
       conf.setInt(DFSConfigKeys.DFS_CLIENT_RETRIES_ON_FAILURE_KEY, 0);
-      cluster = new MiniDFSCluster.Builder(conf).numDataNodes(1).build();
+      cluster = new MiniDFSCluster.Builder(conf).format(true).numDataNodes(1).build();
       cluster.waitActive();
 
       Path path0 = new Path("/folder0");
@@ -465,6 +465,28 @@ public class TestSubtreeLock extends TestCase {
   }
 
   @Test
+  public void testDeleteSimple() throws IOException, InterruptedException {
+    MiniDFSCluster cluster = null;
+    try {
+      Configuration conf = new HdfsConfiguration();
+      conf.setInt(DFSConfigKeys.DFS_CLIENT_RETRIES_ON_FAILURE_KEY, 0);
+      cluster = new MiniDFSCluster.Builder(conf).numDataNodes(1).build();
+      cluster.waitActive();
+      DistributedFileSystem fs = cluster.getFileSystem();
+      assertTrue(fs.mkdir(new Path("/foo"), FsPermission.getDefault()));
+      TestFileCreation.createFile(fs, new Path("/foo/bar"), 1).close();
+
+      assertTrue(fs.delete(new Path("/foo"), true));
+      assertFalse(fs.exists(new Path("/foo")));
+      assertFalse("Not All subtree locks were removed after operation ", subTreeLocksExists());
+    } finally {
+      if (cluster != null) {
+        cluster.shutdown();
+      }
+    }
+  }
+
+  @Test
   public void testMove() throws IOException {
     MiniDFSCluster cluster = null;
     try {
@@ -853,10 +875,6 @@ public class TestSubtreeLock extends TestCase {
       }catch(Exception e){
         fail("No exception should have been thrown ");
       }
-
-      
-      
-      
 
     } finally {
       if (cluster != null) {

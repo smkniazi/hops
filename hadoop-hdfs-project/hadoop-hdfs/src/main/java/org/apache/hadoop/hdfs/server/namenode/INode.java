@@ -734,6 +734,7 @@ public abstract class INode implements Comparable<byte[]> {
 
   protected void remove(INode node)
       throws StorageException, TransactionContextException {
+    node.logMetadataEvent(MetadataLogEntry.Operation.DELETE);
     EntityManager.remove(node);
     //if This inode is of type INodeDirectoryWithQuota then also delete the INode Attribute table
     if (node instanceof INodeDirectoryWithQuota) {

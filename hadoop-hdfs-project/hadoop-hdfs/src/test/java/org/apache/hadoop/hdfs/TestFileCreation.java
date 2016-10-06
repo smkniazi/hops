@@ -1233,6 +1233,26 @@ public class TestFileCreation {
   }
 
   @Test
+  public void testDeleteDirs() throws Exception {
+
+    Configuration conf = new HdfsConfiguration();
+    MiniDFSCluster cluster =
+            new MiniDFSCluster.Builder(conf).format(true).build();
+    FileSystem fs = cluster.getFileSystem();
+    DistributedFileSystem dfs = (DistributedFileSystem) FileSystem
+            .newInstance(fs.getUri(), fs.getConf());
+
+    try {
+      fs.mkdirs(new Path("/A"));
+      fs.mkdirs(new Path("/A/B"));
+      fs.mkdirs(new Path("/A/C"));
+      assertTrue(fs.delete(new Path("/A"), true));
+    } finally {
+      cluster.shutdown();
+    }
+  }
+
+  @Test
   public void testRename() throws Exception {
 
     Configuration conf = new HdfsConfiguration();

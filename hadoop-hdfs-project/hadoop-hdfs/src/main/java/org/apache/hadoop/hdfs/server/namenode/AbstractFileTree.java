@@ -41,11 +41,7 @@ import org.apache.hadoop.hdfs.protocol.UnresolvedPathException;
 import org.apache.hadoop.security.AccessControlException;
 
 import java.io.IOException;
-import java.util.ArrayList;
-import java.util.Collection;
-import java.util.Collections;
-import java.util.LinkedList;
-import java.util.List;
+import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Future;
@@ -523,6 +519,10 @@ abstract class AbstractFileTree {
 
     public Collection<ProjectedINode> getAll() {
       return inodesByLevel.values();
+    }
+
+    public Set<Integer> getAllINodesIds() {
+      return inodesById.keySet();
     }
 
     public Collection<ProjectedINode> getAllChildren() {

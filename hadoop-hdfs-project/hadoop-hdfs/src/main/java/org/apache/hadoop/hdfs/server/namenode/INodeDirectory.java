@@ -115,7 +115,6 @@ public class INodeDirectory extends INode {
     INode existingInode = getChildINode(node.getLocalNameBytes());
     if (existingInode != null) {
       remove(existingInode);
-      existingInode.logMetadataEvent(MetadataLogEntry.Operation.DELETE);
       return existingInode;
     }
     return null;
@@ -549,11 +548,12 @@ public class INodeDirectory extends INode {
     }
     
     parent = null;
-    
-    remove(this);
+
     for (INode child : children) {
       remove(child);
     }
+    remove(this);
+
     return total;
   }
 

@@ -484,8 +484,9 @@ class INodeLock extends BaseINodeLock {
     if (SubtreeLockHelper
         .isSubtreeLocked(iNode.isSubtreeLocked(), iNode.getSubtreeLockOwner(),
             activeNamenodes)) {
-      if (!ignoreLocalSubtreeLocks &&
-          namenodeId != iNode.getSubtreeLockOwner()) {
+      if (!ignoreLocalSubtreeLocks
+//         && namenodeId != iNode.getSubtreeLockOwner()
+         ) {
         throw new SubtreeLockedException(iNode.getLocalName(), activeNamenodes);
       }
     }
