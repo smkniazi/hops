@@ -2832,13 +2832,9 @@ public class FSNamesystem
     return status;
   }
 
-  static FSPermissionChecker pc = null;
   FSPermissionChecker getPermissionChecker()
       throws AccessControlException {
-    if(pc == null){
-      pc = new FSPermissionChecker(fsOwnerShortUserName, supergroup);
-    }
-    return pc;
+      return new FSPermissionChecker(fsOwnerShortUserName, supergroup);
   }
 
   /**
@@ -5957,8 +5953,8 @@ private void commitOrCompleteLastBlock(
                   dataAccess.findAttributesByPk(subtreeRoot.getId());
           if(attributes!=null){
 
-            assert fileTree.getDiskspaceCount() == attributes.getDiskspace(): "Diskspace count did not match fileTree "+fileTree.getDiskspaceCount()+" attributes "+attributes.getDiskspace();
-            assert fileTree.getNamespaceCount() == attributes.getNsCount(): "Namespace count did not match fileTree "+fileTree.getNamespaceCount()+" attributes "+attributes.getNsCount();
+//            assert fileTree.getDiskspaceCount() == attributes.getDiskspace(): "Diskspace count did not match fileTree "+fileTree.getDiskspaceCount()+" attributes "+attributes.getDiskspace();
+//            assert fileTree.getNamespaceCount() == attributes.getNsCount(): "Namespace count did not match fileTree "+fileTree.getNamespaceCount()+" attributes "+attributes.getNsCount();
           }
           return new ContentSummary(fileTree.getFileSizeSummary(),
                   fileTree.getFileCount(), fileTree.getDirectoryCount(),
@@ -6649,7 +6645,7 @@ private void commitOrCompleteLastBlock(
 //                      }
 //                      return true;
 
-                      return deleteInternal(path,true,true);
+                      return deleteInternal(path,true,false);
                     }
                   };
           return (Boolean) deleteHandler.handle(this);

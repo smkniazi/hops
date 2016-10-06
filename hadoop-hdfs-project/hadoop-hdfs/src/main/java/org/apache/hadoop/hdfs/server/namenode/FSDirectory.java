@@ -1333,6 +1333,10 @@ public class FSDirectory implements Closeable {
           " because the root is not allowed to be deleted");
       return 0;
     }
+
+    // Add metadata log entry for all deleted childred.
+    addMetaDataLogForDirDeletion(targetNode);
+
     int pos = inodes.length - 1;
     // Remove the node from the namespace
     targetNode = removeChild(inodes, pos);
@@ -1348,6 +1352,20 @@ public class FSDirectory implements Closeable {
           .debug("DIR* FSDirectory.unprotectedDelete: " + src + " is removed");
     }
     return filesRemoved;
+  }
+
+  private void addMetaDataLogForDirDeletion(INode targetNode) throws TransactionContextException, StorageException {
+    if (targetNode.isDirectory()) {
+      List<INode> children = ((INodeDirectory) targetNode).getChildren();
+      for(INode child : children){
+       if(child.isDirectory()){
+         addMetaDataLogForDirDeletion(child);
+       }else{
+         child.logMetadataEvent(MetadataLogEntry.Operation.DELETE);
+       }
+      }
+    }
+    targetNode.logMetadataEvent(MetadataLogEntry.Operation.DELETE);
   }
 
   /**

@@ -192,7 +192,6 @@ public class INodeDirectoryWithQuota extends INodeDirectory {
       TransactionContextException {
     Long newCount = getINodeAttributes().getNsCount() + nsDelta;
     Long newDiskspace = getINodeAttributes().getDiskspace() + dsDelta;
-    NameNode.LOG.debug("XXX inode: "+this.getLocalName()+" ns: "+getINodeAttributes().getNsCount()+" ds: "+getINodeAttributes().getDiskspace());
 
     if (nsDelta > 0 || dsDelta > 0) {
       if (getINodeAttributes().getNsQuota() >= 0 &&
