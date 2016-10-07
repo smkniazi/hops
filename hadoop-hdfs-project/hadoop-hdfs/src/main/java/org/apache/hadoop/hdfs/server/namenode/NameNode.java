@@ -427,8 +427,8 @@ public class NameNode {
     
     HdfsStorageFactory.setConfiguration(conf);
 
-    this.brTrackingService = new BRTrackingService(conf.getLong(DFSConfigKeys.DFS_BR_LB_UPDATE_THRESHOLD_TIME,
-            DFSConfigKeys.DFS_BR_LB_UPDATE_THRESHOLD_TIME_DEFAULT),
+    this.brTrackingService = new BRTrackingService(conf.getLong(DFSConfigKeys.DFS_BR_LB_DB_VAR_UPDATE_THRESHOLD,
+            DFSConfigKeys.DFS_BR_LB_DB_VAR_UPDATE_THRESHOLD_DEFAULT),
             conf.getLong(DFSConfigKeys.DFS_BR_LB_TIME_WINDOW_SIZE,
                     DFSConfigKeys.DFS_BR_LB_TIME_WINDOW_SIZE_DEFAULT));
 

@@ -233,7 +233,7 @@ public class HdfsVariables {
   }
 
   public static void setBrLbMasBlkPerMin(final long value) throws IOException {
-    new LightWeightRequestHandler(HDFSOperationType.SET_BR_LB_MAX_BLKS_PER_MIN) {
+    new LightWeightRequestHandler(HDFSOperationType.SET_BR_LB_MAX_BLKS_PER_TW) {
       @Override
       public Object performTask() throws IOException {
         return handleVariableWithWriteLock(new Handler() {
@@ -248,9 +248,9 @@ public class HdfsVariables {
     }.handle();
   }
 
-  public static long getBrLbMasBlkPerMin() throws IOException {
+  public static long getBrLbMaxBlkPerTW() throws IOException {
     return (Long) new LightWeightRequestHandler(
-            HDFSOperationType.GET_BR_LB_MAX_BLKS_PER_TU) {
+            HDFSOperationType.GET_BR_LB_MAX_BLKS_PER_TW) {
       @Override
       public Object performTask() throws IOException {
         return handleVariableWithReadLock(new Handler() {
@@ -421,7 +421,7 @@ public class HdfsVariables {
         new IntVariable(0).getBytes());
     Variable.registerVariableDefaultValue(Variable.Finder.BrLbMaxBlkPerTU,
             new LongVariable(conf.getLong(DFSConfigKeys.DFS_BR_LB_MAX_BLK_PER_TW,
-                    DFSConfigKeys.DFS_BR_LB_MAX_BLK_PER_TU_DEFAULT)).getBytes());
+                    DFSConfigKeys.DFS_BR_LB_MAX_BLK_PER_TW_DEFAULT)).getBytes());
     VarsRegister.registerHdfsDefaultValues();
     // This is a workaround that is needed until HA-YARN has its own format command
     VarsRegister.registerYarnDefaultValues();
