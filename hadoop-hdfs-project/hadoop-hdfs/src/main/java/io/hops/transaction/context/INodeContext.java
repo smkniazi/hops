@@ -29,6 +29,8 @@ import io.hops.transaction.lock.BaseINodeLock;
 import io.hops.transaction.lock.Lock;
 import io.hops.transaction.lock.TransactionLockTypes;
 import io.hops.transaction.lock.TransactionLocks;
+import org.apache.commons.logging.Log;
+import org.apache.commons.logging.LogFactory;
 import org.apache.hadoop.hdfs.server.namenode.INode;
 import org.apache.hadoop.hdfs.server.namenode.INodeDirectory;
 
@@ -42,6 +44,8 @@ import java.util.List;
 import java.util.Map;
 
 public class INodeContext extends BaseEntityContext<Integer, INode> {
+
+  protected final static Log LOG = LogFactory.getLog(INodeContext .class);
 
   private final INodeDataAccess<INode> dataAccess;
 
@@ -261,6 +265,7 @@ public class INodeContext extends BaseEntityContext<Integer, INode> {
       if (!isNewlyAdded(parentId) && !containsRemoved(parentId, name)) {
         if (canReadCachedRootINode(name, parentId)) {
           result = RootINodeCache.getRootINode();
+          LOG.debug("Reading root inode from the cache. "+result);
        } else {
           aboutToAccessStorage(inodeFinder, params);
           result = dataAccess.findInodeByNameParentIdAndPartitionIdPK(name, parentId, partitionId);
@@ -370,6 +375,7 @@ public class INodeContext extends BaseEntityContext<Integer, INode> {
     INode rootINode = null;
     if (canReadCachedRootINode(names[0], parentIds[0])) {
       rootINode = RootINodeCache.getRootINode();
+      LOG.debug("Reading root inode from the cache "+rootINode);
       if (rootINode != null) {
         names = Arrays.copyOfRange(names, 1, names.length);
         parentIds = Arrays.copyOfRange(parentIds, 1, parentIds.length);

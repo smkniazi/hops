@@ -1681,7 +1681,38 @@ public class TestFileCreation {
       }
     }
   }
-  
+
+  @Test
+  public void testStatAfterRestart() throws IOException {
+    MiniDFSCluster cluster = null;
+    try {
+      Configuration conf = new HdfsConfiguration();
+      final int BLOCK_SIZE = 1024;
+      conf.setInt(DFSConfigKeys.DFS_BLOCK_SIZE_KEY, BLOCK_SIZE); // 4 byte
+      cluster = new MiniDFSCluster.Builder(conf).format(true).numDataNodes(0).build();
+      cluster.waitActive();
+
+      DistributedFileSystem dfs = cluster.getFileSystem();
+      Path file = new Path("/dir/dir/file.txt");
+      dfs.create(file,(short)3).close();
+
+      cluster.shutdown();
+      cluster = new MiniDFSCluster.Builder(conf).format(false).numDataNodes(0).build();
+      cluster.waitActive();
+
+      dfs = cluster.getFileSystem();
+
+      dfs.listStatus(file);
+
+    } catch(Exception e) {
+      fail(e.toString());
+    }
+     finally {
+      if (cluster != null) {
+        cluster.shutdown();
+      }
+    }
+  }
   @Test
   public void testLS() throws IOException {
     MiniDFSCluster cluster = null;

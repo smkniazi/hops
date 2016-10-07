@@ -128,6 +128,10 @@ public class DFSConfigKeys extends CommonConfigurationKeys {
       "dfs.transaction.stats.writerround";
   public static final int DFS_TRANSACTION_STATS_WRITER_ROUND_DEFAULT = 120;
 
+  public static final String  DFS_DIR_DELETE_BATCH_SIZE=
+      "dfs.dir.delete.batch.size";
+  public static final int DFS_DIR_DELETE_BATCH_SIZE_DEFAULT = 50;
+
   /*for client failover api*/
   // format {ip:port, ip:port, ip:port} comma separated
   public static final String DFS_NAMENODES_RPC_ADDRESS_KEY =
