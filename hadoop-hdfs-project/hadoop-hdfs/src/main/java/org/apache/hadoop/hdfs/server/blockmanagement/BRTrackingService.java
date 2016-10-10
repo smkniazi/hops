@@ -111,10 +111,10 @@ public class BRTrackingService {
     if ((System.currentTimeMillis() - lastChecked) > DB_VAR_UPDATE_THRESHOLD) {
       cachedBrLbMaxBlkPerTW = HdfsVariables.getBrLbMaxBlkPerTW();
       lastChecked = System.currentTimeMillis();
+      LOG.debug("BRTrackingService. Processing "+cachedBrLbMaxBlkPerTW+" per time window");
     }
     return cachedBrLbMaxBlkPerTW;
   }
-
 
   public synchronized ActiveNode assignWork(final SortedActiveNodeList nnList, long noOfBlks) throws IOException {
     if(canProcessMoreBR(noOfBlks)){

@@ -49,9 +49,9 @@ import static org.junit.Assert.*;
  *
  * @author salman
  */
-public class TestBlockReportLoadBalancing {
+public class TestBlockReportLoadBalancing1 {
 
-  public static final Log LOG = LogFactory.getLog(TestBlockReportLoadBalancing.class);
+  public static final Log LOG = LogFactory.getLog(TestBlockReportLoadBalancing1.class);
 
   @Before
   public void startUpCluster() throws IOException {
@@ -317,93 +317,8 @@ public class TestBlockReportLoadBalancing {
     }catch(BRLoadBalancingException e){
 
     }
-  }
 
-  @Test
-  public void TestClusterWithDataNodes()
-          throws Exception {
-    final int NN_COUNT = 2;
-    final long DFS_BR_LB_TIME_WINDOW_SIZE = 10000;
-    final long DFS_BR_LB_MAX_BLK_PER_NN_PER_TW = 10;
-    final long DFS_BR_LB_DB_VAR_UPDATE_THRESHOLD = 1000;
-
-    final int BLOCK_SIZE = 1024;
-    final int NUM_BLOCKS = 10;
-    final int FILE_SIZE = NUM_BLOCKS * BLOCK_SIZE;
-
-    Configuration conf = new Configuration();
-    conf.setLong(DFSConfigKeys.DFS_BR_LB_MAX_BLK_PER_TW, DFS_BR_LB_MAX_BLK_PER_NN_PER_TW);
-    conf.setLong(DFSConfigKeys.DFS_BR_LB_TIME_WINDOW_SIZE, DFS_BR_LB_TIME_WINDOW_SIZE);
-    conf.setLong(DFSConfigKeys.DFS_BR_LB_DB_VAR_UPDATE_THRESHOLD,DFS_BR_LB_DB_VAR_UPDATE_THRESHOLD);
-    conf.setLong(DFSConfigKeys.DFS_BLOCK_SIZE_KEY, BLOCK_SIZE);
-    conf.setLong(DFSConfigKeys.DFS_BLOCKREPORT_INITIAL_DELAY_KEY,0);
-    conf.setLong(DFSConfigKeys.DFS_BLOCKREPORT_INTERVAL_MSEC_KEY, 3000);
-
-    MiniDFSCluster cluster = new MiniDFSCluster.Builder(conf)
-            .nnTopology(MiniDFSNNTopology.simpleHOPSTopology(NN_COUNT))
-            .format(true).numDataNodes(1).build();
-    cluster.waitActive();
-    FileSystem fs = cluster.getNewFileSystemInstance(0);
-
-
-    final String METHOD_NAME = GenericTestUtils.getMethodName();
-    Path filePath = new Path("/" + METHOD_NAME + ".dat");
-    DFSTestUtil.createFile(fs, filePath, FILE_SIZE, (short)1, 0);
-
-
-    final List<Long>  history = new ArrayList<Long>();
-    GenericTestUtils.DelayAnswer responder = new GenericTestUtils.DelayAnswer(LOG) {
-      @Override
-      protected Object passThrough(InvocationOnMock invocation)
-              throws Throwable {
-        try {
-          LOG.debug("Block report received");
-          synchronized (this){
-            history.add(System.currentTimeMillis());
-          }
-          return super.passThrough(invocation);
-        } finally {
-        }
-      }
-    };
-
-    NameNode nn0 = cluster.getNameNode(0);
-    NameNode nn1 = cluster.getNameNode(1);
-    // Set up a spy
-    DataNode dn0 = cluster.getDataNodes().get(0);
-
-    DatanodeProtocol spy0 = DataNodeTestUtils.spyOnBposToNN(dn0, nn0);
-    DatanodeProtocol spy1 = DataNodeTestUtils.spyOnBposToNN(dn0, nn1);
-
-    Mockito.doAnswer(responder).when(spy0)
-              .blockReport(Mockito.<DatanodeRegistration>anyObject(),
-                      Mockito.anyString(), Mockito.<StorageBlockReport[]>anyObject());
-    Mockito.doAnswer(responder).when(spy1)
-            .blockReport(Mockito.<DatanodeRegistration>anyObject(),
-                    Mockito.anyString(), Mockito.<StorageBlockReport[]>anyObject());
-
-
-    responder.waitForCall();
-    responder.proceed();
-
-    //here we have two datanodes storing 10 blocks
-    //block report load balancing will ensure that at most 10 blocks are processed in 10 secs
-    //run the system for 32 secs.
-    //in the history list expect 3 almost ten second long gaps
-    //
-    Thread.sleep(32*1000);
-    int counter = 0;
-    long previousTime=history.get(0);
-    LOG.debug("All No "+Arrays.toString(history.toArray()));
-    for(Long time : history){
-      long diff =time -previousTime;
-      if(diff >= DFS_BR_LB_TIME_WINDOW_SIZE){
-        counter++;
-      }
-      LOG.debug("Diff "+diff);
-      previousTime=time;
-    }
-    assertTrue("Expecting 3. Got "+counter, counter==3);
+    cluster.shutdown();
   }
 
   private static ActiveNode assignWork(SortedActiveNodeList nnList, BRTrackingService service, long blks){
