@@ -6,9 +6,9 @@
  * to you under the Apache License, Version 2.0 (the
  * "License"); you may not use this file except in compliance
  * with the License.  You may obtain a copy of the License at
- * <p/>
+ *
  * http://www.apache.org/licenses/LICENSE-2.0
- * <p/>
+ *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
@@ -17,11 +17,14 @@
  */
 package io.hops.transaction.lock;
 
+import io.hops.exception.StorageException;
+import io.hops.exception.TransactionContextException;
 import io.hops.metadata.hdfs.entity.EncodingStatus;
 import org.apache.hadoop.hdfs.server.namenode.INode;
 
 import java.io.IOException;
 import java.util.Arrays;
+import java.util.List;
 
 abstract class BaseEncodingStatusLock extends Lock {
   private final TransactionLockTypes.LockType lockType;
@@ -41,11 +44,20 @@ abstract class BaseEncodingStatusLock extends Lock {
 
   final static class EncodingStatusLock extends BaseEncodingStatusLock {
     private final String[] targets;
+    private final boolean includeChildren;
 
     EncodingStatusLock(TransactionLockTypes.LockType lockType,
                        String... targets) {
       super(lockType);
       this.targets = targets;
+      this.includeChildren = false;
+    }
+
+    EncodingStatusLock(boolean includeChildren, TransactionLockTypes.LockType lockType,
+                       String... targets) {
+      super(lockType);
+      this.targets = targets;
+      this.includeChildren = includeChildren;
     }
 
     @Override
@@ -55,22 +67,37 @@ abstract class BaseEncodingStatusLock extends Lock {
       for (String target : targets) {
         INode iNode = iNodeLock.getTargetINode(target);
         if (!BaseINodeLock.isStoredInDB(iNode)) {
-          EncodingStatus status = acquireLock(getLockType(),
-                  EncodingStatus.Finder.ByInodeId,
-                  iNode.getId());
-          if (status != null) {
-            // It's a source file
-            return;
-          }
-          // It's a parity file
-          acquireLock(getLockType(), EncodingStatus.Finder.ByParityInodeId,
-                  iNode.getId());
-        }else{
+		acquireLocks(iNode);
+		if(includeChildren){
+		  List<INode> children = iNodeLock.getChildINodes(target);
+		  if(children!=null){
+		    for(INode child:children){
+		      acquireLocks(child);
+		    }
+		  }
+        }
+      }else{
           LOG.debug("SMALL_FILE BaseEncodingStatusLock. Skipping acquring locks on the inode named: "+iNode.getLocalName()+" as the file is stored in the database");
         }
-      }
     }
+}
+
+
+    private void acquireLocks(INode iNode) throws TransactionContextException, StorageException {
+      EncodingStatus status = acquireLock(getLockType(),
+              EncodingStatus.Finder.ByInodeId,
+              iNode.getId());
+      if (status != null) {
+        // It's a source file
+        return;
+      }
+      // It's a parity file
+      acquireLock(getLockType(), EncodingStatus.Finder.ByParityInodeId,
+              iNode.getId());
+    }
+
   }
+
 
   final static class IndividualEncodingStatusLock
           extends BaseEncodingStatusLock {

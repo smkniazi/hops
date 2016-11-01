@@ -515,6 +515,13 @@ message ChangeConfProto {
 message ChangeConfResponseProto {
 }
 
+message FlushUsersCacheRequestProto {
+  optional string userName = 1;
+  optional string groupName = 2;
+}
+
+message FlushUsersCacheResponseProto {
+}
 
 service ClientNamenodeProtocol {
   rpc getBlockLocations (GetBlockLocationsRequestProto) returns (GetBlockLocationsResponseProto);
@@ -570,4 +577,5 @@ service ClientNamenodeProtocol {
   rpc revokeEncoding (RevokeEncodingRequestProto) returns (RevokeEncodingResponseProto);
   rpc getRepairedBlockLocations (GetRepairedBlockLocationsRequsestProto) returns (GetRepairedBlockLocationsResponseProto);
   rpc changeConf (ChangeConfProto) returns (ChangeConfResponseProto);
+  rpc flushCache (FlushUsersCacheRequestProto) returns (FlushUsersCacheResponseProto);
 }

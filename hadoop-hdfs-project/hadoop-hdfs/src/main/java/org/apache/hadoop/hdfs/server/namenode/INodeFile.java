@@ -26,7 +26,6 @@ import io.hops.metadata.hdfs.entity.FileInodeData;
 import io.hops.metadata.hdfs.entity.MetadataLogEntry;
 import io.hops.transaction.EntityManager;
 import org.apache.hadoop.classification.InterfaceAudience;
-import org.apache.hadoop.fs.UnresolvedLinkException;
 import org.apache.hadoop.fs.permission.PermissionStatus;
 import org.apache.hadoop.hdfs.protocol.Block;
 import org.apache.hadoop.hdfs.protocol.DatanodeID;
@@ -59,14 +58,7 @@ public class INodeFile extends INode implements BlockCollection {
     return (INodeFile) inode;
   }
 
-  //Number of bits for Block size
-  static final short BLOCKBITS = 48;
 
-  //Header mask 64-bit representation
-  //Format: [16 bits for replication][48 bits for PreferredBlockSize]
-  static final long HEADERMASK = 0xffffL << BLOCKBITS;
-
-  private long header;
   private int generationStamp = (int) GenerationStamp.FIRST_VALID_STAMP;
   private long size;
   private boolean isFileStoredInDB = false;
@@ -84,7 +76,7 @@ public class INodeFile extends INode implements BlockCollection {
   public INodeFile(PermissionStatus permissions, long header,
       long modificationTime, long atime, boolean isFileStoredInDB) throws IOException {
     super(permissions, modificationTime, atime);
-    this.setHeader(header);
+    this.setHeaderNoPersistance(header);
     this.isFileStoredInDB = isFileStoredInDB;
   }
 
@@ -97,6 +89,9 @@ public class INodeFile extends INode implements BlockCollection {
     setGenerationStampNoPersistence(other.getGenerationStamp());
     setSizeNoPersistence(other.getSize());
     setFileStoredInDBNoPersistence(other.isFileStoredInDB());
+    setHasBlocksNoPersistance(other.hasBlocks());
+    setPartitionIdNoPersistance(other.getPartitionId());
+    setHeaderNoPersistance(other.getHeader());
   }
 
   /**
@@ -104,19 +99,7 @@ public class INodeFile extends INode implements BlockCollection {
    */
   @Override
   public short getBlockReplication() {
-    return extractBlockReplication(header);
-  }
-
-  static short extractBlockReplication(long header) {
-    return (short) ((header & HEADERMASK) >> BLOCKBITS);
-  }
-
-  private void setReplicationNoPersistance(short replication) {
-    if (replication <= 0) {
-      throw new IllegalArgumentException("Unexpected value for the " +
-          "replication [" + replication + "]");
-    }
-    header = ((long) replication << BLOCKBITS) | (header & ~HEADERMASK);
+    return getBlockReplication(header);
   }
 
   /**
@@ -124,40 +107,7 @@ public class INodeFile extends INode implements BlockCollection {
    */
   @Override
   public long getPreferredBlockSize() {
-    return extractBlockSize(header);
-  }
-
-  static long extractBlockSize(long header) {
-    return header & ~HEADERMASK;
-  }
-
-  private void setPreferredBlockSizeNoPersistance(long preferredBlkSize) {
-    if ((preferredBlkSize < 0) || (preferredBlkSize > ~HEADERMASK)) {
-      throw new IllegalArgumentException("Unexpected value for the block " +
-          "size [" + preferredBlkSize + "]");
-    }
-    header = (header & HEADERMASK) | (preferredBlkSize & ~HEADERMASK);
-  }
-
-  private void setHeader(long header) {
-    if (header <= 0) {
-      throw new IllegalArgumentException("Unexpected value for the " +
-          "header [" + header + "]");
-    }
-    long preferecBlkSize = getPreferredBlockSize(header);
-    short replication = getBlockReplication(header);
-    if (preferecBlkSize < 0) {
-      throw new IllegalArgumentException("Unexpected value for the " +
-          "block size [" + preferecBlkSize + "]");
-    }
-
-    if (replication < 0) {
-      throw new IllegalArgumentException("Unexpected value for the " +
-          "replication [" + replication + "]");
-    }
-
-
-    this.header = header;
+    return getPreferredBlockSize(header);
   }
 
   /**
@@ -379,18 +329,7 @@ public class INodeFile extends INode implements BlockCollection {
   }
   
 
-  public long getHeader() {
-    return header;
-  }
 
-  public static short getBlockReplication(long header) {
-    return (short) ((header & HEADERMASK) >> BLOCKBITS);
-  }
-
-  public static long getPreferredBlockSize(long header) {
-    return header & ~HEADERMASK;
-  }
-  
   void setReplication(short replication)
       throws StorageException, TransactionContextException {
     setReplicationNoPersistance(replication);

@@ -40,14 +40,16 @@ public class BatchedINodeLock extends BaseINodeLock {
     if (inodeIdentifiers != null && !inodeIdentifiers.isEmpty()) {
       String[] names = new String[inodeIdentifiers.size()];
       int[] parentIds = new int[inodeIdentifiers.size()];
+      int[] partitionIds = new int[inodeIdentifiers.size()];
       for (int i = 0; i < inodeIdentifiers.size(); i++) {
         INodeIdentifier inodeIdentifier = inodeIdentifiers.get(i);
         names[i] = inodeIdentifier.getName();
         parentIds[i] = inodeIdentifier.getPid();
+        partitionIds[i] = inodeIdentifier.getPartitionId();
         inodeIds[i] = inodeIdentifier.getInodeId();
       }
 
-      List<INode> inodes = find(DEFAULT_INODE_LOCK_TYPE, names, parentIds, false);
+      List<INode> inodes = find(DEFAULT_INODE_LOCK_TYPE, names, parentIds,partitionIds, false);
       addIndividualINodes(inodes);
     } else {
       throw new StorageException(

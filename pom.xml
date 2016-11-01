@@ -99,7 +99,7 @@ xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xs
     <module>hadoop-yarn-project</module>
     <module>hadoop-mapreduce-project</module>
     <module>hadoop-tools</module>
-    <module>hops-erasure-coding</module>
+    <module>hops-erasure-coding-project</module>
     <module>hadoop-dist</module>
     <module>hadoop-client</module>
     <module>hadoop-minicluster</module>
@@ -513,12 +513,12 @@ xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xs
         <dependency>
           <groupId>io.hops.metadata</groupId>
           <artifactId>hops-metadata-dal-impl-ndb</artifactId>
-          <version>1.0-SNAPSHOT</version>
+          <version>1.0</version>
         </dependency>
         <dependency>
           <groupId>com.mysql.ndb</groupId>
           <artifactId>clusterj-native</artifactId>
-          <version>7.5.1</version>
+          <version>7.5.4</version>
           <classifier>natives-linux</classifier>
         </dependency>
       </dependencies>
