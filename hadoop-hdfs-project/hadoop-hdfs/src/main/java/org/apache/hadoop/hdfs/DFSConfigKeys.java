@@ -162,11 +162,6 @@ public class DFSConfigKeys extends CommonConfigurationKeys {
       "dfs.client.initial.wait.on.retry";
   public static final int DFS_CLIENT_INITIAL_WAIT_ON_RETRY_IN_MS_DEFAULT = 1000;
   
-  public static final String DFS_CLIENT_REFRESH_NAMENODE_LIST_IN_MS_KEY =
-      "dfs.client.refresh.namenode.list";
-  public static final int DFS_CLIENT_REFRESH_NAMENODE_LIST_IN_MS_DEFAULT =
-      60 * 1000; //time in milliseconds.
-  
   public static final String DFS_SET_PARTITION_KEY_ENABLED =
       "dfs.ndb.setpartitionkey.enabled";
   public static final boolean DFS_SET_PARTITION_KEY_ENABLED_DEFAULT = true;

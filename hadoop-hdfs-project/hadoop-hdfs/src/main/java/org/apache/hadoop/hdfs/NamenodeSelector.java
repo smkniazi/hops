@@ -38,18 +38,10 @@ import java.util.concurrent.CopyOnWriteArrayList;
  * asynchronously asks one of the current namenodes what is the latest
  * up-to-date list of active namenodes.
  */
-public class NamenodeSelector extends Thread {
-
-  /**
-   * Policy for selection next namenode to be used by the client. Current
-   * supported policies are ROUND_ROBIN and RANDOM. RANDOM is the default
-   * policy used if no policy set in the configuation file.
-   */
+public class NamenodeSelector{
   enum NNSelectionPolicy {
+    RANDOM_STICKY("RANDOM_STICKY");
 
-    RANDOM("RANDOM"),
-    RANDOM_STICKY("RANDOM_STICKY"),
-    ROUND_ROBIN("ROUND_ROBIN");
     private String description = null;
 
     private NNSelectionPolicy(String arg) {
@@ -111,9 +103,6 @@ public class NamenodeSelector extends Thread {
   private NamenodeSelector.NamenodeHandle stickyHandle = null; //only used if
   // RANDOM_STICKY policy is used
   protected final Configuration conf;
-  private boolean periodicNNListUpdate = true;
-  private final Object wiatObjectForUpdate = new Object();
-  private final int namenodeListUpdateTimePeriod;
   Random rand = new Random((UUID.randomUUID()).hashCode());
 
 
@@ -127,72 +116,33 @@ public class NamenodeSelector extends Thread {
     this.nnList.add(
         new NamenodeSelector.NamenodeHandle(namenode, dummyActiveNamenode));
     this.conf = conf;
-    this.policy = NamenodeSelector.NNSelectionPolicy.ROUND_ROBIN;
-    this.namenodeListUpdateTimePeriod = -1;
+    this.policy = NNSelectionPolicy.RANDOM_STICKY;
   }
 
   public NamenodeSelector(Configuration conf, URI defaultUri) throws IOException {
     this.defaultUri = defaultUri;
     this.conf = conf;
 
-    namenodeListUpdateTimePeriod =
-        conf.getInt(DFSConfigKeys.DFS_CLIENT_REFRESH_NAMENODE_LIST_IN_MS_KEY,
-            DFSConfigKeys.DFS_CLIENT_REFRESH_NAMENODE_LIST_IN_MS_DEFAULT);
-
     // Getting appropriate policy
     // supported policies are 'RANDOM' and 'ROUND_ROBIN'
     String policyName =
         conf.get(DFSConfigKeys.DFS_NAMENODE_SELECTOR_POLICY_KEY,
             DFSConfigKeys.DFS_NAMENODE_SELECTOR_POLICY_DEFAULT);
-    if (policyName.equals(NamenodeSelector.NNSelectionPolicy.RANDOM.toString())){
-      policy = NamenodeSelector.NNSelectionPolicy.RANDOM;
-    } else if (policyName.equals(NamenodeSelector.NNSelectionPolicy.ROUND_ROBIN.toString())) {
-      policy = NamenodeSelector.NNSelectionPolicy.ROUND_ROBIN;
-    }else if (policyName.equals(NamenodeSelector.NNSelectionPolicy.RANDOM_STICKY.toString())) {
+    if (policyName.equals(NamenodeSelector.NNSelectionPolicy.RANDOM_STICKY.toString())) {
       policy = NamenodeSelector.NNSelectionPolicy.RANDOM_STICKY;
     } else {
-      policy = NamenodeSelector.NNSelectionPolicy.RANDOM_STICKY;
+      throw new RuntimeException("Unsupported Namenode Selection Policy: "+policyName);
     }
     LOG.debug("Client's namenode selection policy is " + policy);
 
     //get the list of Namenodes
     createNamenodeClientsFromConfiguration();
-
-    //start periodic Namenode list update thread.
-    setDaemon(true);
-    start();
-  }
-
-  @Override
-  public void run() {
-    while (periodicNNListUpdate) {
-      try {
-        //first sleep and then update
-        synchronized (wiatObjectForUpdate) {
-          wiatObjectForUpdate.wait(namenodeListUpdateTimePeriod);
-        }
-        if (periodicNNListUpdate) {
-          periodicNamenodeClientsUpdate();
-        }
-      } catch (Exception ex) {
-        LOG.warn(ex);
-      }
-    }
-    LOG.debug("Shuting down client");
-  }
-
-  private void asyncNNListUpdate() {
-    synchronized (wiatObjectForUpdate) {
-      wiatObjectForUpdate.notify();
-    }
   }
 
   /**
    * Stop the periodic update and close all the conncetions to the namenodes
    */
   public synchronized void close() {
-    stopPeriodicUpdates();
-
     //close all clients
     for (NamenodeSelector.NamenodeHandle namenode : nnList) {
       ClientProtocol rpc = namenode.getRPCHandle();
@@ -201,12 +151,6 @@ public class NamenodeSelector extends Thread {
     }
   }
 
-  public void stopPeriodicUpdates() {
-    periodicNNListUpdate = false;
-    synchronized (wiatObjectForUpdate) {
-      wiatObjectForUpdate.notify();
-    }
-  }
 
   /**
    * Get all namenodes in the cluster
@@ -216,7 +160,6 @@ public class NamenodeSelector extends Thread {
   public List<NamenodeSelector.NamenodeHandle> getAllNameNode()
       throws IOException {
     if (nnList == null || nnList.isEmpty()) {
-      asyncNNListUpdate();
       throw new NoAliveNamenodeException();
     }
     return nnList;
@@ -254,17 +197,13 @@ public class NamenodeSelector extends Thread {
    * @throws IOException
    */
   public NamenodeSelector.NamenodeHandle getNextNamenode() throws IOException {
-
-
     if (nnList == null || nnList.isEmpty()) {
-      asyncNNListUpdate();
       throw new NoAliveNamenodeException("No NameNode is active");
     }
 
     NamenodeSelector.NamenodeHandle handle = getNextNNBasedOnPolicy();
     if (handle == null || handle.getRPCHandle() == null) {
       //update the list right now
-      asyncNNListUpdate();
       throw new NoAliveNamenodeException(
           " Started an asynchronous update of the namenode list. ");
     }
@@ -272,19 +211,7 @@ public class NamenodeSelector extends Thread {
   }
 
   private synchronized NamenodeSelector.NamenodeHandle getNextNNBasedOnPolicy() {
-    if (policy == NamenodeSelector.NNSelectionPolicy.RANDOM) {
-      return getRandomNNInternal();
-    } else if (policy == NamenodeSelector.NNSelectionPolicy.ROUND_ROBIN) {
-      for (int i = 0; i < nnList.size() + 1; i++) {
-        rrIndex = (++rrIndex) % nnList.size();
-        NamenodeSelector.NamenodeHandle handle = nnList.get(rrIndex);
-        if (!this.blackListedNamenodes.contains(handle)) {
-          LOG.debug("ROUND_ROBIN returning "+handle);
-          return handle;
-        }
-      }
-      return null;
-    }  else if( policy == NamenodeSelector.NNSelectionPolicy.RANDOM_STICKY) {
+      if( policy == NamenodeSelector.NNSelectionPolicy.RANDOM_STICKY) {
       // stick to a random NN untill the NN dies
       //stickyHandle
       if(stickyHandle != null && nnList.contains(stickyHandle) &&
@@ -389,41 +316,6 @@ public class NamenodeSelector extends Thread {
       LOG.warn("No new namenodes were found");
     }
   }
-
-  /**
-   * we already have a list of NNs in 'clients' try contacting these namenodes
-   * to get a fresh list of namenodes if all of the namenodes in the 'clients'
-   * map fail then call the 'createDFSClientsForFirstTime' function. with will
-   * try to connect to defaults namenode provided at the initialization phase.
-   */
-  private synchronized void periodicNamenodeClientsUpdate() throws IOException {
-    SortedActiveNodeList anl = null;
-    LOG.debug("Fetching new list of namenodes");
-    if (!nnList.isEmpty()) {
-      for (NamenodeSelector.NamenodeHandle namenode : nnList) { //TODO dont try with black listed nodes
-        try {
-          ClientProtocol handle = namenode.getRPCHandle();
-          anl = handle.getActiveNamenodesForClient();
-          if (anl == null || anl.size() == 0) {
-            anl = null;
-            continue;
-          } else {
-            // we get a fresh list of anl
-            refreshNamenodeList(anl);
-            return;
-          }
-        } catch (IOException e) {
-          continue;
-        }
-      }
-    }
-
-    if (anl == null) { // try contacting default NNs
-      createNamenodeClientsFromConfiguration();
-    }
-
-  }
-
 
   private synchronized void refreshNamenodeList(SortedActiveNodeList anl) {
     if (anl == null) {
@@ -534,11 +426,6 @@ public class NamenodeSelector extends Thread {
     if(policy == NamenodeSelector.NNSelectionPolicy.RANDOM_STICKY &&
             stickyHandle != null && stickyHandle == handle  ){
       stickyHandle = null;
-    }
-
-    //if a bad namenode is detected then update the list of Namenodes in the system
-    synchronized (wiatObjectForUpdate) {
-      wiatObjectForUpdate.notify();
     }
   }
 
