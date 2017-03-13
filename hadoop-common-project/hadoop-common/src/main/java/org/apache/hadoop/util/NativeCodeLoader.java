@@ -48,9 +48,6 @@ public final class NativeCodeLoader {
       LOG.warn("Loaded the native-hadoop library");
       nativeCodeLoaded = true;
     } catch (Throwable t) {
-        System.out.println(t);
-              String javaLibPath = System.getProperty("java.library.path");
-        System.out.println(javaLibPath);
       // Ignore failure to load
       if(LOG.isDebugEnabled()) {
         System.out.println(t);
@@ -82,6 +79,11 @@ public final class NativeCodeLoader {
    * Returns true only if this build was compiled with support for snappy.
    */
   public static native boolean buildSupportsSnappy();
+  
+  /**
+   * Returns true only if this build was compiled with support for openssl.
+   */
+  public static native boolean buildSupportsOpenssl();
 
   /**
    * Returns true only if this build was compiled with support for ISA-L.
@@ -91,7 +93,6 @@ public final class NativeCodeLoader {
   /**
    * Returns true only if this build was compiled with support for openssl.
    */
-  public static native boolean buildSupportsOpenssl();
 
   public static native String getLibraryName();
 

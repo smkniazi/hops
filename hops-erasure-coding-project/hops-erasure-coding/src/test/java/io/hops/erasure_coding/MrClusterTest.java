@@ -15,8 +15,6 @@
  */
 package io.hops.erasure_coding;
 
-import io.hops.metadata.util.RMStorageFactory;
-import io.hops.metadata.util.YarnAPIStorageFactory;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.mapreduce.v2.MiniMRYarnCluster;
 
@@ -27,10 +25,9 @@ public abstract class MrClusterTest extends ClusterTest {
   public void setUp() throws Exception {
     super.setUp();
     Configuration conf = new Configuration(getConfig());
-    mrCluster = new MiniMRYarnCluster(this.getClass().getName(), numDatanode);
+    mrCluster = new MiniMRYarnCluster(this.getClass().getName(), numDatanode,
+            false);
     conf.set("fs.defaultFS", fs.getUri().toString());
-    YarnAPIStorageFactory.setConfiguration(conf);
-    RMStorageFactory.setConfiguration(conf);
     mrCluster.init(conf);
     mrCluster.start();
   }
