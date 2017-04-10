@@ -18,7 +18,6 @@
 package org.apache.hadoop.hdfs.server.namenode;
 
 import com.google.common.annotations.VisibleForTesting;
-import com.google.common.base.Charsets;
 import com.google.common.collect.Lists;
 import io.hops.common.IDsGeneratorFactory;
 import io.hops.common.IDsMonitor;
@@ -34,16 +33,13 @@ import io.hops.metadata.HdfsStorageFactory;
 import io.hops.metadata.HdfsVariables;
 import io.hops.metadata.hdfs.dal.BlockChecksumDataAccess;
 import io.hops.metadata.hdfs.dal.EncodingStatusDataAccess;
-import io.hops.metadata.hdfs.dal.FileInodeDataDataAccess;
 import io.hops.metadata.hdfs.dal.INodeAttributesDataAccess;
 import io.hops.metadata.hdfs.dal.INodeDataAccess;
-import io.hops.metadata.hdfs.dal.MetadataLogDataAccess;
 import io.hops.metadata.hdfs.dal.SafeBlocksDataAccess;
 import io.hops.metadata.hdfs.dal.SizeLogDataAccess;
 import io.hops.metadata.hdfs.entity.BlockChecksum;
 import io.hops.metadata.hdfs.entity.EncodingPolicy;
 import io.hops.metadata.hdfs.entity.EncodingStatus;
-import io.hops.metadata.hdfs.entity.FileInodeData;
 import io.hops.metadata.hdfs.entity.INodeIdentifier;
 import io.hops.metadata.hdfs.entity.MetadataLogEntry;
 import io.hops.metadata.hdfs.entity.ProjectedINode;
@@ -147,17 +143,11 @@ import org.mortbay.util.ajax.JSON;
 import javax.management.NotCompliantMBeanException;
 import javax.management.ObjectName;
 import javax.management.StandardMBean;
-import java.io.BufferedWriter;
 import java.io.ByteArrayInputStream;
 import java.io.DataInputStream;
 import java.io.DataOutputStream;
-import java.io.File;
 import java.io.FileNotFoundException;
-import java.io.FileOutputStream;
 import java.io.IOException;
-import java.io.OutputStreamWriter;
-import java.io.PrintWriter;
-import java.io.StringWriter;
 import java.lang.management.ManagementFactory;
 import java.net.InetAddress;
 import java.util.ArrayList;
@@ -352,7 +342,8 @@ public class FSNamesystem
   private final ErasureCodingManager erasureCodingManager;
 
   private final boolean storeSmallFilesInDB;
-  private final int DBFileMaxSize;
+  private static int DB_ON_DISK_FILE_MAX_SIZE;
+  private static int DB_IN_MEMORY_FILE_MAX_SIZE;
   private final long BIGGEST_DELETEABLE_DIR;
 
   /**
@@ -429,8 +420,10 @@ public class FSNamesystem
       this.storeSmallFilesInDB =
           conf.getBoolean(DFSConfigKeys.DFS_STORE_SMALL_FILES_IN_DB_KEY,
               DFSConfigKeys.DFS_STORE_SMALL_FILES_IN_DB_DEFAULT);
-      this.DBFileMaxSize = conf.getInt(DFSConfigKeys.DFS_DB_FILE_MAX_SIZE_KEY,
-          DFSConfigKeys.DFS_DB_FILE_MAX_SIZE_DEFAULT);
+      DB_ON_DISK_FILE_MAX_SIZE = conf.getInt(DFSConfigKeys.DFS_DB_ONDISK_FILE_MAX_SIZE_KEY,
+              DFSConfigKeys.DFS_DB_ONDISK_FILE_MAX_SIZE_DEFAULT);
+      DB_IN_MEMORY_FILE_MAX_SIZE = conf.getInt(DFSConfigKeys.DFS_DB_INMEMORY_FILE_MAX_SIZE_KEY,
+          DFSConfigKeys.DFS_DB_INMEMORY_FILE_MAX_SIZE_DEFAULT);
       this.datanodeStatistics =
           blockManager.getDatanodeManager().getDatanodeStatistics();
 
@@ -459,7 +452,7 @@ public class FSNamesystem
               DFS_SUBTREE_EXECUTOR_LIMIT_DEFAULT));
       BIGGEST_DELETEABLE_DIR = conf.getLong(DFS_DIR_DELETE_BATCH_SIZE,
               DFS_DIR_DELETE_BATCH_SIZE_DEFAULT);
-      
+
       LOG.info("fsOwner             = " + fsOwner);
       LOG.info("supergroup          = " + supergroup);
       LOG.info("isPermissionEnabled = " + isPermissionEnabled);
@@ -1131,7 +1124,6 @@ public class FSNamesystem
       throw new HadoopIllegalArgumentException(
           "Negative length is not supported. File: " + src);
     }
-<<<<<<< HEAD
 
     LocatedBlocks ret = null;
     final INodeFile inodeFile = INodeFile.valueOf(dir.getINode(src), src);
@@ -1146,12 +1138,7 @@ public class FSNamesystem
           needBlockToken);
     }
     logAuditEvent(true, "open", src);
-=======
-    final LocatedBlocks ret =
-        getBlockLocationsUpdateTimes(src, offset, length, doAccessTime,
-            needBlockToken);
 
->>>>>>> develop
     if (checkSafeMode && isInSafeMode()) {
       for (LocatedBlock b : ret.getLocatedBlocks()) {
         // if safemode & no block locations yet then throw safemodeException
@@ -6053,7 +6040,7 @@ public class FSNamesystem
   ContentSummary multiTransactionalGetContentSummary(final String path)
       throws AccessControlException, FileNotFoundException,
       UnresolvedLinkException, IOException {
-  
+
       PathInformation pathInfo = getPathExistingINodesFromDB(path,
               false, null, null, null, null);
       if(pathInfo.getPathInodes()[pathInfo.getPathComponents().length-1] == null){
@@ -6850,7 +6837,7 @@ public class FSNamesystem
                     + " id: " + inode.getId()
                     + " pid: " + inode.getParentId() + " name: " + inode.getLocalName());
           }
-          
+
           EntityManager.update(new SubTreeOperation(getSubTreeLockPathPrefix(path)
                 ,nameNode.getId(),stoType));
           INodeIdentifier iNodeIdentifier =  new INodeIdentifier(inode.getId(), inode.getParentId(),
@@ -7471,7 +7458,7 @@ public class FSNamesystem
           public void acquireLock(TransactionLocks locks) throws IOException {
             LockFactory lf = LockFactory.getInstance();
             locks.add(lf.getINodeLock(!dir.isQuotaEnabled()?true:false/*skip INode Attr Lock*/,nameNode, INodeLockType.READ_COMMITTED,
-                INodeResolveType.PATH, false, 
+                INodeResolveType.PATH, false,
                 path)).add(lf.getBlockLock()); // blk lock only if file
           }
 
@@ -7566,8 +7553,12 @@ public class FSNamesystem
     return this.storeSmallFilesInDB;
   }
 
-  public int smallFilesMaxSize() {
-    return this.DBFileMaxSize;
+  public static int dbOnDiskSmallFileMaxSize() {
+    return DB_ON_DISK_FILE_MAX_SIZE;
+  }
+
+  public static int dbInMemorySmallFileMaxSize() {
+    return DB_IN_MEMORY_FILE_MAX_SIZE;
   }
 }
 

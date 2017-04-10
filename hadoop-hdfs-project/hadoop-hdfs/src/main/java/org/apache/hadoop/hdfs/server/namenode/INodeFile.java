@@ -20,10 +20,9 @@ package org.apache.hadoop.hdfs.server.namenode;
 import io.hops.exception.StorageException;
 import io.hops.exception.TransactionContextException;
 import io.hops.metadata.HdfsStorageFactory;
-import io.hops.metadata.hdfs.dal.FileInodeDataDataAccess;
-import io.hops.metadata.hdfs.dal.MetadataLogDataAccess;
+import io.hops.metadata.hdfs.dal.InMemoryInodeDataAccess;
+import io.hops.metadata.hdfs.dal.OnDiskInodeDataAccess;
 import io.hops.metadata.hdfs.entity.FileInodeData;
-import io.hops.metadata.hdfs.entity.MetadataLogEntry;
 import io.hops.transaction.EntityManager;
 import org.apache.hadoop.classification.InterfaceAudience;
 import org.apache.hadoop.fs.permission.PermissionStatus;
@@ -139,27 +138,58 @@ public class INodeFile extends INode implements BlockCollection {
   public void storeFileDataInDB(byte[] data)
       throws StorageException {
 
-    FileInodeDataDataAccess fida = (FileInodeDataDataAccess) HdfsStorageFactory
-        .getDataAccess(FileInodeDataDataAccess.class);
-    FileInodeData fid = new FileInodeData(getId(), data);
-    fida.add(fid);
+    int len = data.length;
+    FileInodeData fid;
+
+    if(len <= FSNamesystem.dbInMemorySmallFileMaxSize()){
+     fid = new FileInodeData(getId(), data, FileInodeData.Type.InmemoryFile);
+      InMemoryInodeDataAccess fida = (InMemoryInodeDataAccess) HdfsStorageFactory.getDataAccess(InMemoryInodeDataAccess.class);
+      fida.add(fid);
+    } else if( len <= FSNamesystem.dbOnDiskSmallFileMaxSize()){
+      fid = new FileInodeData(getId(), data, FileInodeData.Type.OnDiskFile);
+      OnDiskInodeDataAccess fida = (OnDiskInodeDataAccess) HdfsStorageFactory.getDataAccess(OnDiskInodeDataAccess.class);
+      fida.add(fid);
+    }else{
+      StorageException up = new StorageException("The data is too large to be stored in the database. Requested data size is : "+len);
+      throw up;
+    }
+
     FSNamesystem.LOG.debug("SMALL_FILE the file has been stored in the database ");
   }
 
   public byte[] getFileDataInDB() throws StorageException {
     HdfsStorageFactory.getConnector().readCommitted();
-    FileInodeDataDataAccess fida = (FileInodeDataDataAccess) HdfsStorageFactory
-        .getDataAccess(FileInodeDataDataAccess.class);
-    FileInodeData fid = (FileInodeData) fida.get(getId());
-    FSNamesystem.LOG.debug("SMALL_FILE Read file data from the database. Data length is :" +
-            fid.getInodeData().length);
+
+    //depending on the file size read the file from appropriate table
+    FileInodeData fid = null;
+    if(getSize() <= FSNamesystem.dbInMemorySmallFileMaxSize()){
+      InMemoryInodeDataAccess fida = (InMemoryInodeDataAccess) HdfsStorageFactory.getDataAccess(InMemoryInodeDataAccess.class);
+      fid = (FileInodeData) fida.get(getId());
+    }else if (getSize() <= FSNamesystem.dbOnDiskSmallFileMaxSize()){
+      OnDiskInodeDataAccess fida = (OnDiskInodeDataAccess) HdfsStorageFactory.getDataAccess(OnDiskInodeDataAccess.class);
+      fid = (FileInodeData) fida.get(getId());
+    } else {
+      StorageException up = new StorageException("The data is too large to be stored in the database. Requested data size is : "+getSize());
+      throw up;
+    }
+
+    FSNamesystem.LOG.debug("SMALL_FILE Read file data from the database. Data length is :" + fid.getInodeData().length);
     return fid.getInodeData();
   }
 
   public void deleteFileDataStoredInDB() throws StorageException {
-     FileInodeDataDataAccess fida = (FileInodeDataDataAccess) HdfsStorageFactory
-        .getDataAccess(FileInodeDataDataAccess.class);
-    fida.delete(new FileInodeData(getId(),null));
+    //depending on the file size delete the file from appropriate table
+    FileInodeData fid = null;
+    if(getSize() <= FSNamesystem.dbInMemorySmallFileMaxSize()){
+      InMemoryInodeDataAccess fida = (InMemoryInodeDataAccess) HdfsStorageFactory.getDataAccess(InMemoryInodeDataAccess.class);
+      fida.delete(new FileInodeData(getId(),null, FileInodeData.Type.InmemoryFile));
+    }else if (getSize() <= FSNamesystem.dbOnDiskSmallFileMaxSize()){
+      OnDiskInodeDataAccess fida = (OnDiskInodeDataAccess) HdfsStorageFactory.getDataAccess(OnDiskInodeDataAccess.class);
+      fida.delete(new FileInodeData(getId(),null, FileInodeData.Type.OnDiskFile));
+    } else {
+      IllegalStateException up = new IllegalStateException("Can not delete file. It is not stored in the database");
+      throw up;
+    }
     FSNamesystem.LOG.debug("SMALL_FILE File data for Inode Id: "+getId()+" is deleted");
   }
   /**

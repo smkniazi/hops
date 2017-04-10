@@ -316,10 +316,9 @@ public class HdfsStorageFactory {
         entityContexts.put(MetadataLogEntry.class, new MetadataLogContext(
             (MetadataLogDataAccess) getDataAccess(MetadataLogDataAccess.class)
         ));
-		    entityContexts.put(SubTreeOperation.class, new SubTreeOperationsContext(
+		entityContexts.put(SubTreeOperation.class, new SubTreeOperationsContext(
                 (OngoingSubTreeOpsDataAccess)
                 getDataAccess(OngoingSubTreeOpsDataAccess.class)));
-//        entityContexts.put(FileInodeData.class, )
 
         return entityContexts;
       }

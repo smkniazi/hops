@@ -2,12 +2,12 @@ package org.apache.hadoop.hdfs;
 
 import io.hops.exception.StorageException;
 import io.hops.metadata.HdfsStorageFactory;
-import io.hops.metadata.hdfs.dal.FileInodeDataDataAccess;
+import io.hops.metadata.hdfs.dal.InMemoryInodeDataAccess;
+import io.hops.metadata.hdfs.dal.OnDiskInodeDataAccess;
 import io.hops.transaction.handler.HDFSOperationType;
 import io.hops.transaction.handler.LightWeightRequestHandler;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.*;
-import org.apache.hadoop.hdfs.protocol.LocatedBlock;
 import org.apache.hadoop.hdfs.protocol.LocatedBlocks;
 import org.apache.hadoop.hdfs.server.namenode.FSNamesystem;
 import org.junit.Test;
@@ -19,8 +19,6 @@ import static org.junit.Assert.fail;
 
 import java.io.IOException;
 import java.nio.ByteBuffer;
-
-import static org.apache.hadoop.hdfs.DFSConfigKeys.DFS_BYTES_PER_CHECKSUM_KEY;
 
 /**
  * Created by salman on 2016-03-22.
@@ -118,16 +116,33 @@ public class TestSmallFilesCreation {
   }
   
   public static int countDBFiles() throws IOException {
+    return countInMemoryDBFiles() + countOnDiskDBFiles();
+  }
+  
+  public static int countInMemoryDBFiles() throws IOException {
     LightWeightRequestHandler countDBFiles = new LightWeightRequestHandler(HDFSOperationType.TEST_DB_FILES) {
       @Override
       public Object performTask() throws StorageException, IOException {
-        FileInodeDataDataAccess fida =
-            (FileInodeDataDataAccess) HdfsStorageFactory.getDataAccess(FileInodeDataDataAccess.class);
+        InMemoryInodeDataAccess fida =
+            (InMemoryInodeDataAccess) HdfsStorageFactory.getDataAccess(InMemoryInodeDataAccess.class);
         return fida.count();
       }
     };
     return (Integer) countDBFiles.handle();
   }
+
+  public static int countOnDiskDBFiles() throws IOException {
+    LightWeightRequestHandler countDBFiles = new LightWeightRequestHandler(HDFSOperationType.TEST_DB_FILES) {
+      @Override
+      public Object performTask() throws StorageException, IOException {
+        OnDiskInodeDataAccess fida =
+                (OnDiskInodeDataAccess) HdfsStorageFactory.getDataAccess(OnDiskInodeDataAccess.class);
+        return fida.count();
+      }
+    };
+    return (Integer) countDBFiles.handle();
+  }
+  
   
   /**
    * Simple read and write test
@@ -143,23 +158,28 @@ public class TestSmallFilesCreation {
       final int BLOCK_SIZE = 1024 * 1024;
       final int FILE_SIZE = 1 * 1024;
       final boolean ENABLE_STORE_SMALL_FILES_IN_DB = true;
-      final int SMALL_FILE_MAX_SIZE =
-          conf.getInt(DFSConfigKeys.DFS_DB_FILE_MAX_SIZE_KEY, DFSConfigKeys.DFS_DB_FILE_MAX_SIZE_DEFAULT);
-      final String FILE_NAME = "/TEST-FLIE";
-      
-      conf.setInt(DFSConfigKeys.DFS_DB_FILE_MAX_SIZE_KEY, SMALL_FILE_MAX_SIZE);
+      final int SMALL_FILE_ONDISK_MAX_SIZE = conf.getInt(DFSConfigKeys.DFS_DB_ONDISK_FILE_MAX_SIZE_KEY, DFSConfigKeys.DFS_DB_ONDISK_FILE_MAX_SIZE_DEFAULT);
+      final int SMALL_FILE_INMEMORY_MAX_SIZE = conf.getInt(DFSConfigKeys.DFS_DB_INMEMORY_FILE_MAX_SIZE_KEY, DFSConfigKeys.DFS_DB_INMEMORY_FILE_MAX_SIZE_DEFAULT);
+      final String FILE_NAME1 = "/TEST-FLIE1";
+      final String FILE_NAME2 = "/TEST-FLIE2";
+
       conf.setBoolean(DFSConfigKeys.DFS_STORE_SMALL_FILES_IN_DB_KEY, ENABLE_STORE_SMALL_FILES_IN_DB);
       conf.setInt(DFSConfigKeys.DFS_BLOCK_SIZE_KEY, BLOCK_SIZE); 
-      
-      
+
       cluster = new MiniDFSCluster.Builder(conf).numDataNodes(1).build();
       cluster.waitActive();
       
       DistributedFileSystem dfs = cluster.getFileSystem();
-      writeFile(dfs, FILE_NAME, FILE_SIZE);
 
-      readFileUsingMultipleMethods(dfs, FILE_NAME, FILE_SIZE);
-      
+      writeFile(dfs, FILE_NAME1, FILE_SIZE);
+      readFileUsingMultipleMethods(dfs, FILE_NAME1, FILE_SIZE);
+
+      writeFile(dfs, FILE_NAME2, FILE_SIZE);
+      readFileUsingMultipleMethods(dfs, FILE_NAME2, FILE_SIZE);
+
+      assertTrue(countInMemoryDBFiles() ==1 );
+      assertTrue(countDBFiles() == 1);
+
     } catch (Exception e) {
       e.printStackTrace();
       fail(e.getMessage());
@@ -185,10 +205,10 @@ public class TestSmallFilesCreation {
       final int FILE_SIZE = 32 * 1024 + 1;
       final boolean ENABLE_STORE_SMALL_FILES_IN_DB = true;
       final int SMALL_FILE_MAX_SIZE =
-          conf.getInt(DFSConfigKeys.DFS_DB_FILE_MAX_SIZE_KEY, DFSConfigKeys.DFS_DB_FILE_MAX_SIZE_DEFAULT);
+          conf.getInt(DFSConfigKeys.DFS_DB_ONDISK_FILE_MAX_SIZE_KEY, DFSConfigKeys.DFS_DB_ONDISK_FILE_MAX_SIZE_DEFAULT);
       final String FILE_NAME = "/TEST-FLIE";
       
-      conf.setInt(DFSConfigKeys.DFS_DB_FILE_MAX_SIZE_KEY, SMALL_FILE_MAX_SIZE);
+      conf.setInt(DFSConfigKeys.DFS_DB_ONDISK_FILE_MAX_SIZE_KEY, SMALL_FILE_MAX_SIZE);
       conf.setBoolean(DFSConfigKeys.DFS_STORE_SMALL_FILES_IN_DB_KEY, ENABLE_STORE_SMALL_FILES_IN_DB);
       conf.setInt(DFSConfigKeys.DFS_BLOCK_SIZE_KEY, BLOCK_SIZE); 
       
@@ -231,10 +251,10 @@ public class TestSmallFilesCreation {
       final int FILE_SIZE = 1 * 1024;
       final boolean ENABLE_STORE_SMALL_FILES_IN_DB = true;
       final int SMALL_FILE_MAX_SIZE =
-          conf.getInt(DFSConfigKeys.DFS_DB_FILE_MAX_SIZE_KEY, DFSConfigKeys.DFS_DB_FILE_MAX_SIZE_DEFAULT);
+          conf.getInt(DFSConfigKeys.DFS_DB_ONDISK_FILE_MAX_SIZE_KEY, DFSConfigKeys.DFS_DB_ONDISK_FILE_MAX_SIZE_DEFAULT);
       final String FILE_NAME = "/TEST-FLIE";
       
-      conf.setInt(DFSConfigKeys.DFS_DB_FILE_MAX_SIZE_KEY, SMALL_FILE_MAX_SIZE);
+      conf.setInt(DFSConfigKeys.DFS_DB_ONDISK_FILE_MAX_SIZE_KEY, SMALL_FILE_MAX_SIZE);
       conf.setBoolean(DFSConfigKeys.DFS_STORE_SMALL_FILES_IN_DB_KEY, ENABLE_STORE_SMALL_FILES_IN_DB);
       conf.setInt(DFSConfigKeys.DFS_BLOCK_SIZE_KEY, BLOCK_SIZE); 
       
@@ -280,10 +300,10 @@ public class TestSmallFilesCreation {
       final int FILE_SIZE = 1 * 1024;
       final boolean ENABLE_STORE_SMALL_FILES_IN_DB = true;
       final int SMALL_FILE_MAX_SIZE =
-          conf.getInt(DFSConfigKeys.DFS_DB_FILE_MAX_SIZE_KEY, DFSConfigKeys.DFS_DB_FILE_MAX_SIZE_DEFAULT);
+          conf.getInt(DFSConfigKeys.DFS_DB_ONDISK_FILE_MAX_SIZE_KEY, DFSConfigKeys.DFS_DB_ONDISK_FILE_MAX_SIZE_DEFAULT);
       final String FILE_NAME = "/TEST-FLIE";
       
-      conf.setInt(DFSConfigKeys.DFS_DB_FILE_MAX_SIZE_KEY, SMALL_FILE_MAX_SIZE);
+      conf.setInt(DFSConfigKeys.DFS_DB_ONDISK_FILE_MAX_SIZE_KEY, SMALL_FILE_MAX_SIZE);
       conf.setBoolean(DFSConfigKeys.DFS_STORE_SMALL_FILES_IN_DB_KEY, ENABLE_STORE_SMALL_FILES_IN_DB);
       conf.setInt(DFSConfigKeys.DFS_BLOCK_SIZE_KEY, BLOCK_SIZE); 
       
@@ -325,10 +345,10 @@ public class TestSmallFilesCreation {
       final int FILE_SIZE = 1 * 1024;
       final boolean ENABLE_STORE_SMALL_FILES_IN_DB = true;
       final int SMALL_FILE_MAX_SIZE =
-          conf.getInt(DFSConfigKeys.DFS_DB_FILE_MAX_SIZE_KEY, DFSConfigKeys.DFS_DB_FILE_MAX_SIZE_DEFAULT);
+          conf.getInt(DFSConfigKeys.DFS_DB_ONDISK_FILE_MAX_SIZE_KEY, DFSConfigKeys.DFS_DB_ONDISK_FILE_MAX_SIZE_DEFAULT);
       final String FILE_NAME = "/TEST-FLIE";
       
-      conf.setInt(DFSConfigKeys.DFS_DB_FILE_MAX_SIZE_KEY, SMALL_FILE_MAX_SIZE);
+      conf.setInt(DFSConfigKeys.DFS_DB_ONDISK_FILE_MAX_SIZE_KEY, SMALL_FILE_MAX_SIZE);
       conf.setBoolean(DFSConfigKeys.DFS_STORE_SMALL_FILES_IN_DB_KEY, ENABLE_STORE_SMALL_FILES_IN_DB);
       conf.setInt(DFSConfigKeys.DFS_BLOCK_SIZE_KEY, BLOCK_SIZE); 
       
@@ -362,10 +382,10 @@ public class TestSmallFilesCreation {
       final int FILE_SIZE = 1 * 1024;
       final boolean ENABLE_STORE_SMALL_FILES_IN_DB = true;
       final int SMALL_FILE_MAX_SIZE =
-          conf.getInt(DFSConfigKeys.DFS_DB_FILE_MAX_SIZE_KEY, DFSConfigKeys.DFS_DB_FILE_MAX_SIZE_DEFAULT);
+          conf.getInt(DFSConfigKeys.DFS_DB_ONDISK_FILE_MAX_SIZE_KEY, DFSConfigKeys.DFS_DB_ONDISK_FILE_MAX_SIZE_DEFAULT);
       final String FILE_NAME = "/TEST-FLIE";
       
-      conf.setInt(DFSConfigKeys.DFS_DB_FILE_MAX_SIZE_KEY, SMALL_FILE_MAX_SIZE);
+      conf.setInt(DFSConfigKeys.DFS_DB_ONDISK_FILE_MAX_SIZE_KEY, SMALL_FILE_MAX_SIZE);
       conf.setBoolean(DFSConfigKeys.DFS_STORE_SMALL_FILES_IN_DB_KEY, ENABLE_STORE_SMALL_FILES_IN_DB);
       conf.setInt(DFSConfigKeys.DFS_BLOCK_SIZE_KEY, BLOCK_SIZE); 
       
@@ -407,10 +427,10 @@ public class TestSmallFilesCreation {
       final int FILE_SIZE = 1 * 1024;
       final boolean ENABLE_STORE_SMALL_FILES_IN_DB = true;
       final int SMALL_FILE_MAX_SIZE =
-          conf.getInt(DFSConfigKeys.DFS_DB_FILE_MAX_SIZE_KEY, DFSConfigKeys.DFS_DB_FILE_MAX_SIZE_DEFAULT);
+          conf.getInt(DFSConfigKeys.DFS_DB_ONDISK_FILE_MAX_SIZE_KEY, DFSConfigKeys.DFS_DB_ONDISK_FILE_MAX_SIZE_DEFAULT);
       final String FILE_NAME = "/TEST-FLIE";
       
-      conf.setInt(DFSConfigKeys.DFS_DB_FILE_MAX_SIZE_KEY, SMALL_FILE_MAX_SIZE);
+      conf.setInt(DFSConfigKeys.DFS_DB_ONDISK_FILE_MAX_SIZE_KEY, SMALL_FILE_MAX_SIZE);
       conf.setBoolean(DFSConfigKeys.DFS_STORE_SMALL_FILES_IN_DB_KEY, ENABLE_STORE_SMALL_FILES_IN_DB);
       conf.setInt(DFSConfigKeys.DFS_BLOCK_SIZE_KEY, BLOCK_SIZE); 
       
@@ -459,10 +479,10 @@ public class TestSmallFilesCreation {
       final int BLOCK_SIZE = 1024 * 1024;
       final boolean ENABLE_STORE_SMALL_FILES_IN_DB = true;
       final int SMALL_FILE_MAX_SIZE =
-          conf.getInt(DFSConfigKeys.DFS_DB_FILE_MAX_SIZE_KEY, DFSConfigKeys.DFS_DB_FILE_MAX_SIZE_DEFAULT);
+          conf.getInt(DFSConfigKeys.DFS_DB_ONDISK_FILE_MAX_SIZE_KEY, DFSConfigKeys.DFS_DB_ONDISK_FILE_MAX_SIZE_DEFAULT);
       final String FILE_NAME = "/TEST-FLIE";
       
-      conf.setInt(DFSConfigKeys.DFS_DB_FILE_MAX_SIZE_KEY, SMALL_FILE_MAX_SIZE);
+      conf.setInt(DFSConfigKeys.DFS_DB_ONDISK_FILE_MAX_SIZE_KEY, SMALL_FILE_MAX_SIZE);
       conf.setBoolean(DFSConfigKeys.DFS_STORE_SMALL_FILES_IN_DB_KEY, ENABLE_STORE_SMALL_FILES_IN_DB);
       conf.setInt(DFSConfigKeys.DFS_BLOCK_SIZE_KEY, BLOCK_SIZE); 
       
@@ -538,10 +558,10 @@ public class TestSmallFilesCreation {
       final int BLOCK_SIZE = 1024 * 1024;
       final boolean ENABLE_STORE_SMALL_FILES_IN_DB = true;
       final int SMALL_FILE_MAX_SIZE =
-          conf.getInt(DFSConfigKeys.DFS_DB_FILE_MAX_SIZE_KEY, DFSConfigKeys.DFS_DB_FILE_MAX_SIZE_DEFAULT);
+          conf.getInt(DFSConfigKeys.DFS_DB_ONDISK_FILE_MAX_SIZE_KEY, DFSConfigKeys.DFS_DB_ONDISK_FILE_MAX_SIZE_DEFAULT);
       final String FILE_NAME = "/TEST-FLIE";
       
-      conf.setInt(DFSConfigKeys.DFS_DB_FILE_MAX_SIZE_KEY, SMALL_FILE_MAX_SIZE);
+      conf.setInt(DFSConfigKeys.DFS_DB_ONDISK_FILE_MAX_SIZE_KEY, SMALL_FILE_MAX_SIZE);
       conf.setBoolean(DFSConfigKeys.DFS_STORE_SMALL_FILES_IN_DB_KEY, ENABLE_STORE_SMALL_FILES_IN_DB);
       conf.setInt(DFSConfigKeys.DFS_BLOCK_SIZE_KEY, BLOCK_SIZE); 
       
@@ -591,10 +611,10 @@ public class TestSmallFilesCreation {
       final int BLOCK_SIZE = 1024 * 1024;
       final boolean ENABLE_STORE_SMALL_FILES_IN_DB = true;
       final int SMALL_FILE_MAX_SIZE =
-          conf.getInt(DFSConfigKeys.DFS_DB_FILE_MAX_SIZE_KEY, DFSConfigKeys.DFS_DB_FILE_MAX_SIZE_DEFAULT);
+          conf.getInt(DFSConfigKeys.DFS_DB_ONDISK_FILE_MAX_SIZE_KEY, DFSConfigKeys.DFS_DB_ONDISK_FILE_MAX_SIZE_DEFAULT);
       final String FILE_NAME = "/TEST-FLIE";
       
-      conf.setInt(DFSConfigKeys.DFS_DB_FILE_MAX_SIZE_KEY, SMALL_FILE_MAX_SIZE);
+      conf.setInt(DFSConfigKeys.DFS_DB_ONDISK_FILE_MAX_SIZE_KEY, SMALL_FILE_MAX_SIZE);
       conf.setBoolean(DFSConfigKeys.DFS_STORE_SMALL_FILES_IN_DB_KEY, ENABLE_STORE_SMALL_FILES_IN_DB);
       conf.setInt(DFSConfigKeys.DFS_BLOCK_SIZE_KEY, BLOCK_SIZE);
       
@@ -636,10 +656,10 @@ public class TestSmallFilesCreation {
       final int BLOCK_SIZE = 1024 * 1024;
       final boolean ENABLE_STORE_SMALL_FILES_IN_DB = true;
       final int SMALL_FILE_MAX_SIZE =
-          conf.getInt(DFSConfigKeys.DFS_DB_FILE_MAX_SIZE_KEY, DFSConfigKeys.DFS_DB_FILE_MAX_SIZE_DEFAULT);
+          conf.getInt(DFSConfigKeys.DFS_DB_ONDISK_FILE_MAX_SIZE_KEY, DFSConfigKeys.DFS_DB_ONDISK_FILE_MAX_SIZE_DEFAULT);
       final String FILE_NAME = "/TEST-FLIE";
       
-      conf.setInt(DFSConfigKeys.DFS_DB_FILE_MAX_SIZE_KEY, SMALL_FILE_MAX_SIZE);
+      conf.setInt(DFSConfigKeys.DFS_DB_ONDISK_FILE_MAX_SIZE_KEY, SMALL_FILE_MAX_SIZE);
       conf.setBoolean(DFSConfigKeys.DFS_STORE_SMALL_FILES_IN_DB_KEY, ENABLE_STORE_SMALL_FILES_IN_DB);
       conf.setInt(DFSConfigKeys.DFS_BLOCK_SIZE_KEY, BLOCK_SIZE);
       
@@ -682,10 +702,10 @@ public class TestSmallFilesCreation {
       final int BLOCK_SIZE = 1024 * 1024;
       final boolean ENABLE_STORE_SMALL_FILES_IN_DB = true;
       final int SMALL_FILE_MAX_SIZE =
-          conf.getInt(DFSConfigKeys.DFS_DB_FILE_MAX_SIZE_KEY, DFSConfigKeys.DFS_DB_FILE_MAX_SIZE_DEFAULT);
+          conf.getInt(DFSConfigKeys.DFS_DB_ONDISK_FILE_MAX_SIZE_KEY, DFSConfigKeys.DFS_DB_ONDISK_FILE_MAX_SIZE_DEFAULT);
       final String FILE_NAME = "/TEST-FLIE";
       
-      conf.setInt(DFSConfigKeys.DFS_DB_FILE_MAX_SIZE_KEY, SMALL_FILE_MAX_SIZE);
+      conf.setInt(DFSConfigKeys.DFS_DB_ONDISK_FILE_MAX_SIZE_KEY, SMALL_FILE_MAX_SIZE);
       conf.setBoolean(DFSConfigKeys.DFS_STORE_SMALL_FILES_IN_DB_KEY, ENABLE_STORE_SMALL_FILES_IN_DB);
       conf.setInt(DFSConfigKeys.DFS_BLOCK_SIZE_KEY, BLOCK_SIZE);
       
@@ -730,10 +750,10 @@ public class TestSmallFilesCreation {
       final int BLOCK_SIZE = 1024 * 1024;
       final boolean ENABLE_STORE_SMALL_FILES_IN_DB = true;
       final int SMALL_FILE_MAX_SIZE =
-          conf.getInt(DFSConfigKeys.DFS_DB_FILE_MAX_SIZE_KEY, DFSConfigKeys.DFS_DB_FILE_MAX_SIZE_DEFAULT);
+          conf.getInt(DFSConfigKeys.DFS_DB_ONDISK_FILE_MAX_SIZE_KEY, DFSConfigKeys.DFS_DB_ONDISK_FILE_MAX_SIZE_DEFAULT);
       final String FILE_NAME = "/TEST-FLIE";
       
-      conf.setInt(DFSConfigKeys.DFS_DB_FILE_MAX_SIZE_KEY, SMALL_FILE_MAX_SIZE);
+      conf.setInt(DFSConfigKeys.DFS_DB_ONDISK_FILE_MAX_SIZE_KEY, SMALL_FILE_MAX_SIZE);
       conf.setBoolean(DFSConfigKeys.DFS_STORE_SMALL_FILES_IN_DB_KEY, ENABLE_STORE_SMALL_FILES_IN_DB);
       conf.setInt(DFSConfigKeys.DFS_BLOCK_SIZE_KEY, BLOCK_SIZE);
       
