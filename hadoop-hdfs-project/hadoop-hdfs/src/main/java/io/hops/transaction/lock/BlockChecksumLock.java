@@ -43,7 +43,7 @@ class BlockChecksumLock extends Lock {
               new BlockChecksumDataAccess.KeyTuple(iNode.getId(), blockIndex);
       acquireLock(DEFAULT_LOCK_TYPE, BlockChecksum.Finder.ByKeyTuple, key);
     } else {
-      LOG.debug("SMALL_FILE BlockChecksumLock. Skipping acquring locks on the inode named: " + iNode.getLocalName() + " as the file is stored in the database");
+      LOG.debug("Stuffed Inode:  BlockChecksumLock. Skipping acquring locks on the inode named: " + iNode.getLocalName() + " as the file is stored in the database");
     }
 
   }

@@ -120,7 +120,7 @@ public class INodeFile extends INode implements BlockCollection {
     }
 
     if(isFileStoredInDB()){
-      FSNamesystem.LOG.debug("SMALL_FILE getBlocks(). the file is stored in the database. Returning empty list of blocks");
+      FSNamesystem.LOG.debug("Stuffed Inode:  getBlocks(). the file is stored in the database. Returning empty list of blocks");
       return BlockInfo.EMPTY_ARRAY;
     }
 
@@ -154,7 +154,7 @@ public class INodeFile extends INode implements BlockCollection {
       throw up;
     }
 
-    FSNamesystem.LOG.debug("SMALL_FILE the file has been stored in the database ");
+    FSNamesystem.LOG.debug("Stuffed Inode:  the file has been stored in the database ");
   }
 
   public byte[] getFileDataInDB() throws StorageException {
@@ -173,7 +173,7 @@ public class INodeFile extends INode implements BlockCollection {
       throw up;
     }
 
-    FSNamesystem.LOG.debug("SMALL_FILE Read file data from the database. Data length is :" + fid.getInodeData().length);
+    FSNamesystem.LOG.debug("Stuffed Inode:  Read file data from the database. Data length is :" + fid.getInodeData().length);
     return fid.getInodeData();
   }
 
@@ -190,7 +190,7 @@ public class INodeFile extends INode implements BlockCollection {
       IllegalStateException up = new IllegalStateException("Can not delete file. It is not stored in the database");
       throw up;
     }
-    FSNamesystem.LOG.debug("SMALL_FILE File data for Inode Id: "+getId()+" is deleted");
+    FSNamesystem.LOG.debug("Stuffed Inode:  File data for Inode Id: "+getId()+" is deleted");
   }
   /**
    * append array of blocks to this.blocks

@@ -1919,7 +1919,7 @@ public class FSNamesystem
         file.convertToUnderConstruction(leaseHolder, clientMachine, clientNode);
     leaseManager.addLease(cons.getClientName(), src);
     if(cons.isFileStoredInDB()){
-      LOG.debug("SMALL_FILE prepareFileFowWrite stored in database. Returing phantom block");
+      LOG.debug("Stuffed Inode:  prepareFileFowWrite stored in database. Returing phantom block");
       return blockManager.createPhantomLocatedBlocks(cons,cons.getFileDataInDB(),true,false).getLocatedBlocks().get(0);
     } else {
       return  blockManager.convertLastBlockToUnderConstruction(cons);
@@ -2241,7 +2241,7 @@ public class FSNamesystem
 
               pendingFile.setFileStoredInDB(false);
               pendingFile.deleteFileDataStoredInDB();
-              LOG.warn("SMALL_FILE appending to a file stored in the database. In the current implementation there is" +
+              LOG.debug("Stuffed Inode:  appending to a file stored in the database. In the current implementation there is" +
                   " potential for data loss if the client fails");
               //the data has been deleted. if the client fails to write the data on the datanodes then the data will
               // be lost. Solution. instead of deleting the data mark it and recover the data in the lease recovery

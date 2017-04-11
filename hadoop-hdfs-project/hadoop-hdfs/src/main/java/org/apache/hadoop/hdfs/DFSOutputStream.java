@@ -1491,7 +1491,7 @@ public class DFSOutputStream extends FSOutputSummer implements Syncable {
 
     }
     this.checksum = checksum;
-    DFSClient.LOG.debug("SMALL_FILE Stroing small files in the database: " + saveSmallFilesInDB + " Database file max " +
+    DFSClient.LOG.debug("Stuffed Inode:  Stroing small files in the database: " + saveSmallFilesInDB + " Database file max " +
             "size: " + dbFileMaxSize);
   }
 
@@ -1571,7 +1571,7 @@ public class DFSOutputStream extends FSOutputSummer implements Syncable {
     // The last partial block of the file has to be filled.
     //
     if (lastBlock != null && !isThisFileStoredInDB) {
-      LOG.debug("SMALL_FILE appending to a file stored on datanodes");
+      LOG.debug("Stuffed Inode:  appending to a file stored on datanodes");
       // indicate that we are appending to an existing block
       bytesCurBlock = lastBlock.getBlockSize();
       streamer = new DataStreamer(lastBlock, stat, checksum.getBytesPerChecksum());
@@ -1582,7 +1582,7 @@ public class DFSOutputStream extends FSOutputSummer implements Syncable {
       if (isThisFileStoredInDB && lastBlock != null) {
         bytesCurBlock = 0;
         write(lastBlock.getData(), 0, lastBlock.getData().length);
-        LOG.debug("SMALL_FILE Putting Existing data in packets");
+        LOG.debug("Stuffed Inode:  Putting Existing data in packets");
       }
     }
   }
@@ -1665,7 +1665,7 @@ public class DFSOutputStream extends FSOutputSummer implements Syncable {
 
       // put it is the small files buffer
       if (canStoreFileInDB() && (currentPacket.getLastByteOffsetBlock() <= dbFileMaxSize)) {
-        LOG.debug("SMALL_FILE Temporarily withholding the packet in a buffer for small files");
+        LOG.debug("Stuffed Inode:  Temporarily withholding the packet in a buffer for small files");
         smallFileDataQueue.addLast(currentPacket);
       } else {
         //Some condition for storing the data in the database has failed. Store the data on the datanodes
@@ -1691,10 +1691,10 @@ public class DFSOutputStream extends FSOutputSummer implements Syncable {
   private void forwardSmallFilesPacketsToDataNodes() {
     // can not save the data in the database
     if (saveSmallFilesInDB && isThisFileStoredInDB) {
-      LOG.debug("SMALL_FILE The file can not be stored  in the database");
+      LOG.debug("Stuffed Inode:  The file can not be stored  in the database");
       isThisFileStoredInDB = false;
       if (!smallFileDataQueue.isEmpty()) {
-        LOG.debug("SMALL_FILE Sync/Flush Called: " + syncOrFlushCalled + " Current File Size: " + currentPacket
+        LOG.debug("Stuffed Inode:  Sync/Flush Called: " + syncOrFlushCalled + " Current File Size: " + currentPacket
                 .getLastByteOffsetBlock() + " Max size of a file in DB: " + dbFileMaxSize);
 
         for (Packet packet : smallFileDataQueue) {
@@ -2035,7 +2035,7 @@ public class DFSOutputStream extends FSOutputSummer implements Syncable {
 
   private void waitForAckedSeqno(long seqno) throws IOException {
     if (canStoreFileInDB()) {
-      LOG.debug("SMALL_FILE Closing File. Datanode ack skipped. All the data will be stored in the database");
+      LOG.debug("Stuffed Inode:  Closing File. Datanode ack skipped. All the data will be stored in the database");
     } else {
       if (DFSClient.LOG.isDebugEnabled()) {
         DFSClient.LOG.debug("Waiting for ack for: " + seqno);
@@ -2144,17 +2144,17 @@ public class DFSOutputStream extends FSOutputSummer implements Syncable {
       byte data[] = null;
       if (canStoreFileInDB()) {
         if (!this.smallFileDataQueue.isEmpty()) {
-          LOG.debug("SMALL_FILE Sending data to the NameNode in comple file operation ");
+          LOG.debug("Stuffed Inode:  Sending data to the NameNode in comple file operation ");
           int length = 0;
           for (Packet packet : smallFileDataQueue) {
-            LOG.debug("SMALL_FILE No: " + packet.seqno + " " + packet.dataStart + " " + packet.dataPos + " " + packet
+            LOG.debug("Stuffed Inode:  No: " + packet.seqno + " " + packet.dataStart + " " + packet.dataPos + " " + packet
                     .checksumStart + " " + packet
                     .checksumPos + " " + packet.buf.length);
             if (!packet.isHeartbeatPacket()) {
               length += (packet.dataPos - packet.dataStart);
             }
           }
-          LOG.debug("SMALL_FILE total data is " + length);
+          LOG.debug("Stuffed Inode:  total data is " + length);
           data = new byte[length];
           int index = 0;
           for (Packet packet : smallFileDataQueue) {

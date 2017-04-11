@@ -33,7 +33,7 @@ public class BlockReaderDB implements  BlockReader{
 
     @Override
     public int read(byte[] buf, int off, int len) throws IOException {
-//      LOG.debug("SMALL_FILE BlockReaderDB Read called. Off: "+off+" len: "+len);
+//      LOG.debug("Stuffed Inode:  BlockReaderDB Read called. Off: "+off+" len: "+len);
       return bis.read(buf, off, len);
     }
 
@@ -49,7 +49,7 @@ public class BlockReaderDB implements  BlockReader{
 
     @Override
     public void close() throws IOException {
-//      LOG.debug("SMALL_FILE closing the BlockReaderDB");
+//      LOG.debug("Stuffed Inode:  closing the BlockReaderDB");
       bis.close();
     }
 
@@ -63,7 +63,7 @@ public class BlockReaderDB implements  BlockReader{
      */
     @Override
     public void readFully(byte[] buf, int readOffset, int amtToRead) throws IOException {
-//      LOG.debug("SMALL_FILE BlockReader readFully called. readOffset: "+readOffset+" amtToRead: "+amtToRead);
+//      LOG.debug("Stuffed Inode:  BlockReader readFully called. readOffset: "+readOffset+" amtToRead: "+amtToRead);
       int amountRead = bis.read(buf, readOffset, amtToRead);
       if(amountRead < amtToRead){
         throw new IOException("Premature EOF from inputStream");
@@ -84,7 +84,7 @@ public class BlockReaderDB implements  BlockReader{
      */
     @Override
     public int readAll(byte[] buf, int offset, int len) throws IOException {
-//      LOG.debug("SMALL_FILE BlockReaderDB readAll called. Offset: "+offset+" len: "+len);
+//      LOG.debug("Stuffed Inode:  BlockReaderDB readAll called. Offset: "+offset+" len: "+len);
       return bis.read(buf, offset, len);
     }
     /**

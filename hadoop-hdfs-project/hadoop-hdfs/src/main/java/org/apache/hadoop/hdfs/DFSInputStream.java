@@ -916,7 +916,7 @@ public class DFSInputStream extends FSInputStream
       throws IOException {
 
     if(locBlock.isPhantomBlock()){
-      DFSClient.LOG.debug("SMALL_FILE Found Phantom LocatedBlock. Initializing BlockReaderDB, Data Len: "+locBlock.getData().length);
+      DFSClient.LOG.debug("Stuffed Inode:  Found Phantom LocatedBlock. Initializing BlockReaderDB, Data Len: "+locBlock.getData().length);
       return new BlockReaderDB(dnAddr, chosenNode, locBlock, locBlock.getData());
     }
 

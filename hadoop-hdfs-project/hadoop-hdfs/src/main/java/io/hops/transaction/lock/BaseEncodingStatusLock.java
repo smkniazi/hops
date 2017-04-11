@@ -77,7 +77,7 @@ abstract class BaseEncodingStatusLock extends Lock {
 		  }
         }
       }else{
-          LOG.debug("SMALL_FILE BaseEncodingStatusLock. Skipping acquring locks on the inode named: "+iNode.getLocalName()+" as the file is stored in the database");
+          LOG.debug("Stuffed Inode:  BaseEncodingStatusLock. Skipping acquring locks on the inode named: "+iNode.getLocalName()+" as the file is stored in the database");
         }
     }
 }

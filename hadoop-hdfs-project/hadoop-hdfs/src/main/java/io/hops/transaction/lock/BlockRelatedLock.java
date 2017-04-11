@@ -59,7 +59,7 @@ final class BlockRelatedLock extends LockWithType {
             acquireLockList(DEFAULT_LOCK_TYPE, getFinderType(false),
                     file.getId());
           }else{
-            LOG.debug("SMALL_FILE BlockRelateLock. " + getType() + "'s lock skipped as the file(s) data is stored in the database. File Name: "+file.getLocalName());
+            LOG.debug("Stuffed Inode:  BlockRelateLock. " + getType() + "'s lock skipped as the file(s) data is stored in the database. File Name: "+file.getLocalName());
           }
         }
       }
