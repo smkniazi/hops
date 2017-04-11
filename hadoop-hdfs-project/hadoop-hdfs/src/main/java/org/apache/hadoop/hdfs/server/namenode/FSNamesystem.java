@@ -2610,6 +2610,12 @@ public class FSNamesystem
 
     pendingFile = checkLease(src, holder);
 
+    //in case of appending to small files. we might have to migrate the file from
+    //in-memory to on disk
+    if(pendingFile.isFileStoredInDB()){
+      pendingFile.deleteFileDataStoredInDB();
+    }
+
     pendingFile.setFileStoredInDB(true);
 
     pendingFile.setSize(data.length);
