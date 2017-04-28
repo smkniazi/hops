@@ -3,7 +3,6 @@ package org.apache.hadoop.hdfs;
 import io.hops.exception.StorageException;
 import io.hops.metadata.HdfsStorageFactory;
 import io.hops.metadata.hdfs.dal.InMemoryInodeDataAccess;
-import io.hops.metadata.hdfs.dal.OnDiskInodeDataAccess;
 import io.hops.transaction.handler.HDFSOperationType;
 import io.hops.transaction.handler.LightWeightRequestHandler;
 import org.apache.hadoop.conf.Configuration;

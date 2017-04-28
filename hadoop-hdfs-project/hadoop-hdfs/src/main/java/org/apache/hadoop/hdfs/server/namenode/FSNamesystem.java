@@ -343,6 +343,9 @@ public class FSNamesystem
 
   private final boolean storeSmallFilesInDB;
   private static int DB_ON_DISK_FILE_MAX_SIZE;
+  private static int DB_ON_DISK_SMALL_FILE_MAX_SIZE;
+  private static int DB_ON_DISK_MEDIUM_FILE_MAX_SIZE;
+  private static int DB_ON_DISK_LARGE_FILE_MAX_SIZE;
   private static int DB_IN_MEMORY_FILE_MAX_SIZE;
   private final long BIGGEST_DELETEABLE_DIR;
 
@@ -420,10 +423,24 @@ public class FSNamesystem
       this.storeSmallFilesInDB =
           conf.getBoolean(DFSConfigKeys.DFS_STORE_SMALL_FILES_IN_DB_KEY,
               DFSConfigKeys.DFS_STORE_SMALL_FILES_IN_DB_DEFAULT);
-      DB_ON_DISK_FILE_MAX_SIZE = conf.getInt(DFSConfigKeys.DFS_DB_ONDISK_FILE_MAX_SIZE_KEY,
-              DFSConfigKeys.DFS_DB_ONDISK_FILE_MAX_SIZE_DEFAULT);
+      DB_ON_DISK_FILE_MAX_SIZE = conf.getInt(DFSConfigKeys.DFS_DB_FILE_MAX_SIZE_KEY,
+              DFSConfigKeys.DFS_DB_FILE_MAX_SIZE_DEFAULT);
+      DB_ON_DISK_LARGE_FILE_MAX_SIZE = conf.getInt(DFSConfigKeys.DFS_DB_ONDISK_LARGE_FILE_MAX_SIZE_KEY,
+              DFSConfigKeys.DFS_DB_ONDISK_LARGE_FILE_MAX_SIZE_DEFAULT);
+      DB_ON_DISK_MEDIUM_FILE_MAX_SIZE = conf.getInt(DFSConfigKeys.DFS_DB_ONDISK_MEDIUM_FILE_MAX_SIZE_KEY,
+              DFSConfigKeys.DFS_DB_ONDISK_MEDIUM_FILE_MAX_SIZE_DEFAULT);
+      DB_ON_DISK_SMALL_FILE_MAX_SIZE = conf.getInt(DFSConfigKeys.DFS_DB_ONDISK_SMALL_FILE_MAX_SIZE_KEY,
+              DFSConfigKeys.DFS_DB_ONDISK_SMALL_FILE_MAX_SIZE_DEFAULT);
       DB_IN_MEMORY_FILE_MAX_SIZE = conf.getInt(DFSConfigKeys.DFS_DB_INMEMORY_FILE_MAX_SIZE_KEY,
           DFSConfigKeys.DFS_DB_INMEMORY_FILE_MAX_SIZE_DEFAULT);
+
+      if (!(DB_IN_MEMORY_FILE_MAX_SIZE < DB_ON_DISK_SMALL_FILE_MAX_SIZE &&
+      DB_ON_DISK_SMALL_FILE_MAX_SIZE < DB_ON_DISK_MEDIUM_FILE_MAX_SIZE &&
+      DB_ON_DISK_MEDIUM_FILE_MAX_SIZE < DB_ON_DISK_LARGE_FILE_MAX_SIZE &&
+      DB_ON_DISK_LARGE_FILE_MAX_SIZE == DB_ON_DISK_FILE_MAX_SIZE)){
+        throw new IllegalArgumentException("The size for the database files is not correctly set");
+      }
+
       this.datanodeStatistics =
           blockManager.getDatanodeManager().getDatanodeStatistics();
 
@@ -7559,8 +7576,21 @@ public class FSNamesystem
     return this.storeSmallFilesInDB;
   }
 
-  public static int dbOnDiskSmallFileMaxSize() {
+  public static int dbOnDiskFileMaximumSize() {
     return DB_ON_DISK_FILE_MAX_SIZE;
+  }
+
+
+  public static int dbOnDiskSmallFileMaxSize() {
+    return DB_ON_DISK_SMALL_FILE_MAX_SIZE;
+  }
+
+  public static int dbOnDiskMediumFileMaxSize() {
+    return DB_ON_DISK_MEDIUM_FILE_MAX_SIZE;
+  }
+
+  public static int dbOnDiskLargeFileMaxSize() {
+    return DB_ON_DISK_LARGE_FILE_MAX_SIZE;
   }
 
   public static int dbInMemorySmallFileMaxSize() {

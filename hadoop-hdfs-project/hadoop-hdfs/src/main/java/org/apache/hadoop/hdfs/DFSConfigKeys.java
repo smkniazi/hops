@@ -282,9 +282,21 @@ public class DFSConfigKeys extends CommonConfigurationKeys {
           "dfs.store.small.files.in.db";
   public static final boolean DFS_STORE_SMALL_FILES_IN_DB_DEFAULT = false;
 
-  public static final String DFS_DB_ONDISK_FILE_MAX_SIZE_KEY =
-          "dfs.database.ondisk.file.max.size";
-  public static final int DFS_DB_ONDISK_FILE_MAX_SIZE_DEFAULT = 32*1024; // 32KB
+  public static final String DFS_DB_ONDISK_SMALL_FILE_MAX_SIZE_KEY =
+          "dfs.database.ondisk.small.file.max.size";
+  public static final int DFS_DB_ONDISK_SMALL_FILE_MAX_SIZE_DEFAULT = 4*1024; // 4KB
+
+  public static final String DFS_DB_ONDISK_MEDIUM_FILE_MAX_SIZE_KEY =
+          "dfs.database.ondisk.medium.file.max.size";
+  public static final int DFS_DB_ONDISK_MEDIUM_FILE_MAX_SIZE_DEFAULT = 8*1024; // 8KB
+
+  public static final String DFS_DB_ONDISK_LARGE_FILE_MAX_SIZE_KEY =
+          "dfs.database.ondisk.large.file.max.size";
+  public static final int DFS_DB_ONDISK_LARGE_FILE_MAX_SIZE_DEFAULT = 32*1024; // 32KB
+
+  public static final String DFS_DB_FILE_MAX_SIZE_KEY =
+          "dfs.db.file.max.size";
+  public static final int DFS_DB_FILE_MAX_SIZE_DEFAULT = DFS_DB_ONDISK_LARGE_FILE_MAX_SIZE_DEFAULT;
 
   public static final String DFS_DB_INMEMORY_FILE_MAX_SIZE_KEY =
           "dfs.database.inmemory.file.max.size";
