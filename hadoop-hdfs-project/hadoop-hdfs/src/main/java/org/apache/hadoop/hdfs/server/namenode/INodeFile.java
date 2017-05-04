@@ -190,19 +190,24 @@ public class INodeFile extends INode implements BlockCollection {
     //depending on the file size delete the file from appropriate table
     FileInodeData fid = null;
     DBFileDataAccess fida = null;
+    FileInodeData.Type fileType = null;
     if(getSize() <= FSNamesystem.dbInMemorySmallFileMaxSize()){
       fida = (InMemoryInodeDataAccess) HdfsStorageFactory.getDataAccess(InMemoryInodeDataAccess.class);
+      fileType = FileInodeData.Type.InmemoryFile;
     }else if (getSize() <= FSNamesystem.dbOnDiskSmallFileMaxSize()){
       fida = (SmallOnDiskInodeDataAccess) HdfsStorageFactory.getDataAccess(SmallOnDiskInodeDataAccess.class);
+      fileType = FileInodeData.Type.OnDiskFile;
     } else if (getSize() <= FSNamesystem.dbOnDiskMediumFileMaxSize()){
       fida = (MediumOnDiskInodeDataAccess) HdfsStorageFactory.getDataAccess(MediumOnDiskInodeDataAccess.class);
+      fileType = FileInodeData.Type.OnDiskFile;
     } else if (getSize() <= FSNamesystem.dbOnDiskLargeFileMaxSize()){
       fida = (LargeOnDiskInodeDataAccess) HdfsStorageFactory.getDataAccess(LargeOnDiskInodeDataAccess.class);
+      fileType = FileInodeData.Type.OnDiskFile;
     } else {
       IllegalStateException up = new IllegalStateException("Can not delete file. It is not stored in the database");
       throw up;
     }
-    fida.delete(new FileInodeData(getId(),null, FileInodeData.Type.OnDiskFile));
+    fida.delete(new FileInodeData(getId(),null, fileType));
     FSNamesystem.LOG.debug("Stuffed Inode:  File data for Inode Id: "+getId()+" is deleted");
   }
   /**

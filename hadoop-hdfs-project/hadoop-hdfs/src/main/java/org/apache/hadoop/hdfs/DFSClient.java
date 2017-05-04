@@ -319,8 +319,8 @@ public class DFSClient implements java.io.Closeable {
       storeSmallFilesInDB = conf.getBoolean(DFSConfigKeys.DFS_STORE_SMALL_FILES_IN_DB_KEY,
               DFSConfigKeys.DFS_STORE_SMALL_FILES_IN_DB_DEFAULT);
 
-      dbFileMaxSize = conf.getInt(DFSConfigKeys.DFS_DB_ONDISK_FILE_MAX_SIZE_KEY,
-              DFSConfigKeys.DFS_DB_ONDISK_FILE_MAX_SIZE_DEFAULT);
+      dbFileMaxSize = conf.getInt(DFSConfigKeys.DFS_DB_FILE_MAX_SIZE_KEY,
+              DFSConfigKeys.DFS_DB_FILE_MAX_SIZE_DEFAULT);
     }
 
     private DataChecksum.Type getChecksumType(Configuration conf) {
