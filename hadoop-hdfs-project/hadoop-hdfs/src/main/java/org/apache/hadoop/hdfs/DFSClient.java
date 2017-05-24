@@ -433,7 +433,7 @@ public class DFSClient implements java.io.Closeable {
     this.ugi = UserGroupInformation.getCurrentUser();
     
     this.authority = nameNodeUri == null ? "null" : nameNodeUri.getAuthority();
-    this.clientName = "DFSClient_" + dfsClientConf.taskId + "_" +
+    this.clientName = "HopsFS_DFSClient_" + dfsClientConf.taskId + "_" +
         DFSUtil.getRandom().nextInt() + "_" + Thread.currentThread().getId();
     
     if (rpcNamenode != null) {
