@@ -228,7 +228,12 @@ class BlockSender implements java.io.Closeable {
       final Replica replica;
       final long replicaVisibleLength;
       synchronized (datanode.data) {
-        replica = getReplica(block, datanode);
+        if(block.getBlockId()<0){
+          LOG.debug("Suffed Inode: Reading Phantom data block.");
+          replica = new FinalizedReplica(block.getBlockId(), block.getNumBytes(), block.getGenerationStamp(), null, null);
+        } else {
+          replica = getReplica(block, datanode);
+        }
         replicaVisibleLength = replica.getVisibleLength();
       }
       // if there is a write in progress
@@ -257,7 +262,8 @@ class BlockSender implements java.io.Closeable {
       this.transferToAllowed = datanode.getDnConf().transferToAllowed &&
           (!is32Bit || length <= Integer.MAX_VALUE);
 
-      /* 
+      /*
+       * Checksum are only supported for on disk blocks
        * (corruptChecksumOK, meta_file_exist): operation
        * True,   True: will verify checksum  
        * True,  False: No verify, e.g., need to read data from a corrupted file 
@@ -265,7 +271,7 @@ class BlockSender implements java.io.Closeable {
        * False, False: throws IOException file not found
        */
       DataChecksum csum = null;
-      if (verifyChecksum || sendChecksum) {
+      if (block.getBlockId() > 0 && (verifyChecksum || sendChecksum)) {
         final InputStream metaIn = datanode.data.getMetaDataInputStream(block);
         if (!corruptChecksumOk || metaIn != null) {
           if (metaIn == null) {
@@ -289,7 +295,7 @@ class BlockSender implements java.io.Closeable {
           LOG.warn("Could not find metadata file for " + block);
         }
       }
-      if (csum == null) {
+      if (csum == null) { // for in database small files Checksum is not supported
         // The number of bytes per checksum here determines the alignment
         // of reads: we always start reading at a checksum chunk boundary,
         // even if the checksum type is NULL. So, choosing too big of a value

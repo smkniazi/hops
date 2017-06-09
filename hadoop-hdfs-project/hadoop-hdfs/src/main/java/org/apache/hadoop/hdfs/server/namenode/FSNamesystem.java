@@ -1142,14 +1142,10 @@ public class FSNamesystem
     LocatedBlocks ret = null;
     final INodeFile inodeFile = INodeFile.valueOf(dir.getINode(src), src);
     if (inodeFile.isFileStoredInDB()) {
-      LOG.debug(
-          "SMALL_FILE The file is stored in the database. Returning Phantom Blocks");
-      ret =
-          getPhantomBlockLocationsUpdateTimes(src, offset, length, doAccessTime,
-              needBlockToken);
+      LOG.debug("SMALL_FILE The file is stored in the database. Returning Phantom Blocks");
+      ret = getPhantomBlockLocationsUpdateTimes(src, offset, length, doAccessTime, needBlockToken);
     } else {
-      ret = getBlockLocationsUpdateTimes(src, offset, length, doAccessTime,
-          needBlockToken);
+      ret = getBlockLocationsUpdateTimes(src, offset, length, doAccessTime, needBlockToken);
     }
     logAuditEvent(true, "open", src);
 

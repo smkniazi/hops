@@ -78,6 +78,7 @@ public class DFSInputStream extends FSInputStream
   private LocatedBlock currentLocatedBlock = null;
   private long pos = 0;
   private long blockEnd = -1;
+  private boolean emulateHdfsClient = false;
 
   /**
    * This variable tracks the number of failures since the start of the
@@ -108,7 +109,7 @@ public class DFSInputStream extends FSInputStream
   }
   
   DFSInputStream(DFSClient dfsClient, String src, int buffersize,
-      boolean verifyChecksum) throws IOException, UnresolvedLinkException {
+      boolean verifyChecksum, boolean emulateHdfsClient) throws IOException, UnresolvedLinkException {
     this.dfsClient = dfsClient;
     this.verifyChecksum = verifyChecksum;
     this.buffersize = buffersize;
@@ -117,6 +118,7 @@ public class DFSInputStream extends FSInputStream
     prefetchSize = dfsClient.getConf().prefetchSize;
     timeWindow = dfsClient.getConf().timeWindow;
     nCachedConnRetry = dfsClient.getConf().nCachedConnRetry;
+    this.emulateHdfsClient = emulateHdfsClient;
     openInfo();
   }
 
@@ -915,7 +917,7 @@ public class DFSInputStream extends FSInputStream
       int bufferSize, boolean verifyChecksum, String clientName)
       throws IOException {
 
-    if(locBlock.isPhantomBlock()){
+    if(locBlock.isPhantomBlock() && !emulateHdfsClient){
       DFSClient.LOG.debug("Stuffed Inode:  Found Phantom LocatedBlock. Initializing BlockReaderDB, Data Len: "+locBlock.getData().length);
       return new BlockReaderDB(dnAddr, chosenNode, locBlock, locBlock.getData());
     }

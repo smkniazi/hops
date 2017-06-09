@@ -210,7 +210,7 @@ public class DFSClient implements java.io.Closeable {
   private Random r = new Random();
   private SocketAddress[] localInterfaceAddrs;
   private DataEncryptionKey encryptionKey;
-  
+
 
   /**
    * DFSClient configuration
@@ -247,7 +247,8 @@ public class DFSClient implements java.io.Closeable {
     final int dbFileMaxSize;
     final boolean storeSmallFilesInDB;
     final int dfsClientInitialWaitOnRetry;
-
+    //only for testing
+    final boolean hdfsClientEmulationForSF;
 
     Conf(Configuration conf) {
       maxFailoverAttempts = conf.getInt(DFS_CLIENT_FAILOVER_MAX_ATTEMPTS_KEY,
@@ -321,6 +322,8 @@ public class DFSClient implements java.io.Closeable {
 
       dbFileMaxSize = conf.getInt(DFSConfigKeys.DFS_DB_FILE_MAX_SIZE_KEY,
               DFSConfigKeys.DFS_DB_FILE_MAX_SIZE_DEFAULT);
+
+      hdfsClientEmulationForSF = conf.getBoolean("hdfsClientEmulationForSF",false);
     }
 
     private DataChecksum.Type getChecksumType(Configuration conf) {
@@ -433,7 +436,13 @@ public class DFSClient implements java.io.Closeable {
     this.ugi = UserGroupInformation.getCurrentUser();
     
     this.authority = nameNodeUri == null ? "null" : nameNodeUri.getAuthority();
-    this.clientName = "HopsFS_DFSClient_" + dfsClientConf.taskId + "_" +
+    String clientNamePrefix = "";
+    if(dfsClientConf.hdfsClientEmulationForSF){
+      clientNamePrefix = "DFSClient";
+    }else{
+      clientNamePrefix = "HopsFS_DFSClient";
+    }
+    this.clientName = clientNamePrefix+ "_" + dfsClientConf.taskId + "_" +
         DFSUtil.getRandom().nextInt() + "_" + Thread.currentThread().getId();
     
     if (rpcNamenode != null) {
@@ -1332,7 +1341,7 @@ public class DFSClient implements java.io.Closeable {
       throws IOException, UnresolvedLinkException {
     checkOpen();
     //    Get block info from namenode
-    return new DFSInputStream(this, src, buffersize, verifyChecksum);
+    return new DFSInputStream(this, src, buffersize, verifyChecksum, dfsClientConf.hdfsClientEmulationForSF);
   }
 
   /**

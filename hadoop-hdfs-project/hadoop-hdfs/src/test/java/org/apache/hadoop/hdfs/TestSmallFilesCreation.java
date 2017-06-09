@@ -22,7 +22,10 @@ import java.nio.ByteBuffer;
 /**
  * Created by salman on 2016-03-22.
  */
+
 public class TestSmallFilesCreation {
+
+  static final String hdfsClinetEmulationForSF = "hdfsClientEmulationForSF";
 
   static void writeFile(DistributedFileSystem dfs, String name, int size, boolean overwrite) throws IOException {
     FSDataOutputStream os = (FSDataOutputStream) dfs.create(new Path(name), overwrite);
@@ -30,8 +33,8 @@ public class TestSmallFilesCreation {
     os.close();
   }
 
-  static void writeFile(DistributedFileSystem dfs, String name, int size) throws IOException {
-    FSDataOutputStream os = (FSDataOutputStream) dfs.create(new Path(name));
+  static void writeFile(FileSystem fs, String name, int size) throws IOException {
+    FSDataOutputStream os = (FSDataOutputStream) fs.create(new Path(name));
     writeData(os, 0, size);
     os.close();
   }
@@ -53,10 +56,11 @@ public class TestSmallFilesCreation {
     }
     os.write(data);
   }
+
   /**
    * This method reads the file using different read methods.
    */
-  static void readFileUsingMultipleMethods(DistributedFileSystem dfs, String file, int size) throws IOException {
+  static void readFileUsingMultipleMethods(FileSystem dfs, String file, int size) throws IOException {
     //reading one byte at a time.
     FSDataInputStream is = dfs.open(new Path(file));
     byte[] onebyte = new byte[1];
@@ -1036,4 +1040,54 @@ public class TestSmallFilesCreation {
     }
   }
 
+  /**
+   * write small file using hdfs like client.
+   * the file should be stored on the DNs
+   * @throws IOException
+   */
+  @Test
+  public void TestHdfsCompatibility1() throws IOException {
+    MiniDFSCluster cluster = null;
+    try {
+      Configuration conf = new HdfsConfiguration();
+
+      final int BLOCK_SIZE = 1024 * 1024;
+      final boolean ENABLE_STORE_SMALL_FILES_IN_DB = true;
+      final int ONDISK_SMALL_FILE_MAX_SIZE = conf.getInt(DFSConfigKeys.DFS_DB_ONDISK_SMALL_FILE_MAX_SIZE_KEY, DFSConfigKeys.DFS_DB_ONDISK_SMALL_FILE_MAX_SIZE_DEFAULT);
+      final int ONDISK_MEDIUM_FILE_MAX_SIZE = conf.getInt(DFSConfigKeys.DFS_DB_ONDISK_MEDIUM_FILE_MAX_SIZE_KEY, DFSConfigKeys.DFS_DB_ONDISK_MEDIUM_FILE_MAX_SIZE_DEFAULT);
+      final int ONDISK_LARGE_FILE_MAX_SIZE = conf.getInt(DFSConfigKeys.DFS_DB_ONDISK_LARGE_FILE_MAX_SIZE_KEY, DFSConfigKeys.DFS_DB_ONDISK_LARGE_FILE_MAX_SIZE_DEFAULT);
+      final int INMEMORY_SMALL_FILE_MAX_SIZE = conf.getInt(DFSConfigKeys.DFS_DB_INMEMORY_FILE_MAX_SIZE_KEY, DFSConfigKeys.DFS_DB_INMEMORY_FILE_MAX_SIZE_DEFAULT);
+      final String FILE_NAME1 = "/TEST-FLIE1";
+      final String FILE_NAME2 = "/TEST-FLIE2";
+
+      conf.setBoolean(DFSConfigKeys.DFS_STORE_SMALL_FILES_IN_DB_KEY, ENABLE_STORE_SMALL_FILES_IN_DB);
+      conf.setInt(DFSConfigKeys.DFS_BLOCK_SIZE_KEY, BLOCK_SIZE);
+      cluster = new MiniDFSCluster.Builder(conf).format(true).numDataNodes(1).format(true).build();
+      cluster.waitActive();
+      DistributedFileSystem dfs = cluster.getFileSystem();
+
+      writeFile(dfs, FILE_NAME1, INMEMORY_SMALL_FILE_MAX_SIZE);
+      assertTrue("Count of db file should be 1", countInMemoryDBFiles() == 1);
+
+      conf.setBoolean(DFSConfigKeys.DFS_STORE_SMALL_FILES_IN_DB_KEY, false);
+      conf.setBoolean(hdfsClinetEmulationForSF,true);
+      FileSystem hdfsClient = FileSystem.newInstance(conf);
+
+      writeFile(hdfsClient, FILE_NAME2, INMEMORY_SMALL_FILE_MAX_SIZE);
+
+      assertTrue("Count of db file should be 1", countInMemoryDBFiles() == 1);
+      assertTrue("Expecting 1 block but found " + cluster.getNamesystem().getTotalBlocks(), cluster.getNamesystem().getTotalBlocks() == 1);
+
+      readFileUsingMultipleMethods(hdfsClient, FILE_NAME1, INMEMORY_SMALL_FILE_MAX_SIZE);
+
+
+    } catch (Exception e) {
+      e.printStackTrace();
+      fail(e.getMessage());
+    } finally {
+      if (cluster != null) {
+        cluster.shutdown();
+      }
+    }
+  }
 }

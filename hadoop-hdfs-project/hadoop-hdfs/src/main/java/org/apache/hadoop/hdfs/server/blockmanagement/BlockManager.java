@@ -798,7 +798,8 @@ public class BlockManager {
       final AccessMode mode) throws IOException, StorageException {
     List<LocatedBlock> results = new ArrayList<LocatedBlock>(1);
     BlockInfo fakeBlk = new BlockInfo();
-    fakeBlk.setBlockIdNoPersistance(0);
+    fakeBlk.setBlockIdNoPersistance(-file.getId());
+    fakeBlk.setINodeIdNoPersistance(-file.getId());
     fakeBlk.setBlockIndexNoPersistance(0);
     fakeBlk.setNumBytesNoPersistance(data.length);
     fakeBlk.setTimestampNoPersistance(file.getModificationTime());
@@ -806,7 +807,7 @@ public class BlockManager {
     final ExtendedBlock eb =
         new ExtendedBlock(namesystem.getBlockPoolId(),fakeBlk);
     // create fake DatanodeInfos pointing to NameNodes
-    DatanodeID phantomDatanodID = new DatanodeID(
+    /*DatanodeID phantomDatanodID = new DatanodeID(
         namesystem.getNameNode().getServiceRpcAddress().getAddress().getHostAddress(),
         namesystem.getNameNode().getServiceRpcAddress().getAddress().getCanonicalHostName(),
         namesystem.getBlockPoolId(),
@@ -817,6 +818,11 @@ public class BlockManager {
     phantomDatanode.setPhantomDatanode(true);
     DatanodeInfo[] machines = new DatanodeInfo[1];
     machines[0] = phantomDatanode;
+    */
+
+    DatanodeInfo[] machines = new DatanodeInfo[1];
+    machines[0] = datanodeManager.getRandomDN();
+    machines[0].setPhantomDatanode(true );
     LocatedBlock locatedBlock  = new LocatedBlock(eb, machines, 0, false);
     locatedBlock.setData(data);
     results.add(locatedBlock);
