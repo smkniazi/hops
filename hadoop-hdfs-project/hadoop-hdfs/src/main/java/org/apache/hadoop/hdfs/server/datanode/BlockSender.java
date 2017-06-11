@@ -31,15 +31,7 @@ import org.apache.hadoop.io.nativeio.NativeIO;
 import org.apache.hadoop.net.SocketOutputStream;
 import org.apache.hadoop.util.DataChecksum;
 
-import java.io.BufferedInputStream;
-import java.io.DataInputStream;
-import java.io.DataOutputStream;
-import java.io.FileDescriptor;
-import java.io.FileInputStream;
-import java.io.FileNotFoundException;
-import java.io.IOException;
-import java.io.InputStream;
-import java.io.OutputStream;
+import java.io.*;
 import java.net.SocketException;
 import java.net.SocketTimeoutException;
 import java.nio.ByteBuffer;
@@ -364,8 +356,13 @@ class BlockSender implements java.io.Closeable {
       if (DataNode.LOG.isDebugEnabled()) {
         DataNode.LOG.debug("replica=" + replica);
       }
-      blockIn =
-          datanode.data.getBlockInputStream(block, offset); // seek to offset
+      if(block.getBlockId()<0) {
+        byte[] data = datanode.getSmallFileDataFromNN(block);
+        ByteArrayInputStream bis = new ByteArrayInputStream(data);
+        blockIn = bis;
+      }else{
+        blockIn = datanode.data.getBlockInputStream(block, offset); // seek to offset
+      }
       if (blockIn instanceof FileInputStream) {
         blockInFd = ((FileInputStream) blockIn).getFD();
       } else {

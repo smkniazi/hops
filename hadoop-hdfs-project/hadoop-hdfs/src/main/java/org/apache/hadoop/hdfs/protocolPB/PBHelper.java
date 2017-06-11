@@ -50,6 +50,7 @@ import org.apache.hadoop.hdfs.protocol.proto.ClientNamenodeProtocolProtos.Create
 import org.apache.hadoop.hdfs.protocol.proto.ClientNamenodeProtocolProtos.DatanodeReportTypeProto;
 import org.apache.hadoop.hdfs.protocol.proto.ClientNamenodeProtocolProtos.GetFsStatsResponseProto;
 import org.apache.hadoop.hdfs.protocol.proto.ClientNamenodeProtocolProtos.SafeModeActionProto;
+import org.apache.hadoop.hdfs.protocol.proto.DatanodeProtocolProtos;
 import org.apache.hadoop.hdfs.protocol.proto.DatanodeProtocolProtos.ActiveNamenodeListResponseProto;
 import org.apache.hadoop.hdfs.protocol.proto.DatanodeProtocolProtos.BalancerBandwidthCommandProto;
 import org.apache.hadoop.hdfs.protocol.proto.DatanodeProtocolProtos.BlockCommandProto;
@@ -345,7 +346,7 @@ public class PBHelper {
     }
     return new NamenodeCommand(cmd.getAction());
   }
-  
+
   public static ExtendedBlock convert(ExtendedBlockProto eb) {
     if (eb == null) {
       return null;
@@ -353,7 +354,7 @@ public class PBHelper {
     return new ExtendedBlock(eb.getPoolId(), eb.getBlockId(), eb.getNumBytes(),
         eb.getGenerationStamp());
   }
-  
+
   public static ExtendedBlockProto convert(final ExtendedBlock b) {
     if (b == null) {
       return null;
@@ -365,7 +366,7 @@ public class PBHelper {
         setGenerationStamp(b.getGenerationStamp()).
         build();
   }
-  
+
   public static RecoveringBlockProto convert(RecoveringBlock b) {
     if (b == null) {
       return null;
@@ -380,7 +381,7 @@ public class PBHelper {
     DatanodeInfo[] locs = convert(b.getBlock().getLocsList());
     return new RecoveringBlock(block, locs, b.getNewGenStamp());
   }
-  
+
   public static DatanodeInfoProto.AdminState convert(
       final DatanodeInfo.AdminStates inAs) {
     switch (inAs) {
@@ -394,7 +395,7 @@ public class PBHelper {
         return DatanodeInfoProto.AdminState.NORMAL;
     }
   }
-  
+
   static public DatanodeInfo convert(DatanodeInfoProto di) {
     if (di == null) {
       return null;
@@ -407,7 +408,7 @@ public class PBHelper {
     datanodeInfo.setPhantomDatanode(di.hasIsPhantomDatanode()? di.getIsPhantomDatanode():false);
     return datanodeInfo;
   }
-  
+
   static public DatanodeInfoProto convertDatanodeInfo(DatanodeInfo di) {
     if (di == null) {
       return null;
@@ -429,8 +430,8 @@ public class PBHelper {
         setIsPhantomDatanode(di.isPhantomDataNode()).
         build();
   }
-  
-  
+
+
   static public DatanodeInfo[] convert(DatanodeInfoProto di[]) {
     if (di == null) {
       return null;
@@ -446,7 +447,7 @@ public class PBHelper {
       DatanodeInfo[] dnInfos) {
     return convert(dnInfos, 0);
   }
-  
+
   /**
    * Copy from {@code dnInfos} to a target of list of same size starting at
    * {@code startIdx}.
@@ -471,7 +472,7 @@ public class PBHelper {
     }
     return info;
   }
-  
+
   public static DatanodeInfoProto convert(DatanodeInfo info) {
     DatanodeInfoProto.Builder builder = DatanodeInfoProto.newBuilder();
     builder.setBlockPoolUsed(info.getBlockPoolUsed());
@@ -497,7 +498,7 @@ public class PBHelper {
         return AdminStates.NORMAL;
     }
   }
-  
+
   public static LocatedBlockProto convert(LocatedBlock b) {
     if (b == null) {
       return null;
@@ -515,7 +516,7 @@ public class PBHelper {
     }
     return builder.build();
   }
-  
+
   public static LocatedBlock convert(LocatedBlockProto proto) {
     if (proto == null) {
       return null;
@@ -541,7 +542,7 @@ public class PBHelper {
         setKind(tok.getKind().toString()).
         setService(tok.getService().toString()).build();
   }
-  
+
   public static Token<BlockTokenIdentifier> convert(TokenProto blockToken) {
     return new Token<BlockTokenIdentifier>(
         blockToken.getIdentifier().toByteArray(),
@@ -549,7 +550,7 @@ public class PBHelper {
         new Text(blockToken.getService()));
   }
 
-  
+
   public static Token<DelegationTokenIdentifier> convertDelegationToken(
       TokenProto blockToken) {
     return new Token<DelegationTokenIdentifier>(
@@ -589,7 +590,7 @@ public class PBHelper {
         return ReplicaStateProto.FINALIZED;
     }
   }
-  
+
   public static DatanodeRegistrationProto convert(
       DatanodeRegistration registration) {
     DatanodeRegistrationProto.Builder builder =
@@ -623,7 +624,7 @@ public class PBHelper {
     }
     return null;
   }
-  
+
   public static BalancerBandwidthCommandProto convert(
       BalancerBandwidthCommand bbCmd) {
     return BalancerBandwidthCommandProto.newBuilder()
@@ -739,7 +740,7 @@ public class PBHelper {
     List<RecoveringBlockProto> list = recoveryCmd.getBlocksList();
     List<RecoveringBlock> recoveringBlocks =
         new ArrayList<RecoveringBlock>(list.size());
-    
+
     for (RecoveringBlockProto rbp : list) {
       recoveringBlocks.add(PBHelper.convert(rbp));
     }
@@ -790,7 +791,7 @@ public class PBHelper {
       ReceivedDeletedBlockInfo receivedDeletedBlockInfo) {
     ReceivedDeletedBlockInfoProto.Builder builder =
         ReceivedDeletedBlockInfoProto.newBuilder();
-    
+
     ReceivedDeletedBlockInfoProto.BlockStatus status;
     switch (receivedDeletedBlockInfo.getStatus()) {
       case RECEIVING_BLOCK:
@@ -807,7 +808,7 @@ public class PBHelper {
             "Bad status: " + receivedDeletedBlockInfo.getStatus());
     }
     builder.setStatus(status);
-    
+
     if (receivedDeletedBlockInfo.getDelHints() != null) {
       builder.setDeleteHint(receivedDeletedBlockInfo.getDelHints());
     }
@@ -833,14 +834,14 @@ public class PBHelper {
     return new ReceivedDeletedBlockInfo(PBHelper.convert(proto.getBlock()),
         status, proto.hasDeleteHint() ? proto.getDeleteHint() : null);
   }
-  
+
   public static NamespaceInfoProto convert(NamespaceInfo info) {
     return NamespaceInfoProto.newBuilder().setBlockPoolID(info.getBlockPoolID())
         .setBuildVersion(info.getBuildVersion()).setUnused(0)
         .setStorageInfo(PBHelper.convert((StorageInfo) info))
         .setSoftwareVersion(info.getSoftwareVersion()).build();
   }
-  
+
   // Located Block Arrays and Lists
   public static LocatedBlockProto[] convertLocatedBlock(LocatedBlock[] lb) {
     if (lb == null) {
@@ -849,7 +850,7 @@ public class PBHelper {
     return convertLocatedBlock2(Arrays.asList(lb))
         .toArray(new LocatedBlockProto[lb.length]);
   }
-  
+
   public static LocatedBlock[] convertLocatedBlock(LocatedBlockProto[] lb) {
     if (lb == null) {
       return null;
@@ -857,7 +858,7 @@ public class PBHelper {
     return convertLocatedBlock(Arrays.asList(lb))
         .toArray(new LocatedBlock[lb.length]);
   }
-  
+
   public static List<LocatedBlock> convertLocatedBlock(
       List<LocatedBlockProto> lb) {
     if (lb == null) {
@@ -870,7 +871,7 @@ public class PBHelper {
     }
     return result;
   }
-  
+
   public static List<LocatedBlockProto> convertLocatedBlock2(
       List<LocatedBlock> lb) {
     if (lb == null) {
@@ -883,8 +884,8 @@ public class PBHelper {
     }
     return result;
   }
-  
-  
+
+
   // LocatedBlocks
   public static LocatedBlocks convert(LocatedBlocksProto lb) {
     LocatedBlocks locatedBlocks =  new LocatedBlocks(lb.getFileLength(), lb.getUnderConstruction(),
@@ -893,7 +894,7 @@ public class PBHelper {
         lb.getIsLastBlockComplete());
     return locatedBlocks;
   }
-  
+
   public static LocatedBlocksProto convert(LocatedBlocks lb) {
     if (lb == null) {
       return null;
@@ -907,7 +908,7 @@ public class PBHelper {
         .addAllBlocks(PBHelper.convertLocatedBlock2(lb.getLocatedBlocks()))
         .setIsLastBlockComplete(lb.isLastBlockComplete()).build();
   }
-  
+
   // DataEncryptionKey
   public static DataEncryptionKey convert(DataEncryptionKeyProto bet) {
     String encryptionAlgorithm = bet.getEncryptionAlgorithm();
@@ -916,7 +917,7 @@ public class PBHelper {
         bet.getExpiryDate(),
         encryptionAlgorithm.isEmpty() ? null : encryptionAlgorithm);
   }
-  
+
   public static DataEncryptionKeyProto convert(DataEncryptionKey bet) {
     DataEncryptionKeyProto.Builder b =
         DataEncryptionKeyProto.newBuilder().setKeyId(bet.keyId)
@@ -929,7 +930,7 @@ public class PBHelper {
     }
     return b.build();
   }
-  
+
   public static FsServerDefaults convert(FsServerDefaultsProto fs) {
     if (fs == null) {
       return null;
@@ -939,7 +940,7 @@ public class PBHelper {
         fs.getFileBufferSize(), fs.getEncryptDataTransfer(),
         fs.getTrashInterval(), PBHelper.convert(fs.getChecksumType()));
   }
-  
+
   public static FsServerDefaultsProto convert(FsServerDefaults fs) {
     if (fs == null) {
       return null;
@@ -954,23 +955,23 @@ public class PBHelper {
         .setTrashInterval(fs.getTrashInterval())
         .setChecksumType(PBHelper.convert(fs.getChecksumType())).build();
   }
-  
+
   public static FsPermissionProto convert(FsPermission p) {
     if (p == null) {
       return null;
     }
     return FsPermissionProto.newBuilder().setPerm(p.toShort()).build();
   }
-  
+
   public static FsPermission convert(FsPermissionProto p) {
     if (p == null) {
       return null;
     }
     return new FsPermission((short) p.getPerm());
   }
-  
-  
-  // The creatFlag field in PB is a bitmask whose values are the same a the 
+
+
+  // The creatFlag field in PB is a bitmask whose values are the same a the
   // emum values of CreateFlag
   public static int convertCreateFlag(EnumSetWritable<CreateFlag> flag) {
     int value = 0;
@@ -985,7 +986,7 @@ public class PBHelper {
     }
     return value;
   }
-  
+
   public static EnumSetWritable<CreateFlag> convert(int flag) {
     EnumSet<CreateFlag> result = EnumSet.noneOf(CreateFlag.class);
     if ((flag & CreateFlagProto.APPEND_VALUE) == CreateFlagProto.APPEND_VALUE) {
@@ -1000,8 +1001,8 @@ public class PBHelper {
     }
     return new EnumSetWritable<CreateFlag>(result);
   }
-  
-  
+
+
   public static HdfsFileStatus convert(HdfsFileStatusProto fs) throws IOException {
     if (fs == null) {
       return null;
@@ -1054,7 +1055,7 @@ public class PBHelper {
     }
     return builder.build();
   }
-  
+
   public static HdfsFileStatusProto[] convert(HdfsFileStatus[] fs) {
     if (fs == null) {
       return null;
@@ -1066,7 +1067,7 @@ public class PBHelper {
     }
     return result;
   }
-  
+
   public static HdfsFileStatus[] convert(HdfsFileStatusProto[] fs) throws IOException {
     if (fs == null) {
       return null;
@@ -1078,7 +1079,7 @@ public class PBHelper {
     }
     return result;
   }
-  
+
   public static DirectoryListing convert(DirectoryListingProto dl) throws IOException {
     if (dl == null) {
       return null;
@@ -1114,7 +1115,7 @@ public class PBHelper {
         res.getMissingBlocks();
     return result;
   }
-  
+
   public static GetFsStatsResponseProto convert(long[] fsStats) {
     GetFsStatsResponseProto.Builder result =
         GetFsStatsResponseProto.newBuilder();
@@ -1141,7 +1142,7 @@ public class PBHelper {
     }
     return result.build();
   }
-  
+
   public static DatanodeReportTypeProto convert(DatanodeReportType t) {
     switch (t) {
       case ALL:
@@ -1154,7 +1155,7 @@ public class PBHelper {
         throw new IllegalArgumentException("Unexpected data type report:" + t);
     }
   }
-  
+
   public static DatanodeReportType convert(DatanodeReportTypeProto t) {
     switch (t) {
       case ALL:
@@ -1180,7 +1181,7 @@ public class PBHelper {
         throw new IllegalArgumentException("Unexpected SafeModeAction :" + a);
     }
   }
-  
+
   public static SafeModeAction convert(
       ClientNamenodeProtocolProtos.SafeModeActionProto a) {
     switch (a) {
@@ -1194,7 +1195,7 @@ public class PBHelper {
         throw new IllegalArgumentException("Unexpected SafeModeAction :" + a);
     }
   }
-  
+
   public static CorruptFileBlocks convert(CorruptFileBlocksProto c) {
     if (c == null) {
       return null;
@@ -1213,7 +1214,7 @@ public class PBHelper {
         setCookie(c.getCookie()).
         build();
   }
-  
+
   public static ContentSummary convert(ContentSummaryProto cs) {
     if (cs == null) {
       return null;
@@ -1222,7 +1223,7 @@ public class PBHelper {
         cs.getDirectoryCount(), cs.getQuota(), cs.getSpaceConsumed(),
         cs.getSpaceQuota());
   }
-  
+
   public static ContentSummaryProto convert(ContentSummary cs) {
     if (cs == null) {
       return null;
@@ -1294,7 +1295,7 @@ public class PBHelper {
     assert size >= 0;
     return new ExactSizeInputStream(input, size);
   }
-  
+
   //HOP_CODE_START
   public static SortedActiveNodeList convert(
       ActiveNamenodeListResponseProto p) {
@@ -1306,14 +1307,14 @@ public class PBHelper {
     }
     return new SortedActiveNodeListPBImpl(anl);
   }
-  
+
   public static ActiveNode convert(ActiveNodeProto p) {
     ActiveNode an =
         new ActiveNodePBImpl(p.getId(), p.getHostname(), p.getIpAddress(),
             p.getPort(), p.getHttpAddress());
     return an;
   }
-  
+
   public static ActiveNodeProto convert(ActiveNode p) {
     ActiveNodeProto.Builder anp = ActiveNodeProto.newBuilder();
     anp.setId(p.getId());
@@ -1324,7 +1325,7 @@ public class PBHelper {
 
     return anp.build();
   }
-  
+
   public static ActiveNamenodeListResponseProto convert(
       SortedActiveNodeList anlWrapper) {
     List<ActiveNode> anl = anlWrapper.getActiveNodes();
@@ -1434,4 +1435,15 @@ public class PBHelper {
     return new EncodingPolicy(encodingPolicyProto.getCodec(),
         (short) encodingPolicyProto.getTargetReplication());
   }
+
+  public static byte[] convert(DatanodeProtocolProtos.SmallFileDataResponseProto response){
+    return  response.getData().toByteArray();
+  }
+
+  public static DatanodeProtocolProtos.SmallFileDataResponseProto convert(byte[] data){
+    DatanodeProtocolProtos.SmallFileDataResponseProto.Builder responseProto = DatanodeProtocolProtos.SmallFileDataResponseProto.newBuilder();
+    responseProto.setData(ByteString.copyFrom(data));
+    return responseProto.build();
+  }
+
 }

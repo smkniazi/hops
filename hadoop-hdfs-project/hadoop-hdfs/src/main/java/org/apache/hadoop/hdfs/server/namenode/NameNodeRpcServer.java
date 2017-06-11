@@ -866,6 +866,11 @@ class NameNodeRpcServer implements NamenodeProtocols {
     return namesystem.getNamespaceInfo();
   }
 
+  @Override
+  public byte[] getSmallFileData(int id) throws IOException {
+    return namesystem.getSmallFileData(id);
+  }
+
   /**
    * Verifies the given registration.
    *

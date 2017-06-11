@@ -7620,5 +7620,45 @@ public class FSNamesystem
   public static int dbInMemorySmallFileMaxSize() {
     return DB_IN_MEMORY_FILE_MAX_SIZE;
   }
+
+  public byte[] getSmallFileData(final int id) throws IOException {
+    final int inodeid = -id;
+    return (byte[]) ( new HopsTransactionalRequestHandler(HDFSOperationType.GET_SMALL_FILE_DATA) {
+      INodeIdentifier inodeIdentifier;
+
+      @Override
+      public void setUp() throws StorageException {
+        inodeIdentifier = new INodeIdentifier(inodeid);
+      }
+
+      @Override
+      public void acquireLock(TransactionLocks locks) throws IOException {
+        LockFactory lf = LockFactory.getInstance();
+        locks.add(lf.getIndividualINodeLock(INodeLockType.READ, inodeIdentifier));
+      }
+
+      @Override
+      public Object performTask() throws StorageException, IOException {
+        INode iNode = EntityManager.find(INode.Finder.ByINodeIdFTIS, inodeid);
+
+        if (iNode == null ){
+          throw new  FileNotFoundException("The file id: "+id+" does not exist");
+        }
+
+        if (iNode instanceof  INodeFile){
+          INodeFile file = ((INodeFile)iNode);
+          if (!file.isFileStoredInDB() ){
+            throw new  IOException("The requested file is not stored in the database.");
+          }
+
+          byte[] data = ((INodeFile)iNode).getFileDataInDB();
+          return data;
+
+        } else{
+          throw new  FileNotFoundException("Inode id: "+id+" is not a file.");
+        }
+      }
+    }).handle();
+  }
 }
 

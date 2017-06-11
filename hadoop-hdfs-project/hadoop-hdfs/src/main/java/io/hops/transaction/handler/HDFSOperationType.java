@@ -75,6 +75,7 @@ public enum HDFSOperationType implements OperationType {
   GET_ROOT,
   GET_METADATA_LOG_ENTRIES,
   HAS_CHILDREN,
+  GET_SMALL_FILE_DATA,
   //BlockManager
   FIND_AND_MARK_BLOCKS_AS_CORRUPT,
   PREPARE_PROCESS_REPORT,
