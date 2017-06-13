@@ -24,6 +24,7 @@ import io.hops.common.IDsMonitor;
 import io.hops.common.INodeUtil;
 import io.hops.erasure_coding.Codec;
 import io.hops.erasure_coding.ErasureCodingManager;
+import io.hops.exception.HDFSClientAppendToDBFileException;
 import io.hops.exception.LockUpgradeException;
 import io.hops.exception.StorageException;
 import io.hops.exception.TransactionContextException;
@@ -55,26 +56,19 @@ import io.hops.transaction.lock.TransactionLockTypes.INodeLockType;
 import io.hops.transaction.lock.TransactionLockTypes.INodeResolveType;
 import io.hops.transaction.lock.TransactionLockTypes.LockType;
 import io.hops.transaction.lock.TransactionLocks;
+import org.apache.commons.configuration.ConfigurationUtils;
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
 import org.apache.hadoop.HadoopIllegalArgumentException;
 import org.apache.hadoop.classification.InterfaceAudience;
 import org.apache.hadoop.conf.Configuration;
-import org.apache.hadoop.fs.ContentSummary;
-import org.apache.hadoop.fs.CreateFlag;
-import org.apache.hadoop.fs.FileAlreadyExistsException;
-import org.apache.hadoop.fs.FileStatus;
-import org.apache.hadoop.fs.FsServerDefaults;
-import org.apache.hadoop.fs.InvalidPathException;
-import org.apache.hadoop.fs.Options;
+import org.apache.hadoop.fs.*;
 import org.apache.hadoop.fs.Options.Rename;
-import org.apache.hadoop.fs.ParentNotDirectoryException;
-import org.apache.hadoop.fs.Path;
-import org.apache.hadoop.fs.UnresolvedLinkException;
 import org.apache.hadoop.fs.permission.FsAction;
 import org.apache.hadoop.fs.permission.FsPermission;
 import org.apache.hadoop.fs.permission.PermissionStatus;
 import org.apache.hadoop.hdfs.DFSConfigKeys;
+import org.apache.hadoop.hdfs.DFSInputStream;
 import org.apache.hadoop.hdfs.DFSUtil;
 import org.apache.hadoop.hdfs.HdfsConfiguration;
 import org.apache.hadoop.hdfs.protocol.AlreadyBeingCreatedException;
@@ -170,6 +164,8 @@ import java.util.concurrent.TimeUnit;
 import static io.hops.transaction.lock.LockFactory.BLK;
 import static io.hops.transaction.lock.LockFactory.getInstance;
 import io.hops.transaction.lock.SubtreeLockedException;
+import sun.security.krb5.Config;
+
 import static org.apache.hadoop.fs.CommonConfigurationKeysPublic.FS_TRASH_INTERVAL_DEFAULT;
 import static org.apache.hadoop.fs.CommonConfigurationKeysPublic.FS_TRASH_INTERVAL_KEY;
 import static org.apache.hadoop.fs.CommonConfigurationKeysPublic.IO_FILE_BUFFER_SIZE_DEFAULT;
@@ -2079,7 +2075,58 @@ public class FSNamesystem
   /**
    * Append to an existing file in the namespace.
    */
+
   LocatedBlock appendFile(final String src, final String holder,
+                          final String clientMachine) throws IOException {
+
+    try{
+      return appendFileHopFS(src, holder, clientMachine);
+    } catch(HDFSClientAppendToDBFileException e){
+      LOG.debug(e);
+      return moveToDNsAndAppend(src, holder, clientMachine);
+    }
+  }
+
+  /*
+  HDFS clients can not append to a file stored in the database.
+  To support the HDFS Clients the files stored in the database are first
+  moved to the datanodes.
+   */
+  LocatedBlock moveToDNsAndAppend(final String src, final String holder,
+                               final String clientMachine) throws IOException {
+    // open the samll file
+    FileSystem hopsFSClient1 = FileSystem.newInstance(conf);
+    byte[] data = new byte[conf.getInt(DFSConfigKeys.DFS_DB_FILE_MAX_SIZE_KEY, DFSConfigKeys.DFS_DB_FILE_MAX_SIZE_DEFAULT)];
+    FSDataInputStream is = hopsFSClient1.open(new Path(src));
+    int dataRead = is.read(data,0,data.length);
+    is.close();
+
+    //now overrite the inmemory file
+    Configuration newconf = copyConfiguration(conf);
+    newconf.setBoolean(DFSConfigKeys.DFS_STORE_SMALL_FILES_IN_DB_KEY, false);
+    FileSystem hopsFSClient2 = FileSystem.newInstance(newconf);
+    FSDataOutputStream os = hopsFSClient2.create(new Path(src), true );
+    os.write(data,0,dataRead);
+    os.close();
+
+    conf.setBoolean(DFSConfigKeys.DFS_STORE_SMALL_FILES_IN_DB_KEY, true);
+
+    // now append the file
+    return appendFileHopFS(src,holder,clientMachine);
+  }
+
+  private Configuration copyConfiguration(Configuration conf){
+    Configuration newConf = new HdfsConfiguration();
+
+    Iterator<Map.Entry<String,String>> itr = conf.iterator();
+    while(itr.hasNext()){
+      Map.Entry<String,String> entry = itr.next();
+      newConf.set(entry.getKey(), entry.getValue());
+    }
+    return newConf;
+  }
+
+  LocatedBlock appendFileHopFS(final String src, final String holder,
       final String clientMachine) throws IOException {
     HopsTransactionalRequestHandler appendFileHandler =
         new HopsTransactionalRequestHandler(HDFSOperationType.APPEND_FILE,
@@ -2105,14 +2152,20 @@ public class FSNamesystem
           public Object performTask() throws IOException {
             try {
               INode target = getINode(src);
-              if(target != null && target instanceof  INodeFile){
-               if(!((INodeFile)target).isFileStoredInDB()) {
-                 EncodingStatus status = EntityManager.find(EncodingStatus.Finder.ByInodeId, target.getId());
-                 if (status != null) {
-                   throw new IOException("Cannot append to erasure-coded file");
-                 }
-               }
+              if (target != null && target instanceof INodeFile && !((INodeFile) target).isFileStoredInDB()) {
+                EncodingStatus status = EntityManager.find(EncodingStatus.Finder.ByInodeId, target.getId());
+                if (status != null) {
+                  throw new IOException("Cannot append to erasure-coded file");
+                }
               }
+
+              if (target != null &&
+                      target instanceof INodeFile &&
+                      ((INodeFile) target).isFileStoredInDB() &&
+                      !holder.contains("HopsFS")) {
+                throw new HDFSClientAppendToDBFileException("HDFS can not directly append to a file stored in the database");
+              }
+
 
               return appendFileInt(src, holder, clientMachine);
             } catch (AccessControlException e) {

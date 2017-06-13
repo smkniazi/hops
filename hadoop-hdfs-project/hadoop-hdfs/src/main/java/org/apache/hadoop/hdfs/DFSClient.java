@@ -1655,6 +1655,20 @@ public class DFSClient implements java.io.Closeable {
           UnresolvedPathException.class);
     }
 
+    // HDFSClientEmulation
+    // get fresh file stat. When hdfs client tries to append to a small file then the namenode moves
+    // the files to the datanodes. Thus the status of the file changes.
+    //
+    if(dfsClientConf.hdfsClientEmulationForSF){
+      stat = getFileInfo(src);
+      if (stat == null) { // No file found
+        throw new FileNotFoundException(
+                "failed to append to non-existent file " + src + " on client " +
+                        clientName);
+      }
+
+    }
+
     return DFSOutputStream
         .newStreamForAppend(this, src, buffersize, progress, lastBlock, stat,
             dfsClientConf.createChecksum(), isStoreSmallFilesInDB(), getDBFileMaxSize());
