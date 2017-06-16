@@ -2109,8 +2109,6 @@ public class FSNamesystem
     os.write(data,0,dataRead);
     os.close();
 
-    conf.setBoolean(DFSConfigKeys.DFS_STORE_SMALL_FILES_IN_DB_KEY, true);
-
     // now append the file
     return appendFileHopFS(src,holder,clientMachine);
   }
