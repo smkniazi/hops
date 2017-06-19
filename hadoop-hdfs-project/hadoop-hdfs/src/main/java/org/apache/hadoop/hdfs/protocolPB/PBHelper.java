@@ -507,7 +507,12 @@ public class PBHelper {
     DatanodeInfo[] locs = b.getLocations();
     for (int i = 0; i < locs.length; i++) {
       builder.addLocs(i, PBHelper.convert(locs[i]));
+      //For compatability with newer clients
+      builder.setStorageIDs(i, "HopsFS_Hack_Storage_ID" );
+      builder.setStorageTypes(i, HdfsProtos.StorageTypeProto.DISK);
+      builder.setIsCached(i,false);
     }
+    
     builder = builder.setB(PBHelper.convert(b.getBlock()))
         .setBlockToken(PBHelper.convert(b.getBlockToken()))
         .setCorrupt(b.isCorrupt()).setOffset(b.getStartOffset());
