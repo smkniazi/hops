@@ -822,7 +822,6 @@ public class BlockManager {
 
     DatanodeInfo[] machines = new DatanodeInfo[1];
     machines[0] = datanodeManager.getRandomDN();
-    machines[0].setPhantomDatanode(true );
     LocatedBlock locatedBlock  = new LocatedBlock(eb, machines, 0, false);
     locatedBlock.setData(data);
     results.add(locatedBlock);

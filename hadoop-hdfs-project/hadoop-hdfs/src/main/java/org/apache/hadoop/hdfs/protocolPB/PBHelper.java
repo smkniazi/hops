@@ -405,7 +405,6 @@ public class PBHelper {
         di.getDfsUsed(), di.getRemaining(), di.getBlockPoolUsed(),
         di.getLastUpdate(), di.getXceiverCount(),
         PBHelper.convert(di.getAdminState()));
-    datanodeInfo.setPhantomDatanode(di.hasIsPhantomDatanode()? di.getIsPhantomDatanode():false);
     return datanodeInfo;
   }
 
@@ -427,7 +426,6 @@ public class PBHelper {
         setLastUpdate(di.getLastUpdate()).
         setXceiverCount(di.getXceiverCount()).
         setAdminState(PBHelper.convert(di.getAdminState())).
-        setIsPhantomDatanode(di.isPhantomDataNode()).
         build();
   }
 
@@ -482,8 +480,7 @@ public class PBHelper {
         .setLastUpdate(info.getLastUpdate())
         .setLocation(info.getNetworkLocation())
         .setRemaining(info.getRemaining())
-        .setXceiverCount(info.getXceiverCount())
-        .setIsPhantomDatanode(info.isPhantomDataNode()).build();
+        .setXceiverCount(info.getXceiverCount()).build();
     return builder.build();
   }
 

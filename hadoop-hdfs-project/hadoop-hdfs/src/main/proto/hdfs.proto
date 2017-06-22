@@ -72,7 +72,6 @@ message DatanodeInfoProto {
   optional uint64 lastUpdate = 6 [default = 0];
   optional uint32 xceiverCount = 7 [default = 0];
   optional string location = 8;
-  optional bool isPhantomDatanode = 9;
   enum AdminState {
     NORMAL = 0;
     DECOMMISSION_INPROGRESS = 1;

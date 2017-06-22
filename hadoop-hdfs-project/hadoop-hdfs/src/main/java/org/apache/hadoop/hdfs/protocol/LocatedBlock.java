@@ -70,13 +70,13 @@ public class LocatedBlock {
   public void setData(byte[] data) {
     String error = null;
     if(locs != null){
-      if(locs[0].isPhantomDataNode()){
+      if(isPhantomBlock()){
         this.data = data;
       }else{
-        error = "Can not set data. The the datanode should be phantom";
+        error = "Can not set data. Not a phantom data block";
       }
     }else{
-      error = "No phantom datanode found";
+      error = "Can not set data. No datanode found";
     }
     if(error != null){
       throw new UnsupportedOperationException(error);
@@ -85,7 +85,7 @@ public class LocatedBlock {
 
   public boolean isPhantomBlock(){
     if (locs != null && locs.length == 1) {
-      if (locs[0].isPhantomDataNode() || b.getBlockId() < 0) {
+      if (b.getBlockId() < 0) {
         return true;
       }
     }
