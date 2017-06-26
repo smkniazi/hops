@@ -405,7 +405,6 @@ public class PBHelper {
         di.getDfsUsed(), di.getRemaining(), di.getBlockPoolUsed(),
         di.getLastUpdate(), di.getXceiverCount(),
         PBHelper.convert(di.getAdminState()));
-    datanodeInfo.setPhantomDatanode(di.hasIsPhantomDatanode()? di.getIsPhantomDatanode():false);
     return datanodeInfo;
   }
 
