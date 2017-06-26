@@ -426,7 +426,6 @@ public class PBHelper {
         setLastUpdate(di.getLastUpdate()).
         setXceiverCount(di.getXceiverCount()).
         setAdminState(PBHelper.convert(di.getAdminState())).
-        setIsPhantomDatanode(di.isPhantomDataNode()).
         build();
   }
 
@@ -482,7 +481,7 @@ public class PBHelper {
         .setLocation(info.getNetworkLocation())
         .setRemaining(info.getRemaining())
         .setXceiverCount(info.getXceiverCount())
-        .setIsPhantomDatanode(info.isPhantomDataNode()).build();
+        .build();
     return builder.build();
   }
 
