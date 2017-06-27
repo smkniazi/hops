@@ -263,7 +263,7 @@ class BlockSender implements java.io.Closeable {
        * False, False: throws IOException file not found
        */
       DataChecksum csum = null;
-      if (block.getBlockId() > 0 && (verifyChecksum || sendChecksum)) {
+      if (block.getBlockId() >= 0 && (verifyChecksum || sendChecksum)) {
         final InputStream metaIn = datanode.data.getMetaDataInputStream(block);
         if (!corruptChecksumOk || metaIn != null) {
           if (metaIn == null) {
@@ -356,7 +356,9 @@ class BlockSender implements java.io.Closeable {
       if (DataNode.LOG.isDebugEnabled()) {
         DataNode.LOG.debug("replica=" + replica);
       }
+
       if(block.getBlockId()<0) {
+        LOG.debug("Stuffed Inode: getting small file  data from the namenode");
         byte[] data = datanode.getSmallFileDataFromNN(block);
         ByteArrayInputStream bis = new ByteArrayInputStream(data);
         blockIn = bis;
