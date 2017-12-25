@@ -18,7 +18,7 @@ xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xs
   <modelVersion>4.0.0</modelVersion>
   <groupId>io.hops</groupId>
   <artifactId>hadoop-main</artifactId>
-  <version>2.8.2.1</version>
+  <version>2.8.2.3-SNAPSHOT</version>
   <description>Apache Hadoop Main</description>
   <name>Apache Hadoop Main</name>
   <packaging>pom</packaging>
@@ -55,12 +55,17 @@ xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xs
   </dependencyManagement>
 
   <distributionManagement>
-     <repository>
-            <id>sics-release-repository</id>
-            <name>SICS Repository</name>
-            <url>scpexe://kompics.i.sics.se/home/maven/repository</url>
-        </repository>
-        <downloadUrl>http://kompics.sics.se/maven/repository</downloadUrl>
+    <repository>
+      <id>sics-release-repository</id>
+      <name>SICS Repository</name>
+      <url>scpexe://kompics.i.sics.se/home/maven/repository</url>
+    </repository>
+    <snapshotRepository>
+      <id>sics-snapshot-repository</id>
+      <name>SICS Snapshot Repository</name>
+      <url>scpexe://kompics.i.sics.se/home/maven/snapshotrepository</url>
+    </snapshotRepository>
+    <downloadUrl>http://kompics.sics.se/maven</downloadUrl>
   </distributionManagement>
 
   <repositories>
@@ -68,6 +73,21 @@ xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xs
       <id>sics-release</id>
       <name>SICS Release Repository</name>
       <url>http://kompics.sics.se/maven/repository</url>
+      <snapshots>
+        <enabled>false</enabled>
+        <updatePolicy>never</updatePolicy>
+      </snapshots>
+    </repository>
+    <repository>
+      <id>sics-snapshot-repository</id>
+      <name>SICS Snapshot Repository</name>
+      <url>http://kompics.sics.se/maven/snapshotrepository</url>
+      <releases>
+        <enabled>true</enabled>
+      </releases>
+      <snapshots>
+        <updatePolicy>always</updatePolicy>
+      </snapshots>
     </repository>
     <repository>
       <id>${distMgmtSnapshotsId}</id>
@@ -605,17 +625,33 @@ xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xs
           <groupId>io.hops.metadata</groupId>
           <artifactId>hops-metadata-dal-impl-ndb</artifactId>
           <version>${project.version}</version>
+          <scope>test</scope>
         </dependency>
         <dependency>
           <groupId>io.hops.gpu</groupId>
           <artifactId>hops-gpu-management-impl-nvidia</artifactId>
           <version>${project.version}</version>
+          <scope>test</scope>
         </dependency>
         <dependency>
           <groupId>com.mysql.ndb</groupId>
           <artifactId>clusterj-native</artifactId>
           <version>7.5.6</version>
           <classifier>natives-linux</classifier>
+        </dependency>
+        <dependency>
+          <groupId>io.hops.gpu</groupId>
+          <artifactId>libhopsnvml</artifactId>
+          <version>${project.version}</version>
+          <type>so</type>
+          <scope>test</scope>
+        </dependency>
+        <dependency>
+          <groupId>io.hops.streaming</groupId>
+          <artifactId>libhopsyarn</artifactId>
+          <version>${project.version}</version>
+          <type>so</type>
+          <scope>test</scope>
         </dependency>
       </dependencies>
       <build>
@@ -633,6 +669,40 @@ xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xs
                 <configuration>
                   <nativesTargetDir>${session.executionRootDirectory}/target/lib</nativesTargetDir>
                   <separateDirs>false</separateDirs>
+                </configuration>
+              </execution>
+            </executions>
+          </plugin>
+          <plugin>
+            <groupId>org.apache.maven.plugins</groupId>
+            <artifactId>maven-dependency-plugin</artifactId>
+            <executions>
+              <execution>
+                <id>copy-dependency</id>
+                <phase>compile</phase>
+                <goals>
+                  <goal>copy</goal>
+                </goals>
+                <configuration>
+                  <artifactItems>
+                    <artifactItem>
+                      <groupId>io.hops.streaming</groupId>
+                      <artifactId>libhopsyarn</artifactId>
+                      <version>${project.version}</version>
+                      <type>so</type>
+                      <overWrite>true</overWrite>
+                      <outputDirectory>target/native/target/usr/local/lib</outputDirectory>
+                    </artifactItem>
+                    <artifactItem>
+                      <groupId>io.hops.gpu</groupId>
+                      <artifactId>libhopsnvml</artifactId>
+                      <version>${project.version}</version>
+                      <type>so</type>
+                      <overWrite>true</overWrite>
+                      <outputDirectory>target/native/target/usr/local/lib</outputDirectory>
+                    </artifactItem>
+                  </artifactItems>
+                  <stripVersion>true</stripVersion>
                 </configuration>
               </execution>
             </executions>

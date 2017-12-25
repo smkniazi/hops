@@ -2543,9 +2543,9 @@ public class YarnConfiguration extends Configuration {
   
   public static final String HOPS_RM_PREFIX = "hops.yarn.resourcemanager.";
 
-  public static int DEFAULT_HOPS_NDB_EVENT_STREAMING_DB_PORT = 1186;
-  public static final String HOPS_NDB_EVENT_STREAMING_DB_PORT = HOPS_RM_PREFIX
-          + "ndb-event-streaming.db.port";
+  public static int DEFAULT_HOPS_EVENT_STREAMING_DB_PORT = 1186;
+  public static final String HOPS_EVENT_STREAMING_DB_PORT = HOPS_RM_PREFIX
+          + "event-streaming.db.port";
 
   /**
    * The address of the RM group membership interface.
@@ -2577,12 +2577,21 @@ public class YarnConfiguration extends Configuration {
   public static long DEFAULT_QUOTA_BATCH_TIME = 500;
   public static final String QUOTA_BATCH_SIZE = QUOTA_PREFIX + "batch.size";
   public static int DEFAULT_QUOTA_BATCH_SIZE = 100;
-  public static final String QUOTA_BASE_PRICE = QUOTA_PREFIX + "price.base";
-  public static float DEFAULT_QUOTA_BASE_PRICE = 1;
-  public static final String QUOTA_MULTIPLICATOR_THRESHOLD = QUOTA_PREFIX + "multiplicator.threshold";
-  public static float DEFAULT_QUOTA_MULTIPLICATOR_THRESHOLD = new Float(0.2);
-  public static final String QUOTA_INCREMENT_FACTOR = QUOTA_PREFIX + "multiplicator.increment";
-  public static float DEFAULT_QUOTA_INCREMENT_FACTOR = 1;
+  public static final String QUOTA_BASE_PRICE_PREFIX = QUOTA_PREFIX + "price.base.";
+  public static final String QUOTA_BASE_PRICE_GPU = QUOTA_BASE_PRICE_PREFIX + "gpu";
+  public static float DEFAULT_QUOTA_BASE_PRICE_GPU = 2;
+  public static final String QUOTA_BASE_PRICE_GENERAL = QUOTA_BASE_PRICE_PREFIX + "general";
+  public static float DEFAULT_QUOTA_BASE_PRICE_GENERAL = 1;
+  public static final String QUOTA_MULTIPLICATOR_THRESHOLD = QUOTA_PREFIX + "multiplicator.threshold.";
+  public static final String QUOTA_MULTIPLICATOR_THRESHOLD_GENERAL = QUOTA_MULTIPLICATOR_THRESHOLD + "general";
+  public static float DEFAULT_QUOTA_MULTIPLICATOR_THRESHOLD_GENERAL = new Float(0.2);
+  public static final String QUOTA_MULTIPLICATOR_THRESHOLD_GPU = QUOTA_MULTIPLICATOR_THRESHOLD + "gpu";
+  public static float DEFAULT_QUOTA_MULTIPLICATOR_THRESHOLD_GPU = new Float(0.2);
+  public static final String QUOTA_INCREMENT_FACTOR = QUOTA_PREFIX + "multiplicator.increment.";
+  public static final String QUOTA_INCREMENT_FACTOR_GENERAL = QUOTA_INCREMENT_FACTOR + "general";
+  public static float DEFAULT_QUOTA_INCREMENT_FACTOR_GENERAL = 1;
+  public static final String QUOTA_INCREMENT_FACTOR_GPU = QUOTA_INCREMENT_FACTOR + "gpu";
+  public static float DEFAULT_QUOTA_INCREMENT_FACTOR_GPU = 2;
   public static final String QUOTA_PRICE_MULTIPLICATOR_INTERVAL = QUOTA_PREFIX + "multiplicator.interval";
   public static long DEFAULT_QUOTA_PRICE_MULTIPLICATOR_INTERVAL=1000;
   public static final String QUOTA_CONTAINERS_LOGS_MONITOR_INTERVAL = QUOTA_PREFIX + "containers.log.period";

@@ -19,24 +19,26 @@ package org.apache.hadoop.hdfs;
 
 import io.hops.exception.StorageException;
 import io.hops.metadata.HdfsStorageFactory;
-import io.hops.metadata.hdfs.TablesDef;
 import io.hops.metadata.hdfs.dal.QuotaUpdateDataAccess;
 import io.hops.transaction.handler.HDFSOperationType;
 import io.hops.transaction.handler.LightWeightRequestHandler;
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
 import org.apache.hadoop.conf.Configuration;
-import org.apache.hadoop.fs.*;
+import org.apache.hadoop.fs.ContentSummary;
+import org.apache.hadoop.fs.FSDataOutputStream;
+import org.apache.hadoop.fs.FileSystem;
+import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.hdfs.protocol.DSQuotaExceededException;
 import org.apache.hadoop.hdfs.protocol.HdfsConstants;
 import org.apache.hadoop.hdfs.protocol.LastUpdatedContentSummary;
 import org.apache.hadoop.hdfs.protocol.NSQuotaExceededException;
 import org.apache.hadoop.hdfs.protocol.QuotaExceededException;
+import org.apache.hadoop.hdfs.server.namenode.TestSubtreeLock;
 import org.apache.hadoop.hdfs.tools.DFSAdmin;
 import org.apache.hadoop.hdfs.web.WebHdfsFileSystem;
 import org.apache.hadoop.io.IOUtils;
 import org.apache.hadoop.security.UserGroupInformation;
-import org.apache.hadoop.util.Time;
 import org.junit.Test;
 
 import java.io.FileNotFoundException;
@@ -44,18 +46,17 @@ import java.io.IOException;
 import java.io.OutputStream;
 import java.security.PrivilegedExceptionAction;
 
-import org.apache.hadoop.hdfs.server.namenode.TestSubtreeLock;
-
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertTrue;
 import static org.junit.Assert.fail;
+
 /**
  * A class for testing quota-related commands
  */
-public class TestQuota {
+public class TestSmallFilesQuota {
 
-  public static final Log LOG = LogFactory.getLog(TestQuota.class);
+  public static final Log LOG = LogFactory.getLog(TestSmallFilesQuota.class);
 
   private void runCommand(DFSAdmin admin, boolean expectError, String... args)
       throws Exception {
@@ -97,10 +98,7 @@ public class TestQuota {
   @Test
   public void testQuotaCommands() throws Exception {
     final Configuration conf = new HdfsConfiguration();
-    // set a smaller block size so that we can test with smaller
-    // Space quotas
-    final int DEFAULT_BLOCK_SIZE = 512;
-    conf.setLong(DFSConfigKeys.DFS_BLOCK_SIZE_KEY, DEFAULT_BLOCK_SIZE);
+    conf.setBoolean(DFSConfigKeys.DFS_STORE_SMALL_FILES_IN_DB_KEY, true);
     conf.setInt(DFSConfigKeys.DFS_NAMENODE_QUOTA_UPDATE_INTERVAL_KEY, 1000);
     final MiniDFSCluster cluster =
         new MiniDFSCluster.Builder(conf).numDataNodes(2).build();
@@ -123,7 +121,7 @@ public class TestQuota {
 
       //try setting space quota with a 'binary prefix'
       runCommand(admin, false, "-setSpaceQuota", "2t", parent.toString());
-      assertEquals(2L << 40, DFSTestUtil.getContentSummary(dfs,parent).getSpaceQuota());
+      assertEquals(2L << 40, DFSTestUtil.getContentSummary(dfs, parent).getSpaceQuota());
       
       // set diskspace quota to 10000 
       runCommand(admin, false, "-setSpaceQuota", Long.toString(spaceQuota),
@@ -138,7 +136,7 @@ public class TestQuota {
       DFSTestUtil.createFile(fs, childFile0, fileLen, replication, 0);
       DFSTestUtil.waitForQuotaUpdatesToBeApplied();
       // 4: count -q /test
-      ContentSummary c = DFSTestUtil.getContentSummary(dfs,parent);
+      ContentSummary c = DFSTestUtil.getContentSummary(dfs, parent);
       DFSTestUtil.waitForQuotaUpdatesToBeApplied();
       assertEquals(c.getFileCount() + c.getDirectoryCount(), 3);
       assertEquals(c.getQuota(), 3);
@@ -146,11 +144,11 @@ public class TestQuota {
       assertEquals(c.getSpaceQuota(), spaceQuota);
       
       // 5: count -q /test/data0
-      c = DFSTestUtil.getContentSummary(dfs,childDir0);
+      c = DFSTestUtil.getContentSummary(dfs, childDir0);
       assertEquals(c.getFileCount() + c.getDirectoryCount(), 1);
       assertEquals(c.getQuota(), -1);
       // check disk space consumed
-      c = DFSTestUtil.getContentSummary(dfs,parent);
+      c = DFSTestUtil.getContentSummary(dfs, parent);
       assertEquals(c.getSpaceConsumed(), fileLen * replication);
 
       // 6: create a directory /test/data1
@@ -179,13 +177,13 @@ public class TestQuota {
 
       // 8: clear quota /test
       runCommand(admin, new String[]{"-clrQuota", parent.toString()}, false);
-      c = DFSTestUtil.getContentSummary(dfs,parent);
+      c = DFSTestUtil.getContentSummary(dfs, parent);
       assertEquals(c.getQuota(), -1);
       assertEquals(c.getSpaceQuota(), spaceQuota);
 
       // 9: clear quota /test/data0
       runCommand(admin, new String[]{"-clrQuota", childDir0.toString()}, false);
-      c = DFSTestUtil.getContentSummary(dfs,childDir0);
+      c = DFSTestUtil.getContentSummary(dfs, childDir0);
       assertEquals(c.getQuota(), -1);
 
       // 10: create a file /test/datafile1
@@ -337,8 +335,8 @@ public class TestQuota {
 
       final Path childFile2 = new Path(childDir2, "datafile2");
       final Path childFile3 = new Path(childDir2, "datafile3");
-      final long spaceQuota2 = DEFAULT_BLOCK_SIZE * replication;
-      final long fileLen2 = DEFAULT_BLOCK_SIZE;
+      final long fileLen2 = 512;
+      final long spaceQuota2 = fileLen2 * replication;
       // set space quota to a real low value 
       runCommand(admin, false, "-setSpaceQuota", Long.toString(spaceQuota2),
           childDir2.toString());
@@ -393,6 +391,7 @@ public class TestQuota {
   @Test
   public void testNamespaceCommands() throws Exception {
     final Configuration conf = new HdfsConfiguration();
+    conf.setBoolean(DFSConfigKeys.DFS_STORE_SMALL_FILES_IN_DB_KEY, true);
     conf.setInt(DFSConfigKeys.DFS_NAMENODE_QUOTA_UPDATE_INTERVAL_KEY, 1000);
     final MiniDFSCluster cluster =
         new MiniDFSCluster.Builder(conf).numDataNodes(2).build();
@@ -606,10 +605,8 @@ public class TestQuota {
   @Test
   public void testSpaceCommands() throws Exception {
     final Configuration conf = new HdfsConfiguration();
-    // set a smaller block size so that we can test with smaller
-    // diskspace quotas
+    conf.setBoolean(DFSConfigKeys.DFS_STORE_SMALL_FILES_IN_DB_KEY, true);
     final int BLOCK_SIZE = 512;
-    conf.setInt(DFSConfigKeys.DFS_BLOCK_SIZE_KEY, BLOCK_SIZE);
     conf.setInt(DFSConfigKeys.DFS_NAMENODE_QUOTA_UPDATE_INTERVAL_KEY, 1000);
     final MiniDFSCluster cluster =
         new MiniDFSCluster.Builder(conf).format(true).numDataNodes(5).build();
@@ -900,15 +897,23 @@ public class TestQuota {
   }
 
   /**
-   * Violate a space quota using files of size < 1 block. Test that block
+   * Violate a space quota using files of size < 1 block that don't fit in
+   * the database as small file. Test that block
    * allocation conservatively assumes that for quota checking the entire
    * space of the block is used.
    */
   @Test
   public void testBlockAllocationAdjustsUsageConservatively() throws Exception {
     Configuration conf = new HdfsConfiguration();
-    final int BLOCK_SIZE = 6 * 1024;
+    conf.setBoolean(DFSConfigKeys.DFS_STORE_SMALL_FILES_IN_DB_KEY, true);
+
+    final int MAX_SMALL_FILE_SIZE = 6 * 1024;
+    final int BLOCK_SIZE = 4 * MAX_SMALL_FILE_SIZE;
+
+    conf.setInt(DFSConfigKeys.DFS_DB_ONDISK_LARGE_FILE_MAX_SIZE_KEY, MAX_SMALL_FILE_SIZE);
+    conf.setInt(DFSConfigKeys.DFS_DB_FILE_MAX_SIZE_KEY, MAX_SMALL_FILE_SIZE);
     conf.setInt(DFSConfigKeys.DFS_BLOCK_SIZE_KEY, BLOCK_SIZE);
+
     conf.setBoolean(DFSConfigKeys.DFS_WEBHDFS_ENABLED_KEY, true);
     MiniDFSCluster cluster =
         new MiniDFSCluster.Builder(conf).numDataNodes(3).build();
@@ -926,10 +931,13 @@ public class TestQuota {
           "/folder1/folder2/folder3/folder4/folder5/folder6/folder7/folder8/folder9/folder10");
       Path file1 = new Path(dir, "test1");
       Path file2 = new Path(dir, "test2");
+      Path file3 = new Path(dir, "test3");
+      Path file4 = new Path(dir, "test4");
+
       boolean exceededQuota = false;
-      final int QUOTA_SIZE = 3 * BLOCK_SIZE; // total space usage including
+      final int QUOTA_SIZE = 3 * MAX_SMALL_FILE_SIZE; // total space usage including
       // repl.
-      final int FILE_SIZE = BLOCK_SIZE / 2;
+      final int FILE_SIZE = MAX_SMALL_FILE_SIZE / 2;
       ContentSummary c;
       
       // Create the directory and set the quota
@@ -945,22 +953,57 @@ public class TestQuota {
 
       // Creating a file should use half the quota
       DFSTestUtil.createFile(fs, file1, FILE_SIZE, (short) 3, 1L);
-      DFSTestUtil.waitReplication(fs, file1, (short) 3);
+      //DFSTestUtil.waitReplication(fs, file1, (short) 3);
       DFSTestUtil.waitForQuotaUpdatesToBeApplied();
       c = fs.getContentSummary(dir);
       checkContentSummary(c, webhdfs.getContentSummary(dir));
       assertEquals("Quota is half consumed", QUOTA_SIZE / 2,
           c.getSpaceConsumed());
 
-      // We can not create the 2nd file because even though the total spaced
-      // used by two files (2 * 3 * 512/2) would fit within the quota (3 * 512)
-      // when a block for a file is created the space used is adjusted
-      // conservatively (3 * block size, ie assumes a full block is written)
-      // which will violate the quota (3 * block size) since we've already 
-      // used half the quota for the first file.
+      //We can create the 2nd file because small files doesn't allocate
+      // blocks. so the 2nd file will use the other half of the quota.
       FSDataOutputStream out = fs.create(file2, (short) 3);
       try {
         out.write(new byte[FILE_SIZE]);
+        out.close();
+      } catch (QuotaExceededException e) {
+        exceededQuota = true;
+        IOUtils.closeStream(out);
+      }
+      assertFalse("Quota exceeded", exceededQuota);
+
+
+      //Update quota for folders
+      final int QUOTA_SIZE_UPDATE = QUOTA_SIZE + BLOCK_SIZE * 3;
+      final int FILE_SIZE_UPDATE = BLOCK_SIZE/2;
+
+      runCommand(admin, false, "-setSpaceQuota", Integer.toString(QUOTA_SIZE_UPDATE),
+          dir.toString());
+      runCommand(admin, false, "-setSpaceQuota", Integer.toString(QUOTA_SIZE_UPDATE),
+          "/folder1/folder2");
+      runCommand(admin, false, "-setSpaceQuota", Integer.toString(QUOTA_SIZE_UPDATE),
+          "/folder1/folder2/folder3/folder4/folder5");
+      runCommand(admin, false, "-setSpaceQuota", Integer.toString(QUOTA_SIZE_UPDATE),
+          "/folder1/folder2/folder3/folder4/folder5/folder6/folder7/folder8");
+
+
+      // Creating a normal file
+      DFSTestUtil.createFile(fs, file3, FILE_SIZE_UPDATE, (short) 3, 1L);
+      DFSTestUtil.waitForQuotaUpdatesToBeApplied();
+      c = fs.getContentSummary(dir);
+      checkContentSummary(c, webhdfs.getContentSummary(dir));
+      assertEquals("Quota is partially consumed", QUOTA_SIZE +
+          FILE_SIZE_UPDATE*3, c.getSpaceConsumed());
+
+      exceededQuota = false;
+      // We can not create the 4th file because even though the total space
+      // used by four files (2 * 3 * MAX_SMALL_FILE_SIZE +  2 * 3 * BLOCK_SIZE)
+      // would fit within the quota when a block for a file is created the
+      // space used is adjusted conservatively (3 * block size, ie assumes a
+      // full block is written) which will violate the quota (3 * block size)
+      out = fs.create(file4, (short) 3);
+      try {
+        out.write(new byte[FILE_SIZE_UPDATE]);
         DFSTestUtil.waitForQuotaUpdatesToBeApplied();
         out.close();
       } catch (QuotaExceededException e) {
@@ -968,6 +1011,7 @@ public class TestQuota {
         IOUtils.closeStream(out);
       }
       assertTrue("Quota not exceeded", exceededQuota);
+
     } finally {
       cluster.shutdown();
     }
@@ -981,8 +1025,14 @@ public class TestQuota {
   @Test
   public void testMultipleFilesSmallerThanOneBlock() throws Exception {
     Configuration conf = new HdfsConfiguration();
-    final int BLOCK_SIZE = 6 * 1024;
+    conf.setBoolean(DFSConfigKeys.DFS_STORE_SMALL_FILES_IN_DB_KEY, true);
+
+    final int MAX_SMALL_FILE_SIZE = 5 * 1024;
+    final int BLOCK_SIZE = MAX_SMALL_FILE_SIZE + 1024;
+
     conf.setInt(DFSConfigKeys.DFS_BLOCK_SIZE_KEY, BLOCK_SIZE);
+    conf.setInt(DFSConfigKeys.DFS_DB_ONDISK_LARGE_FILE_MAX_SIZE_KEY, MAX_SMALL_FILE_SIZE);
+    conf.setInt(DFSConfigKeys.DFS_DB_FILE_MAX_SIZE_KEY, MAX_SMALL_FILE_SIZE);
     conf.setBoolean(DFSConfigKeys.DFS_WEBHDFS_ENABLED_KEY, true);
     conf.setInt(DFSConfigKeys.DFS_NAMENODE_QUOTA_UPDATE_INTERVAL_KEY, 1000);
     MiniDFSCluster cluster =
@@ -1023,7 +1073,7 @@ public class TestQuota {
       for (int i = 0; i < 59; i++) {
         Path file = new Path("/test/test" + i);
         DFSTestUtil.createFile(fs, file, FILE_SIZE, (short) 3, 1L);
-        DFSTestUtil.waitReplication(fs, file, (short) 3);
+        //DFSTestUtil.waitReplication(fs, file, (short) 3);
         // HOP - Wait for asynchronous quota updates to be applied
         Thread.sleep(1000);
       }
@@ -1040,15 +1090,31 @@ public class TestQuota {
       Path file = new Path("/test/test59");
       FSDataOutputStream out = fs.create(file, (short) 3);
       try {
-        out.write(new byte[FILE_SIZE]);
-        DFSTestUtil.waitForQuotaUpdatesToBeApplied();
+        out.write(new byte[MAX_SMALL_FILE_SIZE+1]);
         out.close();
-        DFSTestUtil.waitReplication(fs, file, (short) 3);
+        DFSTestUtil.waitForQuotaUpdatesToBeApplied();
       } catch (QuotaExceededException e) {
         exceededQuota = true;
         IOUtils.closeStream(out);
       }
       assertTrue("Quota not exceeded", exceededQuota);
+
+      exceededQuota = false;
+      // Now try to create another file but a small one that shouldn't
+      // violate the quota since small files are not conservative
+      out = fs.create(file, (short) 3);
+      try {
+        out.write(new byte[FILE_SIZE]);
+        out.close();
+        DFSTestUtil.waitForQuotaUpdatesToBeApplied();
+      } catch (QuotaExceededException e) {
+        exceededQuota = true;
+        IOUtils.closeStream(out);
+      }
+
+      assertFalse("Quota exceeded", exceededQuota);
+
+
     } finally {
       cluster.shutdown();
     }
@@ -1058,8 +1124,8 @@ public class TestQuota {
   public void testAsynchronousQuota() throws Exception {
     // TODO This test should not rely on timing but should call the process function of QuotaUpdateManager manually
     final Configuration conf = new HdfsConfiguration();
+    conf.setBoolean(DFSConfigKeys.DFS_STORE_SMALL_FILES_IN_DB_KEY, true);
     final int BLOCK_SIZE = 512;
-    conf.setInt(DFSConfigKeys.DFS_BLOCK_SIZE_KEY, BLOCK_SIZE);
     conf.setInt(DFSConfigKeys.DFS_NAMENODE_QUOTA_UPDATE_INTERVAL_KEY, 5000);
     final MiniDFSCluster cluster =
         new MiniDFSCluster.Builder(conf).numDataNodes(1).build();
@@ -1134,8 +1200,7 @@ public class TestQuota {
   @Test
   public void testSetQuotaLate() throws Exception {
     final Configuration conf = new HdfsConfiguration();
-    final int BLOCK_SIZE = 512;
-    conf.setInt(DFSConfigKeys.DFS_BLOCK_SIZE_KEY, BLOCK_SIZE);
+    conf.setBoolean(DFSConfigKeys.DFS_STORE_SMALL_FILES_IN_DB_KEY, true);
     conf.setInt(DFSConfigKeys.DFS_NAMENODE_QUOTA_UPDATE_INTERVAL_KEY, 5000);
     final MiniDFSCluster cluster =
         new MiniDFSCluster.Builder(conf).numDataNodes(1).build();
@@ -1149,7 +1214,7 @@ public class TestQuota {
       Path testFile1 = new Path(testFolder, "test1");
       dfs.create(testFile1).close();
 
-      dfs.setQuota(testFolder, 2L, 2 * BLOCK_SIZE);
+      dfs.setQuota(testFolder, 2L, 1024);
     } finally {
       cluster.shutdown();
     }
@@ -1158,8 +1223,7 @@ public class TestQuota {
   @Test
   public void testSetQuotaOnNonExistingDirectory() throws Exception {
     final Configuration conf = new HdfsConfiguration();
-    final int BLOCK_SIZE = 512;
-    conf.setInt(DFSConfigKeys.DFS_BLOCK_SIZE_KEY, BLOCK_SIZE);
+    conf.setBoolean(DFSConfigKeys.DFS_STORE_SMALL_FILES_IN_DB_KEY, true);
     conf.setInt(DFSConfigKeys.DFS_NAMENODE_QUOTA_UPDATE_INTERVAL_KEY, 5000);
     final MiniDFSCluster cluster =
         new MiniDFSCluster.Builder(conf).numDataNodes(1).build();
@@ -1169,7 +1233,7 @@ public class TestQuota {
 
       Path testFolder = new Path("/test");
 
-      dfs.setQuota(testFolder, 2L, 2 * BLOCK_SIZE);
+      dfs.setQuota(testFolder, 2L, 1024);
       fail("SetQuota on non-existing directory succeeded");
     } catch (FileNotFoundException e) {
 
@@ -1178,4 +1242,135 @@ public class TestQuota {
     }
   }
 
+  @Test
+  public void testDiskspaceCalculationForSmallFilesWhenMovedToBlocks() throws
+      Exception{
+    final Configuration conf = new HdfsConfiguration();
+    conf.setBoolean(DFSConfigKeys.DFS_STORE_SMALL_FILES_IN_DB_KEY, true);
+    conf.setInt(DFSConfigKeys.DFS_NAMENODE_QUOTA_UPDATE_INTERVAL_KEY, 1000);
+    final int MAX_SMALL_FILE_SIZE = 64 * 1024;
+    final int BLOCK_SIZE = 2 * MAX_SMALL_FILE_SIZE;
+
+    conf.setInt(DFSConfigKeys.DFS_DB_ONDISK_LARGE_FILE_MAX_SIZE_KEY, MAX_SMALL_FILE_SIZE);
+    conf.setInt(DFSConfigKeys.DFS_DB_FILE_MAX_SIZE_KEY, MAX_SMALL_FILE_SIZE);
+    conf.setInt(DFSConfigKeys.DFS_BLOCK_SIZE_KEY, BLOCK_SIZE);
+
+    final MiniDFSCluster cluster =
+        new MiniDFSCluster.Builder(conf).numDataNodes(3).build();
+    final FileSystem fs = cluster.getFileSystem();
+    assertTrue("Not a HDFS: " + fs.getUri(),
+        fs instanceof DistributedFileSystem);
+    final DistributedFileSystem dfs = (DistributedFileSystem) fs;
+    DFSAdmin admin = new DFSAdmin(conf);
+
+    try{
+      final int smallfileLen = 1024;
+      final short replication = 3;
+      final long spaceQuota = BLOCK_SIZE * replication * 2;
+
+      //create a test directory
+      final Path parent = new Path("/test");
+      assertTrue(dfs.mkdirs(parent));
+
+      String[] args = new String[]{"-setQuota", "5", parent.toString()};
+      runCommand(admin, args, false);
+
+      // set diskspace quota to 3 * filesize
+      runCommand(admin, false, "-setSpaceQuota", Long.toString(spaceQuota),
+          parent.toString());
+
+
+      final Path childDir0 = new Path(parent, "data0");
+      dfs.mkdirs(childDir0);
+
+      final Path datafile0 = new Path(childDir0, "datafile0");
+
+      //create datafile0
+      DFSTestUtil.createFile(fs, datafile0, smallfileLen, replication, 0);
+      DFSTestUtil.waitForQuotaUpdatesToBeApplied();
+
+      // count -q /test
+      ContentSummary c = DFSTestUtil.getContentSummary(dfs,parent);
+      assertEquals(c.getFileCount() + c.getDirectoryCount(), 3);
+      assertEquals(c.getQuota(), 5);
+      assertEquals(c.getSpaceConsumed(), smallfileLen * replication);
+      assertEquals(c.getSpaceQuota(), spaceQuota);
+
+      boolean exceededQuota = false;
+      // append to the file data less than MAX_SMALL_FILE_SIZE
+      OutputStream out = fs.append(datafile0);
+
+      try {
+        out.write(new byte[smallfileLen]);
+        out.close();
+      } catch (QuotaExceededException e) {
+        exceededQuota = true;
+        IOUtils.closeStream(out);
+      }
+
+      DFSTestUtil.waitForQuotaUpdatesToBeApplied();
+      assertFalse("Quota exceeded", exceededQuota);
+
+      c = DFSTestUtil.getContentSummary(dfs,parent);
+      assertEquals(c.getFileCount() + c.getDirectoryCount(), 3);
+      assertEquals(c.getQuota(), 5);
+      assertEquals(c.getSpaceConsumed(), 2 * smallfileLen * replication);
+      assertEquals(c.getSpaceQuota(), spaceQuota);
+
+      // append more than the small file max size to move to normal file with
+      // blocks
+      out = fs.append(datafile0);
+      try {
+        out.write(new byte[BLOCK_SIZE]);
+        out.close();
+      } catch (QuotaExceededException e) {
+        exceededQuota = true;
+        IOUtils.closeStream(out);
+      }
+
+      DFSTestUtil.waitForQuotaUpdatesToBeApplied();
+      assertFalse("Quota exceeded", exceededQuota);
+
+      c = DFSTestUtil.getContentSummary(dfs,parent);
+      assertEquals(c.getFileCount() + c.getDirectoryCount(), 3);
+      assertEquals(c.getQuota(), 5);
+      assertEquals(c.getSpaceConsumed(), (2 * smallfileLen  + BLOCK_SIZE)*
+          replication);
+      assertEquals(c.getSpaceQuota(), spaceQuota);
+
+      //append to the limit of the quota
+      out = fs.append(datafile0);
+      try {
+        out.write(new byte[BLOCK_SIZE-2*smallfileLen]);
+        out.close();
+      } catch (QuotaExceededException e) {
+        exceededQuota = true;
+        IOUtils.closeStream(out);
+      }
+
+      DFSTestUtil.waitForQuotaUpdatesToBeApplied();
+      assertFalse("Quota exceeded", exceededQuota);
+
+      c = DFSTestUtil.getContentSummary(dfs,parent);
+      assertEquals(c.getFileCount() + c.getDirectoryCount(), 3);
+      assertEquals(c.getQuota(), 5);
+      assertEquals(c.getSpaceConsumed(), spaceQuota);
+      assertEquals(c.getSpaceQuota(), spaceQuota);
+
+      //anymore appends should fail
+      out = fs.append(datafile0);
+      try {
+        out.write(new byte[1]);
+        out.close();
+      } catch (QuotaExceededException e) {
+        exceededQuota = true;
+        IOUtils.closeStream(out);
+      }
+
+      assertTrue("Quota exceeded", exceededQuota);
+
+    }finally {
+      cluster.shutdown();
+    }
+  }
 }

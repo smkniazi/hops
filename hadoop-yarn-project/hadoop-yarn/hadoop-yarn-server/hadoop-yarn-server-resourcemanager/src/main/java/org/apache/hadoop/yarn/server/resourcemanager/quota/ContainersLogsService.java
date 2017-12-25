@@ -19,7 +19,6 @@ import io.hops.exception.StorageException;
 import io.hops.metadata.common.entity.LongVariable;
 import io.hops.metadata.common.entity.Variable;
 import io.hops.metadata.hdfs.dal.VariableDataAccess;
-import io.hops.metadata.yarn.dal.ContainerStatusDataAccess;
 import io.hops.metadata.yarn.dal.quota.ContainersLogsDataAccess;
 import io.hops.metadata.yarn.dal.quota.PriceMultiplicatorDataAccess;
 import io.hops.metadata.yarn.dal.util.YARNOperationType;
@@ -60,10 +59,9 @@ public class ContainersLogsService extends CompositeService {
   private boolean checkpointEnabled;
   private int checkpointInterval; //Time in ticks between checkpoints
   private final RMContext rMContext;
-  private float currentMultiplicator; // This variable will be set/updated by the streaming service.
+  private Map<PriceMultiplicator.MultiplicatorType, Float> currentMultiplicators = new HashMap<>(); // This variable will be set/updated by the streaming service.
   private long multiplicatorPeirod;
 
-  ContainerStatusDataAccess containerStatusDA;
   ContainersLogsDataAccess containersLogsDA;
   VariableDataAccess variableDA;
 
@@ -109,11 +107,11 @@ public class ContainersLogsService extends CompositeService {
             * checkpointInterval;
 
 
-    currentMultiplicator = 1;
+    for(PriceMultiplicator.MultiplicatorType type: PriceMultiplicator.MultiplicatorType.values()){
+      currentMultiplicators.put(type, new Float(1));
+    }
 
     // Initialize DataAccesses
-    containerStatusDA = (ContainerStatusDataAccess) RMStorageFactory.
-            getDataAccess(ContainerStatusDataAccess.class);
     containersLogsDA = (ContainersLogsDataAccess) RMStorageFactory.
             getDataAccess(ContainersLogsDataAccess.class);
     variableDA = (VariableDataAccess) RMStorageFactory.getDataAccess(
@@ -165,9 +163,8 @@ public class ContainersLogsService extends CompositeService {
     }
   }
 
-  public synchronized void setCurrentPrice(float currentPrice) {
-    LOG.debug("set new price: " + currentPrice);
-    this.currentMultiplicator = currentPrice;
+  public synchronized void setCurrentPrices(Map<PriceMultiplicator.MultiplicatorType,Float> currentPrices) {
+    this.currentMultiplicators = currentPrices;
   }
 
   /**
@@ -197,13 +194,13 @@ public class ContainersLogsService extends CompositeService {
       tickCounter = getTickCounter();
       activeContainers = getContainersLogs();
       //recover current multiplicator
-      Map<PriceMultiplicator.MultiplicatorType, PriceMultiplicator> currentPrices
-              = getCurrentMultiplicator();
-      if (currentPrices.get(PriceMultiplicator.MultiplicatorType.VARIABLE)
-              != null) {
-        this.currentMultiplicator = currentPrices.get(
-                PriceMultiplicator.MultiplicatorType.VARIABLE).getValue();
+      Map<PriceMultiplicator.MultiplicatorType, PriceMultiplicator> currentMultiplicators = getCurrentMultiplicator();
+      for (PriceMultiplicator.MultiplicatorType type : PriceMultiplicator.MultiplicatorType.values()) {
+        if (currentMultiplicators.get(type) != null) {
+          this.currentMultiplicators.put(type, currentMultiplicators.get(type).getValue());
+        }
       }
+
       //Finish to log all the containers for which we currently have logs
       //they will restart once they send a new heartbeat
       finishLogging();
@@ -245,10 +242,16 @@ public class ContainersLogsService extends CompositeService {
         }else{
           containerResources = container.getContainer().getResource();
         }
+        float currentMultiplicator;
+        if(containerResources.getGPUs()!=0){
+          currentMultiplicator = currentMultiplicators.get(PriceMultiplicator.MultiplicatorType.GPU);
+        }else{
+          currentMultiplicator = currentMultiplicators.get(PriceMultiplicator.MultiplicatorType.GENERAL);
+        }
         cl = new ContainerLog(cs.getContainerid(), tickCounter.getValue(),
                 ContainerExitStatus.CONTAINER_RUNNING_STATE,
                 currentMultiplicator, containerResources.getVirtualCores(),
-                containerResources.getMemory());
+                containerResources.getMemorySize(), containerResources.getGPUs());
         
         // Unable to capture start use case
         if (cs.getState().equals(ContainerState.COMPLETE.toString())) {
@@ -431,6 +434,12 @@ public class ContainersLogsService extends CompositeService {
       if ((tick - log.getStart()) % checkpointInterval == 0) {
         log.setStop(tickCounter.getValue());
         if ((tick - log.getStart()) % multiplicatorPeirod == 0) {
+          float currentMultiplicator;
+          if (log.getGpuUsed() != 0) {
+            currentMultiplicator = currentMultiplicators.get(PriceMultiplicator.MultiplicatorType.GPU);
+          } else {
+            currentMultiplicator = currentMultiplicators.get(PriceMultiplicator.MultiplicatorType.GENERAL);
+          }
           log.setPrice(currentMultiplicator);
         }
 
