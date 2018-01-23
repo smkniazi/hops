@@ -199,6 +199,8 @@ class FsDatasetAsyncDiskService {
       } else {
         if (block.getLocalBlock().getNumBytes() != BlockCommand.NO_ACK) {
           datanode.notifyNamenodeDeletedBlock(block);
+        }else{
+          LOG.debug("Not informing namenode about the deletion of the block");
         }
         volume.decDfsUsed(block.getBlockPoolId(), dfsBytes);
         LOG.info(

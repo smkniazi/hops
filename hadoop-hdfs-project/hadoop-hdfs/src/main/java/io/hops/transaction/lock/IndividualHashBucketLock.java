@@ -36,7 +36,9 @@ public class IndividualHashBucketLock extends Lock {
     setLockMode(TransactionLockTypes.LockType.WRITE);
     if (EntityManager.find(HashBucket.Finder.ByStorageIdAndBucketId,
         storageId, bucketId) == null){
-      EntityManager.update(new HashBucket(storageId, bucketId, 0));
+      //EntityManager.update(new HashBucket(storageId, bucketId, 0));
+      throw new NullPointerException("Unable to find the hash bucket SID:"+
+          storageId+" BucketId:"+bucketId);
     }
   }
   

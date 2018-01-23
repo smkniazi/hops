@@ -17,6 +17,7 @@
  */
 package org.apache.hadoop.hdfs.server.datanode;
 
+import io.hops.metadata.hdfs.entity.HashBucket;
 import junit.framework.Assert;
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
@@ -24,24 +25,15 @@ import org.apache.commons.logging.impl.Log4JLogger;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.FSDataOutputStream;
 import org.apache.hadoop.fs.Path;
-import org.apache.hadoop.hdfs.AppendTestUtil;
-import org.apache.hadoop.hdfs.DFSConfigKeys;
-import org.apache.hadoop.hdfs.DFSTestUtil;
-import org.apache.hadoop.hdfs.DistributedFileSystem;
-import org.apache.hadoop.hdfs.MiniDFSCluster;
+import org.apache.hadoop.hdfs.*;
 import org.apache.hadoop.hdfs.protocol.Block;
 import org.apache.hadoop.hdfs.protocol.ExtendedBlock;
 import org.apache.hadoop.hdfs.protocol.LocatedBlock;
-import org.apache.hadoop.hdfs.server.blockmanagement.BlockManagerTestUtil;
+import org.apache.hadoop.hdfs.server.blockmanagement.*;
 import org.apache.hadoop.hdfs.server.common.HdfsServerConstants;
 import org.apache.hadoop.hdfs.server.namenode.FSNamesystem;
 import org.apache.hadoop.hdfs.server.namenode.NameNode;
-import org.apache.hadoop.hdfs.server.protocol.BlockReport;
-import org.apache.hadoop.hdfs.server.protocol.DatanodeCommand;
-import org.apache.hadoop.hdfs.server.protocol.DatanodeProtocol;
-import org.apache.hadoop.hdfs.server.protocol.DatanodeRegistration;
-import org.apache.hadoop.hdfs.server.protocol.DatanodeStorage;
-import org.apache.hadoop.hdfs.server.protocol.StorageBlockReport;
+import org.apache.hadoop.hdfs.server.protocol.*;
 import org.apache.hadoop.io.IOUtils;
 import org.apache.hadoop.test.GenericTestUtils;
 import org.apache.hadoop.test.GenericTestUtils.DelayAnswer;
@@ -49,11 +41,6 @@ import org.apache.hadoop.util.Time;
 import org.apache.log4j.Level;
 import org.junit.After;
 import org.junit.Before;
-
-import static org.apache.hadoop.hdfs.server.common.HdfsServerConstants.ReplicaState.FINALIZED;
-import static org.apache.hadoop.hdfs.server.common.HdfsServerConstants.ReplicaState.RBW;
-import static org.junit.Assert.assertNotEquals;
-import static org.junit.Assert.fail;
 import org.junit.Test;
 import org.mockito.Mockito;
 import org.mockito.invocation.InvocationOnMock;
@@ -62,20 +49,20 @@ import java.io.File;
 import java.io.FilenameFilter;
 import java.io.IOException;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
 import java.util.Random;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeoutException;
 
-import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertTrue;
+import static org.junit.Assert.*;
 
 /**
  * This test simulates a variety of situations when blocks are being
  * intentionally corrupted, unexpectedly modified, and so on before a block
  * report is happening
  */
-public class TestBlockReport {
+public class TestBlockReport  {
   public static final Log LOG = LogFactory.getLog(TestBlockReport.class);
 
   private static short REPL_FACTOR = 1;
@@ -86,10 +73,10 @@ public class TestBlockReport {
   private static final int FILE_START = 0;
 
   static final int BLOCK_SIZE = 1024;
-  static final int NUM_BLOCKS = 10;
+  static final int NUM_BLOCKS = 20;
   static final int FILE_SIZE = NUM_BLOCKS * BLOCK_SIZE + 1;
   static String bpid;
-  private static int NUM_BUCKETS;
+  private static final int NUM_BUCKETS = 5;
 
   private MiniDFSCluster cluster;
   private DistributedFileSystem fs;
@@ -124,7 +111,7 @@ public class TestBlockReport {
    * are messed up and BlockReport is forced.
    * The modification of blocks' length has to be ignored
    *
-   * @throws java.io.IOException
+   * @throws IOException
    *     on an error
    */
   @Test
@@ -285,7 +272,7 @@ public class TestBlockReport {
     blocks.get(0).setGenerationStampNoPersistance(rand.nextLong());
     // This new block is unknown to NN and will be mark for deletion.
     blocks.add(new Block());
-    
+
     // all blocks belong to the same file, hence same BP
     DataNode dn = cluster.getDataNodes().get(DN_N0);
     String poolId = cluster.getNamesystem().getBlockPoolId();
@@ -423,7 +410,7 @@ public class TestBlockReport {
     if (LOG.isDebugEnabled()) {
       LOG.debug("Done corrupting length of " + corruptedBlock.getBlockName());
     }
-    
+
     report[0] = new StorageBlockReport(new DatanodeStorage(dnR.getStorageID()),
         BlockReport.builder(NUM_BUCKETS).addAllAsFinalized(blocks).build());
     cluster.getNameNodeRpc().blockReport(dnR, poolId, report);
@@ -471,7 +458,7 @@ public class TestBlockReport {
       bc.start();
 
       waitForTempReplica(bl, DN_N1);
-      
+
       // all blocks belong to the same file, hence same BP
       DataNode dn = cluster.getDataNodes().get(DN_N1);
       String poolId = cluster.getNamesystem().getBlockPoolId();
@@ -480,7 +467,7 @@ public class TestBlockReport {
           {new StorageBlockReport(new DatanodeStorage(dnR.getStorageID()),
               BlockReport.builder(NUM_BUCKETS).addAllAsFinalized(blocks).build())};
       cluster.getNameNodeRpc().blockReport(dnR, poolId, report);
-      
+
       assertEquals("Wrong number of PendingReplication blocks", blocks.size(),
           cluster.getNamesystem().getPendingReplicationBlocks());
       printStats();
@@ -530,7 +517,7 @@ public class TestBlockReport {
           {new StorageBlockReport(new DatanodeStorage(dnR.getStorageID()),
               BlockReport.builder(NUM_BUCKETS).addAllAsFinalized(blocks).build())};
       cluster.getNameNodeRpc().blockReport(dnR, poolId, report);
-      
+
       assertEquals("Wrong number of PendingReplication blocks", 2,
           cluster.getNamesystem().getPendingReplicationBlocks());
       printStats();
@@ -542,7 +529,7 @@ public class TestBlockReport {
       resetConfiguration(); // return the initial state of the configuration
     }
   }
-  
+
 //  @Test
 //  public void testHashes() throws IOException {
 //
@@ -587,7 +574,7 @@ public class TestBlockReport {
   public void testOneReplicaRbwReportArrivesAfterBlockCompleted()
       throws Exception {
     final CountDownLatch brFinished = new CountDownLatch(1);
-    DelayAnswer delayer = new GenericTestUtils.DelayAnswer(LOG) {
+    DelayAnswer delayer = new DelayAnswer(LOG) {
       @Override
       protected Object passThrough(InvocationOnMock invocation)
           throws Throwable {
@@ -599,7 +586,7 @@ public class TestBlockReport {
         }
       }
     };
-    
+
     final String METHOD_NAME = GenericTestUtils.getMethodName();
     Path filePath = new Path("/" + METHOD_NAME + ".dat");
 
@@ -607,9 +594,9 @@ public class TestBlockReport {
     // what happens when one of the DNs is slowed for some reason.
     REPL_FACTOR = 2;
     startDNandWait(null, false);
-    
+
     NameNode nn = cluster.getNameNode();
-    
+
     FSDataOutputStream out = fs.create(filePath, REPL_FACTOR);
     try {
       AppendTestUtil.write(out, 0, 10);
@@ -619,11 +606,11 @@ public class TestBlockReport {
       // from this node.
       DataNode dn = cluster.getDataNodes().get(0);
       DatanodeProtocol spy = DataNodeTestUtils.spyOnBposToNN(dn, nn);
-      
+
       Mockito.doAnswer(delayer).when(spy)
           .blockReport(Mockito.<DatanodeRegistration>anyObject(),
               Mockito.anyString(), Mockito.<StorageBlockReport[]>anyObject());
-      
+
       // Force a block report to be generated. The block report will have
       // an RBW replica in it. Wait for the RPC to be sent, but block
       // it before it gets to the NN.
@@ -637,13 +624,13 @@ public class TestBlockReport {
     // state.
     delayer.proceed();
     brFinished.await();
-    
+
     // Verify that no replicas are marked corrupt, and that the
     // file is still readable.
     BlockManagerTestUtil.updateState(nn.getNamesystem().getBlockManager());
     assertEquals(0, nn.getNamesystem().getCorruptReplicaBlocks());
     DFSTestUtil.readFile(fs, filePath);
-    
+
     // Ensure that the file is readable even from the DN that we futzed with.
     cluster.stopDataNode(1);
     DFSTestUtil.readFile(fs, filePath);
@@ -652,7 +639,7 @@ public class TestBlockReport {
   private void waitForTempReplica(Block bl, int DN_N1) throws IOException {
     final boolean tooLongWait = false;
     final int TIMEOUT = 40000;
-    
+
     if (LOG.isDebugEnabled()) {
       LOG.debug("Wait for datanode " + DN_N1 + " to appear");
     }
@@ -663,7 +650,7 @@ public class TestBlockReport {
       LOG.debug("Total number of DNs " + cluster.getDataNodes().size());
     }
     cluster.waitActive();
-    
+
     // Look about specified DN for the replica of the block from 1st DN
     final DataNode dn1 = cluster.getDataNodes().get(DN_N1);
     String bpid = cluster.getNamesystem().getBlockPoolId();
@@ -887,11 +874,11 @@ public class TestBlockReport {
 
   private class BlockChecker extends Thread {
     Path filePath;
-    
+
     public BlockChecker(final Path filePath) {
       this.filePath = filePath;
     }
-    
+
     @Override
     public void run() {
       try {
@@ -902,7 +889,7 @@ public class TestBlockReport {
       }
     }
   }
-  
+
   private static void resetConfiguration() {
     conf = new Configuration();
     int customPerChecksumSize = 512;
@@ -912,21 +899,17 @@ public class TestBlockReport {
     conf.setLong(DFSConfigKeys.DFS_BLOCK_SIZE_KEY, customBlockSize);
     conf.setLong(DFSConfigKeys.DFS_DATANODE_DIRECTORYSCAN_INTERVAL_KEY,
         DN_RESCAN_INTERVAL);
-    conf.setInt(DFSConfigKeys.DFS_NUM_BUCKETS_KEY, DFSConfigKeys
-        .DFS_REPLICATION_DEFAULT);
-    conf.setInt(DFSConfigKeys.DFS_NUM_BUCKETS_KEY, 100);
-    NUM_BUCKETS = conf.getInt(DFSConfigKeys.DFS_NUM_BUCKETS_KEY, DFSConfigKeys
-        .DFS_NUM_BUCKETS_DEFAULT);
+    conf.setInt(DFSConfigKeys.DFS_NUM_BUCKETS_KEY, NUM_BUCKETS);
   }
-  
-  
+
+
    @Test
   public void blockReportRegrssion() throws IOException {
     final String METHOD_NAME = GenericTestUtils.getMethodName();
-    
+
 
     ArrayList<Block> blocks = new ArrayList<>();
-    
+
     for(int i = 0 ; i < 3; i++){
       Path filePath = new Path("/" + METHOD_NAME +i+ ".dat");
       DFSTestUtil
@@ -935,7 +918,7 @@ public class TestBlockReport {
         .getBlockLocations(filePath.toString(), FILE_START, FILE_SIZE)
         .getLocatedBlocks(), null));
     }
-    
+
 
     if (LOG.isDebugEnabled()) {
       LOG.debug("Number of blocks allocated " + blocks.size());
@@ -954,5 +937,4 @@ public class TestBlockReport {
       fail("No exception was expected. Get "+e);
     }
   }
-   
 }

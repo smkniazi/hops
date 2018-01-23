@@ -30,13 +30,13 @@ import java.util.NoSuchElementException;
 
 import static org.apache.hadoop.hdfs.server.protocol.BlockReportBlockState.FINALIZED;
 
-public class BlockReport implements Iterable<BlockReportBlock> {
+public class BlockReport implements Iterable<ReportedBlock> {
   
-  private BlockReportBucket[] buckets;
+  private Bucket[] buckets;
   private long[] hashes;
   private int numBlocks;
   
-  public BlockReportBucket[] getBuckets(){
+  public Bucket[] getBuckets(){
     return buckets;
   }
   
@@ -48,7 +48,7 @@ public class BlockReport implements Iterable<BlockReportBlock> {
     return numBlocks;
   }
   
-  public BlockReport(BlockReportBucket[] buckets, long[] hashes, int
+  public BlockReport(Bucket[] buckets, long[] hashes, int
       numBlocks){
     this.buckets = buckets;
     this.hashes = hashes;
@@ -62,7 +62,7 @@ public class BlockReport implements Iterable<BlockReportBlock> {
       @Override
       public Iterator<Block> iterator() {
         return new Iterator<Block>() {
-          Iterator<BlockReportBlock> it = BlockReport.this.iterator();
+          Iterator<ReportedBlock> it = BlockReport.this.iterator();
           
           @Override
           public boolean hasNext() {
@@ -71,7 +71,7 @@ public class BlockReport implements Iterable<BlockReportBlock> {
           
           @Override
           public Block next() {
-            BlockReportBlock next = it.next();
+            ReportedBlock next = it.next();
             return new Block(next.getBlockId(), next.getLength(), next
                 .getGenerationStamp());
           }
@@ -81,8 +81,8 @@ public class BlockReport implements Iterable<BlockReportBlock> {
   }
   
   @Override
-  public Iterator<BlockReportBlock> iterator() {
-    return new BlockReportBlockIterator();
+  public Iterator<ReportedBlock> iterator() {
+    return new BlockReportIterator();
   }
   
   public static Builder builder(int numBuckets){
@@ -109,7 +109,7 @@ public class BlockReport implements Iterable<BlockReportBlock> {
             .getValue());
   }
   
-  public static long hashAsFinalized(BlockReportBlock block){
+  public static long hashAsFinalized(ReportedBlock block){
     Block toHash = new Block(block.getBlockId(), block.getLength(),
         block.getGenerationStamp());
     return hashAsFinalized(toHash);
@@ -137,7 +137,7 @@ public class BlockReport implements Iterable<BlockReportBlock> {
   
   public static class Builder {
     private final int NUM_BUCKETS;
-    private ArrayList<BlockReportBlock>[] buckets;
+    private ArrayList<ReportedBlock>[] buckets;
     private long[] hashes;
     private int blockCounter = 0;
   
@@ -152,7 +152,7 @@ public class BlockReport implements Iterable<BlockReportBlock> {
   
     public Builder add(Replica replica) {
       int bucket = bucket(replica, NUM_BUCKETS);
-      buckets[bucket].add(new BlockReportBlock(replica.getBlockId(), replica
+      buckets[bucket].add(new ReportedBlock(replica.getBlockId(), replica
           .getGenerationStamp(), replica.getNumBytes(), fromReplicaState(
           replica.getState())));
       hashes[bucket] += hash(replica);
@@ -169,7 +169,7 @@ public class BlockReport implements Iterable<BlockReportBlock> {
     
     public Builder addAsFinalized(Block theBlock) {
       int bucket = bucket(theBlock, NUM_BUCKETS);
-      buckets[bucket].add(new BlockReportBlock(theBlock.getBlockId(),
+      buckets[bucket].add(new ReportedBlock(theBlock.getBlockId(),
           theBlock.getGenerationStamp(), theBlock.getNumBytes(),
           FINALIZED));
       hashes[bucket] += hashAsFinalized(theBlock);
@@ -179,10 +179,10 @@ public class BlockReport implements Iterable<BlockReportBlock> {
   
   
     public BlockReport build(){
-      BlockReportBucket[] bucketArray = new BlockReportBucket[NUM_BUCKETS];
+      Bucket[] bucketArray = new Bucket[NUM_BUCKETS];
       for (int i = 0; i < NUM_BUCKETS; i++){
-        bucketArray[i] = new BlockReportBucket(buckets[i].toArray(new
-            BlockReportBlock[buckets[i].size()]));
+        bucketArray[i] = new Bucket(buckets[i].toArray(new
+                ReportedBlock[buckets[i].size()]));
       }
       return new BlockReport(bucketArray, hashes, blockCounter);
     }
@@ -208,12 +208,12 @@ public class BlockReport implements Iterable<BlockReportBlock> {
   
   }
   
-  private class BlockReportBlockIterator implements Iterator<BlockReportBlock>{
+  private class BlockReportIterator implements Iterator<ReportedBlock>{
   
     int currentBucket;
     int currentBucketOffset;
   
-    BlockReportBlockIterator(){
+    BlockReportIterator(){
       currentBucket = 0;
       currentBucketOffset = 0;
     }
@@ -233,7 +233,7 @@ public class BlockReport implements Iterable<BlockReportBlock> {
     }
   
     @Override
-    public BlockReportBlock next() {
+    public ReportedBlock next() {
       if (hasNext()) {
         return buckets[currentBucket].getBlocks()[currentBucketOffset++];
       } else {

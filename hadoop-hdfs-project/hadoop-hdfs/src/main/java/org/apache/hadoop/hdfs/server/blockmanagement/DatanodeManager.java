@@ -779,7 +779,11 @@ public class DatanodeManager {
         new DatanodeDescriptor(nodeReg, NetworkTopology.DEFAULT_RACK);
     
     storageIdMap.update(nodeDescr);
-    
+
+    // create block report buckets for the datanode
+    int id = storageIdMap.getSId(nodeDescr.getStorageID());
+    HashBuckets.getInstance().createBucketsForDataNodes(nodeDescr);
+
     resolveNetworkLocation(nodeDescr);
     addDatanode(nodeDescr);
     checkDecommissioning(nodeDescr);
@@ -1276,6 +1280,11 @@ public class DatanodeManager {
   public DatanodeDescriptor getDatanode(final int sId) {
     String storageId = storageIdMap.getStorageId(sId);
     return datanodeMap.get(storageId);
+  }
+
+  //for testing
+  public StorageIdMap getStorageIdMap(){
+    return storageIdMap;
   }
   
   DatanodeDescriptor[] getDataNodeDescriptorsTx(

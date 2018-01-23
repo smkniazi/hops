@@ -25,10 +25,9 @@ import org.apache.hadoop.fs.FileSystem;
 import org.apache.hadoop.fs.FsShell;
 import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.fs.permission.FsPermission;
-import org.apache.hadoop.hdfs.protocol.Block;
 import org.apache.hadoop.hdfs.server.datanode.DataNode;
 import org.apache.hadoop.hdfs.server.datanode.DataNodeTestUtils;
-import org.apache.hadoop.hdfs.server.protocol.BlockReportBlock;
+import org.apache.hadoop.hdfs.server.protocol.ReportedBlock;
 import org.apache.hadoop.hdfs.tools.DFSAdmin;
 import org.apache.hadoop.io.IOUtils;
 import org.apache.hadoop.io.SequenceFile;
@@ -1404,10 +1403,10 @@ public class TestDFSShell {
     List<File> files = new ArrayList<>();
     List<DataNode> datanodes = cluster.getDataNodes();
     String poolId = cluster.getNamesystem().getBlockPoolId();
-    Iterable<BlockReportBlock>[] blocks = cluster.getAllBlockReports(poolId);
+    Iterable<ReportedBlock>[] blocks = cluster.getAllBlockReports(poolId);
     for (int i = 0; i < blocks.length; i++) {
       DataNode dn = datanodes.get(i);
-      for (BlockReportBlock b : blocks[i]) {
+      for (ReportedBlock b : blocks[i]) {
         files.add(DataNodeTestUtils.getFile(dn, poolId, b.getBlockId()));
       }
     }
