@@ -17,6 +17,7 @@
  */
 package org.apache.hadoop.hdfs.server.blockmanagement;
 
+import com.google.common.annotations.VisibleForTesting;
 import io.hops.exception.StorageException;
 import io.hops.exception.TransactionContextException;
 import io.hops.metadata.HdfsStorageFactory;
@@ -32,21 +33,22 @@ import org.apache.hadoop.hdfs.server.common.HdfsServerConstants;
 import org.apache.hadoop.hdfs.server.protocol.BlockReport;
 
 import java.io.IOException;
-import java.util.List;
+import java.util.*;
 
 public class HashBuckets {
   
   static final Log LOG = LogFactory.getLog(HashBuckets.class);
   
   private static HashBuckets instance;
-  private int numBuckets;
+  private static int numBuckets;
   
   public static void initialize(int numBuckets){
-    if (instance != null){
-      //TODO log warning
-    } else {
+//    if (instance != null){
+//      LOG.warn("Ignoring init request as the singleton HashBuckets class is " +
+//              "already  initialized");
+//    } else {
       instance = new HashBuckets(numBuckets);
-    }
+//    }
   }
   
   private HashBuckets(int numBuckets){
@@ -68,7 +70,7 @@ public class HashBuckets {
   List<HashBucket> getBucketsForDatanode(final DatanodeStorageInfo storage)
       throws IOException {
     LightWeightRequestHandler findHashesHandler = new
-        LightWeightRequestHandler(HDFSOperationType.GET_ALL_MACHINE_HASHES) {
+        LightWeightRequestHandler(HDFSOperationType.GET_MACHINE_HASHES) {
       @Override
       public Object performTask() throws IOException {
         HashBucketDataAccess da = (HashBucketDataAccess) HdfsStorageFactory.getDataAccess
@@ -79,7 +81,83 @@ public class HashBuckets {
     
     return (List<HashBucket>) findHashesHandler.handle();
   }
-  
+
+  //only for testing
+  public void corruptHashBuckets(final DatanodeStorageInfo storage)
+          throws IOException {
+    Random rand = new Random(System.currentTimeMillis());
+    LightWeightRequestHandler corruptedHashes = new
+            LightWeightRequestHandler(HDFSOperationType.RESET_MACHINE_HASHES) {
+              @Override
+              public Object performTask() throws IOException {
+                final List<HashBucket> newBuckets = new ArrayList<HashBucket>();
+                for(int i = 0; i < numBuckets; i++){
+                    newBuckets.add(new HashBucket(storage.getSid(), i, rand
+                            .nextLong()));
+                }
+                HashBucketDataAccess da = (HashBucketDataAccess) HdfsStorageFactory.getDataAccess
+                        (HashBucketDataAccess.class);
+                da.prepare(Collections.EMPTY_LIST, newBuckets);
+                return null;
+              }
+            };
+    corruptedHashes.handle();
+  }
+
+  //only for testing
+  public void deleteHashBuckets(final DatanodeStorageInfo storage)
+          throws IOException {
+    LightWeightRequestHandler deleteHashes = new
+            LightWeightRequestHandler(HDFSOperationType.RESET_MACHINE_HASHES) {
+              @Override
+              public Object performTask() throws IOException {
+                final List<HashBucket> deleted = new ArrayList<HashBucket>();
+                for(int i = 0; i < numBuckets; i++){
+                  deleted.add(new HashBucket(storage.getSid(), i, 0));
+                }
+                HashBucketDataAccess da = (HashBucketDataAccess) HdfsStorageFactory.getDataAccess
+                        (HashBucketDataAccess.class);
+                da.prepare(deleted, Collections.EMPTY_LIST);
+                return null;
+              }
+            };
+    deleteHashes.handle();
+  }
+
+  public void createBucketsForDataNodes(final DatanodeStorageInfo storage)
+          throws IOException {
+    List<HashBucket> existing = getBucketsForDatanode(storage);
+    final Map<Integer,HashBucket> existingMap = new HashMap<Integer, HashBucket>();
+
+    for(HashBucket bucket: existing){
+      existingMap.put(bucket.getBucketId(), bucket);
+    }
+
+    final List<HashBucket> newBuckets = new ArrayList<HashBucket>();
+    for(int i = 0; i < numBuckets; i++){
+      if(!existingMap.containsKey(i)){
+        newBuckets.add(new HashBucket(storage.getSid(), i, 0));
+      }
+    }
+
+    LightWeightRequestHandler findHashesHandler = new
+            LightWeightRequestHandler(HDFSOperationType.CREATE_ALL_MACHINE_HASHES) {
+              @Override
+              public Object performTask() throws IOException {
+                HashBucketDataAccess da = (HashBucketDataAccess) HdfsStorageFactory.getDataAccess
+                        (HashBucketDataAccess.class);
+                da.prepare(Collections.EMPTY_LIST, newBuckets);
+                LOG.debug("Created "+newBuckets.size()+" buckets for the " +
+                        "datanode "+storage.getSid()+" Existing Buckets: " +
+                        ""+existingMap.size
+                        ());
+                return null;
+              }
+            };
+    findHashesHandler.handle();
+  }
+
+
   HashBucket getBucket(int storageId, int bucketId)
       throws TransactionContextException, StorageException {
     HashBucket result = EntityManager.find(HashBucket.Finder

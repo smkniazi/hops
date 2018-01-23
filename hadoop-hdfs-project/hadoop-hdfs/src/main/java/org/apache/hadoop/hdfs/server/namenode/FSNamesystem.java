@@ -4706,7 +4706,9 @@ public class FSNamesystem
     }
 
     private void setSafeModePendingOperation(Boolean val) {
-      LOG.debug("SafeModeX Some operation are put on hold");
+      if (LOG.isDebugEnabled()) {
+        LOG.debug("SafeModeX Some operation are put on hold");
+      }
       safeModePendingOperation.set(val);
     }
 

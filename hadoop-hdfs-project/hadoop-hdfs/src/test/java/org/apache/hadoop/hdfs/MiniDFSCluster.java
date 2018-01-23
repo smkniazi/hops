@@ -22,7 +22,6 @@ import com.google.common.collect.Lists;
 import io.hops.erasure_coding.MockEncodingManager;
 import io.hops.erasure_coding.MockRepairManager;
 import io.hops.exception.StorageException;
-import io.hops.log.NDCWrapper;
 import io.hops.metadata.HdfsStorageFactory;
 import io.hops.metadata.HdfsVariables;
 import io.hops.metadata.election.dal.HdfsLeDescriptorDataAccess;
@@ -60,8 +59,8 @@ import org.apache.hadoop.hdfs.server.namenode.FSNamesystem;
 import org.apache.hadoop.hdfs.server.namenode.NameNode;
 import org.apache.hadoop.hdfs.server.namenode.NameNodeAdapter;
 import org.apache.hadoop.hdfs.server.protocol.BlockReport;
-import org.apache.hadoop.hdfs.server.protocol.BlockReportBlock;
 import org.apache.hadoop.hdfs.server.protocol.DatanodeStorage;
+import org.apache.hadoop.hdfs.server.protocol.ReportedBlock;
 import org.apache.hadoop.hdfs.server.protocol.NamenodeProtocols;
 import org.apache.hadoop.hdfs.tools.DFSAdmin;
 import org.apache.hadoop.hdfs.web.HftpFileSystem;
@@ -88,7 +87,6 @@ import java.net.URISyntaxException;
 import java.nio.channels.FileChannel;
 import java.security.PrivilegedExceptionAction;
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
 import java.util.Random;
@@ -2296,6 +2294,9 @@ public class MiniDFSCluster {
    */
   private void deleteReplicasTable() {
 
+//    if(true) {
+//      return;
+//    }
     //count number of active NN
     int activeNameNodes = 0;
     for (NameNodeInfo nameNode : nameNodes) {

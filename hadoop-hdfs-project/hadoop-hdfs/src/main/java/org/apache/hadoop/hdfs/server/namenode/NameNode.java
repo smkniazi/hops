@@ -952,7 +952,7 @@ public class NameNode {
       }
       case SET_BLOCK_REPORT_PROCESS_SIZE:
         HdfsVariables.setBrLbMasBlkPerMin(startOpt.getMaxBlkRptProcessSize());
-        LOG.fatal("Set block processing size to "+startOpt.getMaxBlkRptProcessSize());
+        LOG.info("Set block processing size to "+startOpt.getMaxBlkRptProcessSize());
         return null;
       case FORMAT: {
         boolean aborted = formatHdfs(conf, startOpt.getForceFormat(),
