@@ -1955,7 +1955,7 @@ public class BlockManager {
    * The given storage is reporting all its blocks.
    * Update the (storage-->block list) and (block-->storage list) maps.
    */
-  public boolean processReport(final DatanodeID nodeID,
+  public ReportStatistics processReport(final DatanodeID nodeID,
       final DatanodeStorage storage,
       final BlockReport newReport) throws IOException {
     final long startTime = Time.now(); //after acquiring write lock
@@ -1978,7 +1978,9 @@ public class BlockManager {
       blockLog.info("BLOCK* processReport: " +
           "discarded non-initial block report from " + nodeID +
           " because namenode still in startup phase");
-      return !node.hasStaleStorages();
+      ReportStatistics reportStatistics = new ReportStatistics();
+      reportStatistics.setNoStaleStorages(!node.hasStaleStorages());
+      return  reportStatistics;
     }
   
     // Get the storageinfo object that we are updating in this processreport
@@ -2006,7 +2008,9 @@ public class BlockManager {
     blockLog.info("BLOCK* processReport: from " + nodeID + " storage: " + storage + ", blocks: " +
         newReport.getNumBlocks() + ", processing time: " +
         (endTime - startTime) + " ms. " + reportStatistics);
-    return !node.hasStaleStorages();
+
+    reportStatistics.setNoStaleStorages(!node.hasStaleStorages());
+    return reportStatistics;
   }
 
   /**
@@ -2252,7 +2256,7 @@ public class BlockManager {
       LOG.debug("AGGREGATED SAFE BLOCK #: " + aggregatedSafeBlocks.size() +
           " REPORTED BLOCK #: " + newReport.getNumBlocks());
       namesystem.adjustSafeModeBlocks(aggregatedSafeBlocks);
-      stats.numConsideredSafeIfInSafemode = aggregatedSafeBlocks.size();
+      stats.setNumConsideredSafeIfInSafemode(aggregatedSafeBlocks.size());
     }
     return stats;
   }

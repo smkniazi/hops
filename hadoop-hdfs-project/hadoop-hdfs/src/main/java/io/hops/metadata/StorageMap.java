@@ -30,6 +30,7 @@ import io.hops.transaction.lock.TransactionLockTypes.LockType;
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
 import org.apache.hadoop.hdfs.server.blockmanagement.DatanodeStorageInfo;
+import org.apache.hadoop.hdfs.server.blockmanagement.HashBuckets;
 
 import java.io.IOException;
 import java.util.ArrayList;
@@ -158,6 +159,9 @@ public class StorageMap {
             return null;
           }
         }.handle();
+
+        // create hash buckets for the storage
+        HashBuckets.getInstance().createBucketsForDataNodes(storageInfo);
       }
 
     // Allow lookup of sid (int) -> DatanodeStorageInfo

@@ -9,7 +9,8 @@ public class ReportStatistics{
   private int numToCorrupt;
   private int numToUC;
   private int numToAdd;
-  int numConsideredSafeIfInSafemode;
+  private int numConsideredSafeIfInSafemode;
+  private boolean noStaleStorages;
 
   public int getNumBuckets() {
     return numBuckets;
@@ -81,6 +82,14 @@ public class ReportStatistics{
 
   public void setNumConsideredSafeIfInSafemode(int numConsideredSafeIfInSafemode) {
     this.numConsideredSafeIfInSafemode = numConsideredSafeIfInSafemode;
+  }
+
+  public boolean isNoStaleStorages() {
+    return noStaleStorages;
+  }
+
+  public void setNoStaleStorages(boolean noStaleStorages) {
+    this.noStaleStorages = noStaleStorages;
   }
 
   @Override

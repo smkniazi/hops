@@ -873,7 +873,7 @@ class NameNodeRpcServer implements NamenodeProtocols {
     boolean noStaleStorages = false;
     for(StorageBlockReport r : reports) {
       final BlockReport blocks = r.getReport();
-      noStaleStorages =  bm.processReport(nodeReg, r.getStorage(), blocks);
+      noStaleStorages =  bm.processReport(nodeReg, r.getStorage(), blocks).isNoStaleStorages();
       metrics.incrStorageBlockReportOps();
     }
 

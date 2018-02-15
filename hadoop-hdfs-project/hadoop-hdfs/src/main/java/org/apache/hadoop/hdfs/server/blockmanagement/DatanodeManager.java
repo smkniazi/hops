@@ -791,11 +791,6 @@ public class DatanodeManager {
     // no need to update its timestamp
     // because its is done when the descriptor is created
     heartbeatManager.addDatanode(nodeDescr);
-
-// TODO-BR
-    // create block report buckets for the datanode
-//    int id = storageIdMap.getSId(nodeDescr.getStorageID());
-//    HashBuckets.getInstance().createBucketsForDataNodes(nodeDescr);
   }
 
   /**

@@ -67,7 +67,7 @@ public class HashBuckets {
     return (int) (block.getBlockId() % numBuckets);
   }
   
-  List<HashBucket> getBucketsForDatanode(final DatanodeStorageInfo storage)
+  public List<HashBucket> getBucketsForDatanode(final DatanodeStorageInfo storage)
       throws IOException {
     LightWeightRequestHandler findHashesHandler = new
         LightWeightRequestHandler(HDFSOperationType.GET_MACHINE_HASHES) {
