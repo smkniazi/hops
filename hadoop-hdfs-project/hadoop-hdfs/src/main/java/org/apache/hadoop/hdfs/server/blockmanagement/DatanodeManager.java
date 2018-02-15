@@ -1494,10 +1494,4 @@ public class DatanodeManager {
   public List<Integer> getSidsOnDatanode(String datanodeUuid) {
     return this.storageMap.getSidsForDatanodeUuid(datanodeUuid);
   }
-
-//  TODO-BR
-//    for testing
-//  public StorageIdMap getStorageIdMap(){
-//    return storageIdMap;
-//  }
 }

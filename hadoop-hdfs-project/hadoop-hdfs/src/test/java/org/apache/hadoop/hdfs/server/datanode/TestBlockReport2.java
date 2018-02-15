@@ -304,7 +304,7 @@ public class TestBlockReport2 {
       Configuration conf = new Configuration();
       setConfiguration(conf, numBuckets);
       cluster = new MiniDFSCluster.Builder(conf).format
-              (true).numDataNodes(NUM_DATANODES).build();
+              (true).storagesPerDatanode(1).numDataNodes(NUM_DATANODES).build();
       fs = (DistributedFileSystem) cluster.getFileSystem();
 
 
