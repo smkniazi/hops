@@ -159,19 +159,33 @@ public class DFSConfigKeys extends CommonConfigurationKeys {
   
   public static final String DFS_NAME_SPACE_ID_KEY = "dfs.name.space.id";
   public static final int DFS_NAME_SPACE_ID_DEFAULT = 911; // :)
-  
-  public static final String DFS_CLIENT_RETRIES_ON_FAILURE_KEY =
-      "dfs.client.max.retries.on.failure";
-  public static final int DFS_CLIENT_RETRIES_ON_FAILURE_DEFAULT = 2;
-      //min value is 0. Better set it >= 1
 
+  // ------------ INODE OPERATION RETRY ----------------
+  // If a tx fails because of transient DB error, such as, dead lock
+  // or due to DB overload then the namenode can retry the opration.
+  // After all the retries the exception is thrown to the client.
   public static final String DFS_NAMENODE_TX_RETRY_COUNT_KEY =
           "dfs.namenode.tx.retry.count";
   public static final int DFS_NAMENODE_TX_RETRY_COUNT_DEFAULT = 5;
 
+  // In case of transient DB errors the client can also resubmit the operation.
+  public static final String DFS_CLIENT_RETRIES_ON_FAILURE_KEY =
+          "dfs.client.max.retries.on.failure";
+  public static final int DFS_CLIENT_RETRIES_ON_FAILURE_DEFAULT = 2;
+  //min value is 0. Better set it >= 1
+
   public static final String DFS_NAMENODE_TX_INITIAL_WAIT_TIME_BEFORE_RETRY_KEY =
           "dfs.namenode.tx.initial.wait.time.before.retry";
   public static final int DFS_NAMENODE_TX_INITIAL_WAIT_TIME_BEFORE_RETRY_DEFAULT = 2000;
+
+  // --------------- STO OPERATION RETRY ------------------
+  // If a STO operation fails to acquire the subtree lock then the operation is not
+  // immediately retied as the STO locks are held for long duration. The exception
+  // is directly thrown to the client to release the NN RPC thread. The client can then
+  // resubmit the operation.
+  public static final String DFS_CLIENT_STO_RETRIES_ON_FAILURE_KEY =
+          "dfs.client.max.sto.retries.on.failure";
+  public static final int DFS_CLIENT_STO_RETRIES_ON_FAILURE_DEFAULT = 5;
 
   public static final String DFS_CLIENT_INITIAL_WAIT_ON_RETRY_IN_MS_KEY =
       "dfs.client.initial.wait.on.retry";
