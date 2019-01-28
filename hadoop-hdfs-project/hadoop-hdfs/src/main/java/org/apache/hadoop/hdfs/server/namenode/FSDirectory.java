@@ -75,6 +75,8 @@ import org.apache.hadoop.hdfs.server.blockmanagement.BlockStoragePolicySuite;
 import org.apache.hadoop.hdfs.server.blockmanagement.DatanodeStorageInfo;
 import org.apache.hadoop.hdfs.server.common.HdfsServerConstants.BlockUCState;
 import org.apache.hadoop.hdfs.server.namenode.INode.BlocksMapUpdateInfo;
+import org.apache.hadoop.hdfs.server.namenode.snapshot.INodeFileSnapshot;
+import org.apache.hadoop.hdfs.server.namenode.snapshot.INodeFileWithLink;
 import org.apache.hadoop.hdfs.util.ByteArray;
 import org.apache.hadoop.security.AccessControlException;
 import org.apache.hadoop.security.UserGroupInformation;
@@ -246,6 +248,36 @@ public class FSDirectory implements Closeable {
       NameNode.stateChangeLog.debug("DIR* addFile: " + path + " is added");
     }
     return newNode;
+  }
+  
+  /** Add an INodeFileSnapshot to the source file. */
+  INodeFileSnapshot addFileSnapshot(String srcPath, String dstPath
+      ) throws IOException, QuotaExceededException {
+
+    final INodeFile src = getRootDir().getINodeFile(srcPath);
+    INodeFileSnapshot snapshot = new INodeFileSnapshot(src, src.computeFileSize(true)); 
+
+    try {
+      //add destination snaplink
+//[S]      snapshot = addNode(dstPath, snapshot, UNKNOWN_DISK_SPACE);
+
+      if (snapshot != null && src.getClass() == INodeFile.class) {
+        //created a snapshot and the source is an INodeFile, replace the source.
+//[S]        replaceNode(srcPath, src, new INodeFileWithLink(src));
+      }
+    } finally {
+      if (snapshot == null) {
+        NameNode.stateChangeLog.info(
+            "DIR* FSDirectory.addFileSnapshot: failed to add " + dstPath);
+        return null;
+      }
+    }
+
+    if (NameNode.stateChangeLog.isDebugEnabled()) {
+      NameNode.stateChangeLog.debug("DIR* FSDirectory.addFileSnapshot: "
+          + dstPath + " is added to the file system");
+    }
+    return snapshot;
   }
 
   /**

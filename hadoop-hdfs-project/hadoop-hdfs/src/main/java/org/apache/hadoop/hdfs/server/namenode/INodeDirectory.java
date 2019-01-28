@@ -24,6 +24,7 @@ import io.hops.exception.TransactionContextException;
 import io.hops.metadata.hdfs.entity.INodeIdentifier;
 import io.hops.metadata.hdfs.entity.MetadataLogEntry;
 import io.hops.transaction.EntityManager;
+import org.apache.hadoop.fs.UnresolvedLinkException;
 import org.apache.hadoop.fs.permission.PermissionStatus;
 import org.apache.hadoop.hdfs.DFSUtil;
 
@@ -248,6 +249,21 @@ public class INodeDirectory extends INodeWithAdditionalFields {
       return existingInode;
     }
     return null;
+  }
+
+  /** @return the INodeFile corresponding to the path. */
+  INodeFile getINodeFile(String path) throws FileNotFoundException,
+          UnresolvedLinkException {
+    final INode inode = getINodeFile(path);
+    if (inode == null) {
+      throw new FileNotFoundException("File \"" + path
+          + "\" not found");
+    }
+    if (!(inode instanceof INodeFile)) {
+      throw new FileNotFoundException("Path \"" + path
+          + "\" is not a file");
+    }
+    return (INodeFile)inode;
   }
 
 //  /**

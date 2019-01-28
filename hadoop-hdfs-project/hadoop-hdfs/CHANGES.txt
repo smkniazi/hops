@@ -1,5 +1,12 @@
 Hadoop HDFS Change Log
 
+Branch-39 Snapshot (Unreleased)
+
+  NEW FEATURES
+
+    HDFS-4076. Support snapshot of single files.  
+
+
 Release 2.7.0 - UNRELEASED
 
   INCOMPATIBLE CHANGES
