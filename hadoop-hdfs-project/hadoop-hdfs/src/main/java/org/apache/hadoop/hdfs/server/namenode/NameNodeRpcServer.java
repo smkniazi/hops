@@ -1160,6 +1160,17 @@ class NameNodeRpcServer implements NamenodeProtocols {
     return namesystem.getBlockManager().generateDataEncryptionKey();
   }
 
+  @Override
+  public void createSnapshot(String snapshotName, String snapshotRoot)
+      throws IOException {
+    // TODO Auto-generated method stub
+  }
+
+  @Override
+  public void deleteSnapshot(String snapshotName, String snapshotRoot)
+      throws IOException {
+    // TODO Auto-generated method stub
+  }
 
   @Override
   public SortedActiveNodeList getActiveNamenodes() throws IOException {

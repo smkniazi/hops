@@ -78,9 +78,11 @@ import org.apache.hadoop.hdfs.protocol.proto.ClientNamenodeProtocolProtos.CacheP
 import org.apache.hadoop.hdfs.protocol.proto.ClientNamenodeProtocolProtos.CompleteRequestProto;
 import org.apache.hadoop.hdfs.protocol.proto.ClientNamenodeProtocolProtos.ConcatRequestProto;
 import org.apache.hadoop.hdfs.protocol.proto.ClientNamenodeProtocolProtos.CreateRequestProto;
+import org.apache.hadoop.hdfs.protocol.proto.ClientNamenodeProtocolProtos.CreateSnapshotRequestProto;
 import org.apache.hadoop.hdfs.protocol.proto.ClientNamenodeProtocolProtos.CreateResponseProto;
 import org.apache.hadoop.hdfs.protocol.proto.ClientNamenodeProtocolProtos.CreateSymlinkRequestProto;
 import org.apache.hadoop.hdfs.protocol.proto.ClientNamenodeProtocolProtos.DeleteRequestProto;
+import org.apache.hadoop.hdfs.protocol.proto.ClientNamenodeProtocolProtos.DeleteSnapshotRequestProto;
 import org.apache.hadoop.hdfs.protocol.proto.ClientNamenodeProtocolProtos.FsyncRequestProto;
 import org.apache.hadoop.hdfs.protocol.proto.ClientNamenodeProtocolProtos.GetAdditionalDatanodeRequestProto;
 import org.apache.hadoop.hdfs.protocol.proto.ClientNamenodeProtocolProtos.GetBlockLocationsRequestProto;
@@ -991,6 +993,18 @@ public class ClientNamenodeProtocolTranslatorPB
   }
 
   @Override
+  public void createSnapshot(String snapshotName, String snapshotRoot)
+      throws IOException {
+    // TODO Auto-generated method stub
+  }
+
+  @Override
+  public void deleteSnapshot(String snapshotName, String snapshotRoot)
+      throws IOException {
+    // TODO Auto-generated method stub
+  }
+
+  @Override
   public boolean isFileClosed(String src) throws AccessControlException,
       FileNotFoundException, UnresolvedLinkException, IOException {
     IsFileClosedRequestProto req = IsFileClosedRequestProto.newBuilder()
@@ -1007,7 +1021,6 @@ public class ClientNamenodeProtocolTranslatorPB
     return rpcProxy;
   }
   
-
   @Override
   public void ping() throws IOException {
     try {

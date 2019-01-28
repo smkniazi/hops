@@ -650,6 +650,30 @@ message GetDataEncryptionKeyResponseProto {
   optional DataEncryptionKeyProto dataEncryptionKey = 1;
 }
 
+message CreateSnapshotRequestProto {
+  required string snapshotName = 1;
+  required string snapshotRoot = 2;
+}
+
+message CreateSnapshotResponseProto { // void response
+}
+
+message DeleteSnapshotRequestProto {
+  required string snapshotName = 1;
+  required string snapshotRoot = 2;
+}
+
+message DeleteSnapshotResponseProto { // void response
+}
+
+message ListSnapshotsRequestProto {
+  required string snapshotRoot = 1;
+}
+
+message ListSnapshotsResponseProto {
+  repeated SnapshotInfoProto snapshots = 1;
+}
+
 message PingRequestProto { // empty request
 }
 
@@ -818,6 +842,12 @@ service ClientNamenodeProtocol {
   rpc setBalancerBandwidth (SetBalancerBandwidthRequestProto) returns (SetBalancerBandwidthResponseProto);
   rpc getDataEncryptionKey (GetDataEncryptionKeyRequestProto) returns (GetDataEncryptionKeyResponseProto);
   rpc isFileClosed(IsFileClosedRequestProto) returns(IsFileClosedResponseProto);
+  rpc createSnapshot(CreateSnapshotRequestProto)
+      returns(CreateSnapshotResponseProto);
+  rpc deleteSnapshot(DeleteSnapshotRequestProto)
+      returns(DeleteSnapshotResponseProto);
+  rpc listSnapshots(ListSnapshotsRequestProto)
+      returns(ListSnapshotsResponseProto);
   rpc modifyAclEntries(ModifyAclEntriesRequestProto) returns(ModifyAclEntriesResponseProto);
   rpc removeAclEntries(RemoveAclEntriesRequestProto) returns(RemoveAclEntriesResponseProto);
   rpc removeDefaultAcl(RemoveDefaultAclRequestProto) returns(RemoveDefaultAclResponseProto);
