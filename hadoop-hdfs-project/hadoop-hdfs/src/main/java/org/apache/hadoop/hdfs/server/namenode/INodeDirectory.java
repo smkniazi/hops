@@ -98,7 +98,7 @@ public class INodeDirectory extends INodeWithAdditionalFields {
    *
    * @param other
    */
-  INodeDirectory(INodeDirectory other, boolean copyFeatures)
+   public INodeDirectory(INodeDirectory other, boolean copyFeatures)
       throws IOException {
     super(other);
     //HOP: FIXME: Mahmoud: the new directory has the same id as the "other"
@@ -114,6 +114,11 @@ public class INodeDirectory extends INodeWithAdditionalFields {
   @Override
   public final boolean isDirectory() {
     return true;
+  }
+
+  /** Is this a snapshottable directory? */
+  public boolean isSnapshottable() {
+    return false;
   }
 
   public static INodeDirectory createRootDir(PermissionStatus permissions) throws IOException {
@@ -541,7 +546,7 @@ public class INodeDirectory extends INodeWithAdditionalFields {
   /**
    * @return the children list which is possibly null.
    */
-  private List<INode> getChildren()
+   public List<INode> getChildren()
       throws StorageException, TransactionContextException {
     if (!isInTree()) {
       return null;

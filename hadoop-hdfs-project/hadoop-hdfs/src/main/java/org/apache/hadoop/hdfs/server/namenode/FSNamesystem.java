@@ -127,6 +127,7 @@ import org.apache.hadoop.hdfs.server.common.StorageInfo;
 import org.apache.hadoop.hdfs.server.namenode.INode.BlocksMapUpdateInfo;
 import org.apache.hadoop.hdfs.server.namenode.metrics.FSNamesystemMBean;
 import org.apache.hadoop.hdfs.server.namenode.metrics.NameNodeMetrics;
+import org.apache.hadoop.hdfs.server.namenode.snapshot.INodeDirectorySnapshottable;
 import org.apache.hadoop.hdfs.server.namenode.top.TopAuditLogger;
 import org.apache.hadoop.hdfs.server.namenode.top.TopConf;
 import org.apache.hadoop.hdfs.server.namenode.top.metrics.TopMetrics;
@@ -7843,6 +7844,27 @@ public class FSNamesystem implements Namesystem, FSNamesystemMBean,
       if(removeSTOLock){
         unlockSubtree(path, subtreeRoot.getInodeId());
       }
+    }
+  }
+
+  /**
+   * Set the given directory as a snapshottable directory.
+   * If the path is already a snapshottable directory, this is a no-op.
+   * Otherwise, the {@link INodeDirectory} of the path is replaced by an 
+   * {@link INodeDirectorySnapshottable}.
+   */
+  void setSnapshottable(final String path) throws IOException {
+    try {
+      final INodeDirectory d = INodeDirectory.valueOf(dir.getINode(path), path);
+      if (d.isSnapshottable()) {
+        //The directory is already a snapshottable directory. 
+        return;
+      }
+
+      final INodeDirectorySnapshottable s
+          = INodeDirectorySnapshottable.newInstance(d);
+      dir.replaceINodeDirectory(path, d, s);
+    } finally {
     }
   }
 

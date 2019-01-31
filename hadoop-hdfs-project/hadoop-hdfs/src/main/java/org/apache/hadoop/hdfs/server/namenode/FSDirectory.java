@@ -993,6 +993,61 @@ boolean unprotectedRenameTo(String src, String dst, long timestamp,
   }
   
   /**
+   * Replaces the specified INode.
+   */
+  private void replaceINodeUnsynced(String path, INode oldnode, INode newnode
+      ) throws IOException {    
+    //remove the old node from the namespace 
+    if (!oldnode.removeNode()) {
+      final String mess = "FSDirectory.replaceINodeUnsynced: failed to remove "
+          + path;
+      NameNode.stateChangeLog.warn("DIR* " + mess);
+      throw new IOException(mess);
+    } 
+    
+    //add the new node
+    throw new UnsupportedOperationException("not impl yet");
+//[S]    getRootDir().addNode(path, newnode);
+
+  }
+
+  /**
+   * Replaces the specified INodeDirectory.
+   */
+  public void replaceINodeDirectory(String path, INodeDirectory oldnode,
+      INodeDirectory newnode) throws IOException {    
+    try {
+      replaceINodeUnsynced(path, oldnode, newnode);
+
+      //update children's parent directory
+      for(INode i : newnode.getChildren()) {
+        i.parent = newnode;
+      }
+    } finally {
+    }
+  }
+
+  /**
+   * Replaces the specified INodeFile with the specified one.
+   */
+  public void replaceNode(String path, INodeFile oldnode, INodeFile newnode
+      ) throws IOException {    
+    try {
+      replaceINodeUnsynced(path, oldnode, newnode);
+      
+      //Currently, oldnode and newnode are assumed to contain the same blocks.
+      //Otherwise, blocks need to be removed from the blocksMap.
+      int index = 0;
+      for (BlockInfo b : newnode.getBlocks()) {
+        BlockInfo info = getBlockManager().addBlockCollection(b, newnode);
+        newnode.setBlock(index, info); // inode refers to the block in BlocksMap
+        index++;
+      }
+    } finally {
+    }
+  }
+
+  /**
    * Delete a path from the name space
    * Update the count at each ancestor directory with quota
    *
