@@ -10,6 +10,9 @@ Branch-39 Snapshot (Unreleased)
 
     HDFS-4077. Add support for Snapshottable Directory. (Nicholas via suresh)
 
+    HDFS-4087. Protocol changes for listSnapshots functionality.  (Brandon Li 
+    via suresh)
+
 Release 2.7.0 - UNRELEASED
 
   INCOMPATIBLE CHANGES

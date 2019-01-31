@@ -61,6 +61,7 @@ import org.apache.hadoop.hdfs.protocol.LocatedBlock;
 import org.apache.hadoop.hdfs.protocol.LocatedBlocks;
 import org.apache.hadoop.hdfs.protocol.NSQuotaExceededException;
 import org.apache.hadoop.hdfs.protocol.QuotaExceededException;
+import org.apache.hadoop.hdfs.protocol.SnapshotInfo;
 import org.apache.hadoop.hdfs.protocol.proto.ClientNamenodeProtocolProtos;
 import org.apache.hadoop.hdfs.protocol.proto.AclProtos.GetAclStatusRequestProto;
 import org.apache.hadoop.hdfs.protocol.proto.AclProtos.ModifyAclEntriesRequestProto;
@@ -106,6 +107,8 @@ import org.apache.hadoop.hdfs.protocol.proto.ClientNamenodeProtocolProtos.IsFile
 import org.apache.hadoop.hdfs.protocol.proto.ClientNamenodeProtocolProtos.ListCachePoolsRequestProto;
 import org.apache.hadoop.hdfs.protocol.proto.ClientNamenodeProtocolProtos.ListCachePoolsResponseProto;
 import org.apache.hadoop.hdfs.protocol.proto.ClientNamenodeProtocolProtos.ListCorruptFileBlocksRequestProto;
+import org.apache.hadoop.hdfs.protocol.proto.ClientNamenodeProtocolProtos.ListSnapshotsRequestProto;
+import org.apache.hadoop.hdfs.protocol.proto.ClientNamenodeProtocolProtos.ListSnapshotsResponseProto;
 import org.apache.hadoop.hdfs.protocol.proto.ClientNamenodeProtocolProtos.ListCacheDirectivesRequestProto;
 import org.apache.hadoop.hdfs.protocol.proto.ClientNamenodeProtocolProtos.ListCacheDirectivesResponseProto;
 import org.apache.hadoop.hdfs.protocol.proto.ClientNamenodeProtocolProtos.MkdirsRequestProto;
@@ -133,6 +136,7 @@ import org.apache.hadoop.hdfs.protocol.proto.ClientNamenodeProtocolProtos.Update
 import org.apache.hadoop.hdfs.protocol.proto.ClientNamenodeProtocolProtos.UpdatePipelineRequestProto;
 import org.apache.hadoop.hdfs.protocol.proto.ClientNamenodeProtocolProtos.CheckAccessRequestProto;
 import org.apache.hadoop.hdfs.protocol.proto.ClientNamenodeProtocolProtos.GetLastUpdatedContentSummaryRequestProto;
+import org.apache.hadoop.hdfs.protocol.proto.HdfsProtos.SnapshotInfoProto;
 import org.apache.hadoop.hdfs.security.token.block.DataEncryptionKey;
 import org.apache.hadoop.hdfs.security.token.delegation.DelegationTokenIdentifier;
 import org.apache.hadoop.hdfs.server.namenode.NotReplicatedYetException;
@@ -995,13 +999,47 @@ public class ClientNamenodeProtocolTranslatorPB
   @Override
   public void createSnapshot(String snapshotName, String snapshotRoot)
       throws IOException {
-    // TODO Auto-generated method stub
+    CreateSnapshotRequestProto req = CreateSnapshotRequestProto.newBuilder()
+        .setSnapshotName(snapshotName).setSnapshotRoot(snapshotRoot).build();
+    try {
+      rpcProxy.createSnapshot(null, req);
+    } catch (ServiceException e) {
+      throw ProtobufHelper.getRemoteException(e);
+    }
   }
 
   @Override
   public void deleteSnapshot(String snapshotName, String snapshotRoot)
       throws IOException {
-    // TODO Auto-generated method stub
+    DeleteSnapshotRequestProto req = DeleteSnapshotRequestProto.newBuilder()
+        .setSnapshotName(snapshotName).setSnapshotRoot(snapshotRoot).build();
+    try {
+      rpcProxy.deleteSnapshot(null, req);
+    } catch (ServiceException e) {
+      throw ProtobufHelper.getRemoteException(e);
+    }
+  }
+
+  @Override
+  public SnapshotInfo[] listSnapshots(String snapshotRoot) throws IOException {
+    SnapshotInfo[] sinfo = null;
+    ListSnapshotsRequestProto req = null;
+
+    req = ListSnapshotsRequestProto.newBuilder().setSnapshotRoot(snapshotRoot)
+        .build();
+    try {
+      ListSnapshotsResponseProto resp = rpcProxy.listSnapshots(null, req);
+      sinfo = new SnapshotInfo[resp.getSnapshotsCount()];
+      for (int i = 0; i < resp.getSnapshotsCount(); i++) {
+        SnapshotInfoProto siProto = resp.getSnapshots(i);
+        sinfo[i] = new SnapshotInfo(siProto.getSnapshotName(), resp
+            .getSnapshots(i).getSnapshotRoot(), siProto.getCreateTime(),
+            siProto.getPermission(), siProto.getOwner(), siProto.getGroup());
+      }
+      return sinfo;
+    } catch (ServiceException e) {
+      throw ProtobufHelper.getRemoteException(e);
+    }
   }
 
   @Override

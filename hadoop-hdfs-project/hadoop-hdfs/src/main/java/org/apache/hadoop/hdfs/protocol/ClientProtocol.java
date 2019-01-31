@@ -1373,6 +1373,13 @@ public interface ClientProtocol {
       throws IOException;
 
   /**
+   * List snapshots of one directory
+   * @param snapshotRoot the path where the snapshot exists
+   */
+  public SnapshotInfo[] listSnapshots(String snapshotRoot)
+      throws IOException;
+
+  /**
    * Ping RPC to check if the namenode is alive
    * @throws IOException
    */
