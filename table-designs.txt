@@ -1,0 +1,28 @@
+
+
+
+
+| ---------------- |
+| HDFS_INODES      |
+|------------------|
+| id               |
+| ...              |
+| isSnapshotable   |
+| ...              |
+|------------------|
+
+         |
+         |
+         V
+
+|--------------------|
+| HDFS_SnapshotRoots |
+|--------------------|
+| snapshotID (PK)    |
+| inodeID (FK)       |
+| ...                |
+| all the attributes |
+| of inodes table    |
+| ...                |
+|--------------------|
+

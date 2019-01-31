@@ -13,6 +13,10 @@ Branch-39 Snapshot (Unreleased)
     HDFS-4087. Protocol changes for listSnapshots functionality.  (Brandon Li 
     via suresh)
 
+    HDFS-4079. Add SnapshotManager which maintains a list for all the
+    snapshottable directories and supports snapshot methods such as setting a
+    directory to snapshottable and creating a snapshot.  (szetszwo)
+
 Release 2.7.0 - UNRELEASED
 
   INCOMPATIBLE CHANGES

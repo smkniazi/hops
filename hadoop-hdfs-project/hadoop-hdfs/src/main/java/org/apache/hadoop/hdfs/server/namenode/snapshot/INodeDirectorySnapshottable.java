@@ -17,8 +17,14 @@
  */
 package org.apache.hadoop.hdfs.server.namenode.snapshot;
 
+import java.io.IOException;
+import java.util.ArrayList;
+import java.util.List;
+
 import org.apache.hadoop.classification.InterfaceAudience;
+import org.apache.hadoop.hdfs.server.namenode.INode;
 import org.apache.hadoop.hdfs.server.namenode.INodeDirectory;
+import org.apache.hadoop.util.Time;
 
 import java.io.IOException;
 
@@ -33,8 +39,34 @@ public class INodeDirectorySnapshottable extends INodeDirectory {
     super(dir,true);
   }
 
+  /** Cast INode to INodeDirectorySnapshottable. */
+  static public INodeDirectorySnapshottable valueOf(
+      INode inode, String src) throws IOException {
+    final INodeDirectory dir = INodeDirectory.valueOf(inode, src);
+    if (!dir.isSnapshottable()) {
+      throw new SnapshotException(src + " is not a snapshottable directory.");
+    }
+    return (INodeDirectorySnapshottable)dir;
+  }
+
+  /** A list of snapshots of this directory. */
+  private final List<INodeDirectorySnapshotRoot> snapshots
+      = new ArrayList<INodeDirectorySnapshotRoot>();
+
   @Override
   public boolean isSnapshottable() {
     return true;
+  }
+
+  /** Add a snapshot root under this directory. */
+  INodeDirectorySnapshotRoot addSnapshotRoot(final String name) throws IOException {
+    final INodeDirectorySnapshotRoot r = new INodeDirectorySnapshotRoot(name, this);
+    snapshots.add(r);
+
+    //set modification time
+    final long timestamp = Time.now();
+    r.setModificationTime(timestamp);
+    setModificationTime(timestamp);
+    return r;
   }
 }
