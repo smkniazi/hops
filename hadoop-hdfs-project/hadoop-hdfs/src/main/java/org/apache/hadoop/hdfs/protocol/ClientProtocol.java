@@ -1380,6 +1380,22 @@ public interface ClientProtocol {
       throws IOException;
 
   /**
+   * Allow snapshot on a directory.
+   * @param snapshotRoot the directory to be snapped
+   * @throws IOException
+   */
+  public void allowSnapshot(String snapshotRoot)
+      throws IOException;
+    
+  /**
+   * Disallow snapshot on a directory.
+   * @param snapshotRoot the directory to disallow snapshot
+   * @throws IOException
+   */
+  public void disallowSnapshot(String snapshotRoot)
+      throws IOException;   
+
+  /**
    * Ping RPC to check if the namenode is alive
    * @throws IOException
    */

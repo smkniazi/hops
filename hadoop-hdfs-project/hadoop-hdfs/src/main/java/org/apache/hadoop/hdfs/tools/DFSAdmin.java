@@ -377,6 +377,8 @@ public class DFSAdmin extends FsShell {
   private static final String commonUsageSummary =
     "\t[-report [-live] [-dead] [-decommissioning]]\n" +
     "\t[-safemode <enter | leave | get | wait>]\n" +
+    "\t[-allowSnapshot <snapshotRoot>]\n"+
+    "\t[-disallowSnapshot <snapshotRoot>]\n"+
     "\t[-saveNamespace]\n" +
     "\t[-rollEdits]\n" +
     "\t[-restoreFailedStorage true|false|check]\n" +
@@ -577,6 +579,30 @@ public class DFSAdmin extends FsShell {
     }
 
     System.out.println("Safe mode is " + (inSafeMode ? "ON" : "OFF"));
+  }
+
+  /**
+   * Allow snapshot on a directory.
+   * Usage: java DFSAdmin -allowSnapshot <snapshotRoot>
+   * @param argv List of of command line parameters.
+   * @exception IOException
+   */
+  public void allowSnapshot(String[] argv) throws IOException {   
+    DistributedFileSystem dfs = getDFS();
+    dfs.allowSnapshot(argv[1]);
+    System.out.println("Allowing snaphot on " + argv[1] + " succeeded");
+  }
+  
+  /**
+   * Allow snapshot on a directory.
+   * Usage: java DFSAdmin -disallowSnapshot <snapshotRoot>
+   * @param argv List of of command line parameters.
+   * @exception IOException
+   */
+  public void disallowSnapshot(String[] argv) throws IOException {  
+    DistributedFileSystem dfs = getDFS();
+    dfs.disallowSnapshot(argv[1]);
+    System.out.println("Disallowing snaphot on " + argv[1] + " succeeded");
   }
   
   /**
@@ -1074,6 +1100,12 @@ public class DFSAdmin extends FsShell {
     } else if ("-safemode".equals(cmd)) {
       System.err.println(
           "Usage: hdfs DFSAdmin" + " [-safemode enter | leave | get | wait]");
+    } else if ("-allowSnapshot".equalsIgnoreCase(cmd)) {
+      System.err.println("Usage: java DFSAdmin"
+          + " [-allowSnapshot <snapshotRoot>]");
+    } else if ("-disallowsnapshot".equalsIgnoreCase(cmd)) {
+      System.err.println("Usage: java DFSAdmin"
+          + " [-disallowSnapshot <snapshotRoot>]");
     } else if ("-refreshNodes".equals(cmd)) {
       System.err.println("Usage: hdfs dfsadmin" + " [-refreshNodes]");
     } else if (RollingUpgradeCommand.matches(cmd)) {
@@ -1156,6 +1188,16 @@ public class DFSAdmin extends FsShell {
     // verify that we have enough command line parameters
     //
     if ("-safemode".equals(cmd)) {
+      if (argv.length != 2) {
+        printUsage(cmd);
+        return exitCode;
+      }
+    } else if ("-allowSnapshot".equalsIgnoreCase(cmd)) {
+      if (argv.length != 3) {
+        printUsage(cmd);
+        return exitCode;
+      }
+    } else if ("-disallowSnapshot".equalsIgnoreCase(cmd)) {
       if (argv.length != 2) {
         printUsage(cmd);
         return exitCode;
@@ -1251,6 +1293,10 @@ public class DFSAdmin extends FsShell {
         report(argv, i);
       } else if ("-safemode".equals(cmd)) {
         setSafeMode(argv, i);
+      } else if ("-allowSnapshot".equalsIgnoreCase(cmd)) {
+        allowSnapshot(argv);
+      } else if ("-disallowSnapshot".equalsIgnoreCase(cmd)) {
+        disallowSnapshot(argv);
       } else if ("-refreshNodes".equals(cmd)) {
         exitCode = refreshNodes();
       } else if (RollingUpgradeCommand.matches(cmd)) {

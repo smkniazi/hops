@@ -1182,6 +1182,18 @@ class NameNodeRpcServer implements NamenodeProtocols {
   }
 
   @Override
+  // Client Protocol
+  public void allowSnapshot(String snapshotRoot) throws IOException {
+    namesystem.allowSnapshot(snapshotRoot);
+  }
+
+  @Override
+  // Client Protocol
+  public void disallowSnapshot(String snapshot) throws IOException {
+    namesystem.disallowSnapshot(snapshot);
+  }
+
+  @Override
   public SortedActiveNodeList getActiveNamenodes() throws IOException {
     return nn.getActiveNameNodes();
   }

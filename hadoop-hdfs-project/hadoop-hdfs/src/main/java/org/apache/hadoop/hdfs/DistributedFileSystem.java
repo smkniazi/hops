@@ -1409,6 +1409,28 @@ public class DistributedFileSystem extends FileSystem {
   }
 
   /**
+   * Allow snapshot on a directory.
+   * 
+   * @param snapshotRoot the directory to be snapped
+   * @throws IOException
+   */
+  public void allowSnapshot(String snapshotRoot)
+      throws IOException {
+    dfs.allowSnapshot(snapshotRoot);
+  }
+  
+  /**
+   * Disallow snapshot on a directory.
+   * 
+   * @param snapshotRoot the directory to be snapped
+   * @throws IOException
+   */
+  public void disallowSnapshot(String snapshotRoot)
+      throws IOException {
+    dfs.disallowSnapshot(snapshotRoot);
+  }
+
+  /**
    * Get the close status of a file
    * @param src The path to the file
    *

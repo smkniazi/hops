@@ -55,7 +55,6 @@ public class INodeFileWithLink extends INodeFile {
    * @return the max file replication of the elements
    *         in the circular linked list.
    */
-  @Override
   public short getBlockReplication() {
     short max = getFileReplication();
     for(INodeFileWithLink i = next; i != this; i = i.getNext()) {

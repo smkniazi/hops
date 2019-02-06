@@ -19,6 +19,9 @@ Branch-39 Snapshot (Unreleased)
 
     HDFS-4078. Handle replication in snapshots.  (szetszwo)
 
+    HDFS-4084. Provide CLI support to allow and disallow snapshot 
+    on a directory. (Brondon Li via suresh)
+
 Release 2.7.0 - UNRELEASED
 
   INCOMPATIBLE CHANGES
