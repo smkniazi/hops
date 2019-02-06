@@ -261,9 +261,19 @@ public class FSDirectory implements Closeable {
       //add destination snaplink
 //[S]      snapshot = addNode(dstPath, snapshot, UNKNOWN_DISK_SPACE);
 
-      if (snapshot != null && src.getClass() == INodeFile.class) {
-        //created a snapshot and the source is an INodeFile, replace the source.
-//[S]        replaceNode(srcPath, src, new INodeFileWithLink(src));
+      final INodeFileWithLink srcWithLink;
+      if (snapshot != null) {
+        //added snapshot node successfully, check source type,
+        if (src instanceof INodeFileWithLink) {
+          srcWithLink = (INodeFileWithLink)src;
+        } else {
+          //source is an INodeFile, replace the source.
+          srcWithLink = new INodeFileWithLink(src);
+          replaceNode(srcPath, src, srcWithLink);
+        }
+        
+        //insert the snapshot to src's linked list.
+        srcWithLink.insert(snapshot);
       }
     } finally {
       if (snapshot == null) {

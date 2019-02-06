@@ -17,6 +17,8 @@ Branch-39 Snapshot (Unreleased)
     snapshottable directories and supports snapshot methods such as setting a
     directory to snapshottable and creating a snapshot.  (szetszwo)
 
+    HDFS-4078. Handle replication in snapshots.  (szetszwo)
+
 Release 2.7.0 - UNRELEASED
 
   INCOMPATIBLE CHANGES
