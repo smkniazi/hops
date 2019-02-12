@@ -21,6 +21,7 @@ import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
 
+import org.apache.hadoop.HadoopIllegalArgumentException;
 import org.apache.hadoop.classification.InterfaceAudience;
 import org.apache.hadoop.hdfs.server.namenode.INode;
 import org.apache.hadoop.hdfs.server.namenode.INodeDirectory;
@@ -31,12 +32,15 @@ import java.io.IOException;
 /** Directories where taking snapshots is allowed. */
 @InterfaceAudience.Private
 public class INodeDirectorySnapshottable extends INodeDirectory {
-  static public INodeDirectorySnapshottable newInstance(final INodeDirectory dir) throws IOException {
-    return new INodeDirectorySnapshottable(dir);
+  static public INodeDirectorySnapshottable newInstance(
+      final INodeDirectory dir, final int snapshotQuota) throws IOException {
+ 
+    return new INodeDirectorySnapshottable(dir, snapshotQuota);
   }
 
-  private INodeDirectorySnapshottable(INodeDirectory dir) throws IOException {
+  private INodeDirectorySnapshottable(INodeDirectory dir, final int snapshotQuota) throws IOException {
     super(dir,true);
+    setSnapshotQuota(snapshotQuota);
   }
 
   /** Cast INode to INodeDirectorySnapshottable. */
@@ -52,6 +56,20 @@ public class INodeDirectorySnapshottable extends INodeDirectory {
   /** A list of snapshots of this directory. */
   private final List<INodeDirectorySnapshotRoot> snapshots
       = new ArrayList<INodeDirectorySnapshotRoot>();
+  /** Number of snapshots is allowed. */
+  private int snapshotQuota;
+
+  public int getSnapshotQuota() {
+    return snapshotQuota;
+  }
+
+  public void setSnapshotQuota(int snapshotQuota) {
+    if (snapshotQuota <= 0) {
+      throw new HadoopIllegalArgumentException(
+          "Cannot set snapshot quota to " + snapshotQuota + " <= 0");
+    }
+    this.snapshotQuota = snapshotQuota;
+  }
 
   @Override
   public boolean isSnapshottable() {
@@ -59,7 +77,14 @@ public class INodeDirectorySnapshottable extends INodeDirectory {
   }
 
   /** Add a snapshot root under this directory. */
-  INodeDirectorySnapshotRoot addSnapshotRoot(final String name) throws IOException {
+  INodeDirectorySnapshotRoot addSnapshotRoot(final String name) throws IOException, SnapshotException {
+    //check snapshot quota
+    if (snapshots.size() + 1 > snapshotQuota) {
+      throw new SnapshotException("Failed to add snapshot: there are already "
+          + snapshots.size() + " snapshot(s) and the snapshot quota is "
+          + snapshotQuota);
+    }
+
     final INodeDirectorySnapshotRoot r = new INodeDirectorySnapshotRoot(name, this);
     snapshots.add(r);
 

@@ -43,7 +43,7 @@ public class SnapshotManager {
    * Otherwise, the {@link INodeDirectory} of the path is replaced by an 
    * {@link INodeDirectorySnapshottable}.
    */
-  public void setSnapshottable(final String path,
+  public void setSnapshottable(final String path, final int snapshotQuota,
       final FSDirectory fsdir) throws IOException {
     try {
       final INodeDirectory d = INodeDirectory.valueOf(fsdir.getINode(path), path);
@@ -53,7 +53,7 @@ public class SnapshotManager {
       }
 
       final INodeDirectorySnapshottable s
-          = INodeDirectorySnapshottable.newInstance(d);
+          = INodeDirectorySnapshottable.newInstance(d, snapshotQuota);
       //[S] TODO persist the boolean that this inode is now snapshotable
       fsdir.replaceINodeDirectory(path, d, s); //[S] TODO not necessary
       snapshottables.add(s); //[S] TODO add to snapshot roots table
