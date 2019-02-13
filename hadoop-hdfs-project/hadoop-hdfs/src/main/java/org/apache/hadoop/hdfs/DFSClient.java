@@ -2365,6 +2365,17 @@ public class DFSClient implements java.io.Closeable, RemotePeerFactory,
   }
 
   /**
+   * Create one snapshot.
+   * 
+   * @see ClientProtocol#createSnapshot(String snapshotName, String
+   *      snapshotRoot)
+   */
+  public void createSnapshot(String snapshotName, String snapshotRoot)
+      throws IOException {
+    namenode.createSnapshot(snapshotName, snapshotRoot);
+  }
+
+  /**
    * Allow snapshot on a directory.
    * 
    * @see ClientProtocol#allowSnapshot(String snapshotRoot)

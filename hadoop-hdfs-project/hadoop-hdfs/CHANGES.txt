@@ -25,6 +25,8 @@ Branch-39 Snapshot (Unreleased)
     HDFS-4091. Add snapshot quota to limit the number of snapshots allowed.
     (szetszwo)
 
+    HDFS-4097. Provide CLI support for createSnapshot. (Brandon Li via suresh)
+
 Release 2.7.0 - UNRELEASED
 
   INCOMPATIBLE CHANGES

@@ -2372,50 +2372,16 @@ public abstract class FileSystem extends Configured implements Closeable {
   }
 
   /**
-   * Create a snapshot with a default name.
-   * @param path The directory where snapshots will be taken.
-   * @return the snapshot path.
-   */
-  public final Path createSnapshot(Path path) throws IOException {
-    return createSnapshot(path, null);
-  }
-
-  /**
    * Create a snapshot
-   * @param path The directory where snapshots will be taken.
    * @param snapshotName The name of the snapshot
-   * @return the snapshot path.
+   * @param snapshotRoot The directory where the snapshot will be taken
    */
-  public Path createSnapshot(Path path, String snapshotName)
+  public void createSnapshot(String snapshotName, String snapshotRoot)
       throws IOException {
     throw new UnsupportedOperationException(getClass().getSimpleName()
         + " doesn't support createSnapshot");
   }
-  
-  /**
-   * Rename a snapshot
-   * @param path The directory path where the snapshot was taken
-   * @param snapshotOldName Old name of the snapshot
-   * @param snapshotNewName New name of the snapshot
-   * @throws IOException
-   */
-  public void renameSnapshot(Path path, String snapshotOldName,
-      String snapshotNewName) throws IOException {
-    throw new UnsupportedOperationException(getClass().getSimpleName()
-        + " doesn't support renameSnapshot");
-  }
-  
-  /**
-   * Delete a snapshot of a directory
-   * @param path  The directory that the to-be-deleted snapshot belongs to
-   * @param snapshotName The name of the snapshot
-   */
-  public void deleteSnapshot(Path path, String snapshotName)
-      throws IOException {
-    throw new UnsupportedOperationException(getClass().getSimpleName()
-        + " doesn't support deleteSnapshot");
-  }
-  
+
   /**
    * Modifies ACL entries of files and directories.  This method can add new ACL
    * entries or modify the permissions on existing ACL entries.  All existing

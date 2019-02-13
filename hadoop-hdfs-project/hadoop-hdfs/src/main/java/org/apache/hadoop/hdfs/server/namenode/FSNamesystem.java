@@ -6949,6 +6949,16 @@ public class FSNamesystem implements Namesystem, FSNamesystemMBean,
     // TODO: implement
   }
 
+  /**
+   * Create a snapshot
+   * @param snapshotName The name of the snapshot
+   * @param snapshotRoot The directory where the snapshot will be taken
+   */
+  public void createSnapshot(String snapshotName, String snapshotRoot)
+      throws SafeModeException, IOException {
+    // TODO: implement
+  }
+
   RollingUpgradeInfo queryRollingUpgrade() throws IOException {
     checkSuperuserPrivilege();
     return getRollingUpgradeInfoTX();

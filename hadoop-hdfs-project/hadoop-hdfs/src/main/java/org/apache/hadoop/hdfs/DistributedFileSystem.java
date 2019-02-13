@@ -1430,6 +1430,12 @@ public class DistributedFileSystem extends FileSystem {
     dfs.disallowSnapshot(snapshotRoot);
   }
 
+  @Override
+  public void createSnapshot(String snapshotName, String snapshotRoot)
+      throws IOException {
+    dfs.createSnapshot(snapshotName, snapshotRoot);
+  }
+
   /**
    * Get the close status of a file
    * @param src The path to the file
