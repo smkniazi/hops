@@ -33,4 +33,11 @@ public class INodeFileSnapshot extends INodeFileWithLink {
     super(f);
     this.size = size;
   }
+
+  @Override
+  public long computeFileSize(boolean includesBlockInfoUnderConstruction) {
+    //ignore includesBlockInfoUnderConstruction 
+    //since files in a snapshot are considered as closed.
+    return size;
+  }
 }

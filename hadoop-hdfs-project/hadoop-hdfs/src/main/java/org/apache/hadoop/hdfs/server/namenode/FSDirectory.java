@@ -254,7 +254,7 @@ public class FSDirectory implements Closeable {
   INodeFileSnapshot addFileSnapshot(String srcPath, String dstPath
       ) throws IOException, QuotaExceededException {
 
-    final INodeFile src = getRootDir().getINodeFile(srcPath);
+    final INodeFile src = INodeFile.valueOf(getNode(srcPath, false), srcPath);
     INodeFileSnapshot snapshot = new INodeFileSnapshot(src, src.computeFileSize(true)); 
 
     try {

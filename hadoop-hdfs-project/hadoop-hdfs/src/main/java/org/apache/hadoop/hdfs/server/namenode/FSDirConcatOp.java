@@ -43,6 +43,8 @@ import java.util.Arrays;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
+
+import org.apache.hadoop.hdfs.server.namenode.snapshot.INodeFileWithLink;
 import org.apache.hadoop.ipc.RetryCache.CacheEntry;
 import org.apache.hadoop.ipc.RetryCacheDistributed;
 import org.apache.hadoop.ipc.Server;
@@ -132,6 +134,11 @@ class FSDirConcatOp {
           if (trgInode.numBlocks() == 0) {
             throw new HadoopIllegalArgumentException("concat: target file "
                 + target + " is empty");
+          }
+
+          if (trgInode instanceof INodeFileWithLink) {
+            throw new HadoopIllegalArgumentException("concat: target file "
+                + target + " is in a snapshot");
           }
 
           long blockSize = trgInode.getPreferredBlockSize();

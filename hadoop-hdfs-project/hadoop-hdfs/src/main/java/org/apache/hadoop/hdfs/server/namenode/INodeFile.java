@@ -311,7 +311,7 @@ public class INodeFile extends INodeWithAdditionalFields implements BlockCollect
   }
 
   @Override
-  int collectSubtreeBlocksAndClear(BlocksMapUpdateInfo info)
+  protected int collectSubtreeBlocksAndClear(BlocksMapUpdateInfo info)
       throws StorageException, TransactionContextException {
     parent = null;
     BlockInfo[] blocks = getBlocks();
