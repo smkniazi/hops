@@ -1030,7 +1030,7 @@ boolean unprotectedRenameTo(String src, String dst, long timestamp,
       replaceINodeUnsynced(path, oldnode, newnode);
 
       //update children's parent directory
-      for(INode i : newnode.getChildren()) {
+      for(INode i : newnode.getChildrenList()) {
         i.parent = newnode;
       }
     } finally {

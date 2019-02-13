@@ -32,6 +32,8 @@ Branch-39 Snapshot (Unreleased)
     block list no longer belong to any other inode, collect them and update the
     block list.  (szetszwo)
 
+    HDFS-4111. Support snapshot of subtrees. (szetszwo via suresh)
+
 Release 2.7.0 - UNRELEASED
 
   INCOMPATIBLE CHANGES

@@ -4886,6 +4886,13 @@ public class BlockManager {
     return blocksMap.addBlockCollection(block, bc);
   }
 
+  public void addBlockCollection(BlockCollection bc) 
+      throws StorageException, TransactionContextException {
+    for(BlockInfo block : bc.getBlocks()) {
+      addBlockCollection(block, bc);
+    }
+  }
+
   public BlockCollection getBlockCollection(Block b)
       throws StorageException, TransactionContextException {
     return blocksMap.getBlockCollection(b);

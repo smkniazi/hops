@@ -443,16 +443,6 @@ public class TestUsersGroupsMultiNamenode {
     }
 
     @Override
-    public void deleteSnapshot(String snapshotName, String snapshotRoot) throws IOException {
-
-    }
-
-    @Override
-    public SnapshotInfo[] listSnapshots(String snapshotRoot) throws IOException {
-      return new SnapshotInfo[0];
-    }
-
-    @Override
     public void allowSnapshot(String snapshotRoot) throws IOException {
 
     }

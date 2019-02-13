@@ -39,21 +39,21 @@ import org.apache.hadoop.fs.PathIsNotDirectoryException;
  * Directory INode class.
  */
 public class INodeDirectory extends INodeWithAdditionalFields {
-  
-  /**
-   * Cast INode to INodeDirectory.
-   */
-  public static INodeDirectory valueOf(INode inode, Object path
-      ) throws FileNotFoundException, PathIsNotDirectoryException {
-    if (inode == null) {
-      throw new FileNotFoundException("Directory does not exist: "
-          + DFSUtil.path2String(path));
-    }
-    if (!inode.isDirectory()) {
-      throw new PathIsNotDirectoryException(DFSUtil.path2String(path));
-    }
-    return (INodeDirectory) inode;
-  }
+
+	/**
+	 * Cast INode to INodeDirectory.
+	 */
+	public static INodeDirectory valueOf(INode inode, Object path
+			) throws FileNotFoundException, PathIsNotDirectoryException {
+		if (inode == null) {
+			throw new FileNotFoundException("Directory does not exist: "
+					+ DFSUtil.path2String(path));
+		}
+		if (!inode.isDirectory()) {
+			throw new PathIsNotDirectoryException(DFSUtil.path2String(path));
+		}
+		return (INodeDirectory) inode;
+	}  
 
   protected static final int DEFAULT_FILES_PER_DIRECTORY = 5;
   public final static String ROOT_NAME = "";
@@ -89,7 +89,7 @@ public class INodeDirectory extends INodeWithAdditionalFields {
     super(id, name, permissions, mtime, 0L, false);
   }
   
-  INodeDirectory(INodeDirectory other) throws IOException {
+  public INodeDirectory(INodeDirectory other) throws IOException {
     this(other, true);
   }
   
@@ -401,7 +401,7 @@ public class INodeDirectory extends INodeWithAdditionalFields {
    *  @return false if the child with this name already exists; 
    *         otherwise, return true;
    */
-  boolean addChild(final INode node, final boolean setModTime) throws IOException{
+  public boolean addChild(final INode node, final boolean setModTime) throws IOException{
     return addChild(node, setModTime, true);
   }
   
@@ -545,6 +545,12 @@ public class INodeDirectory extends INodeWithAdditionalFields {
       return (List<INode>) EntityManager
         .findList(Finder.ByParentIdAndPartitionId, getId(), getId()/*partition id for all the childred is the parent id*/);
     }
+  }
+
+  /** Set the children list. */
+  public void setChildren(List<INode> children) {
+    //[S] TODO Persist it
+    //this.children = children;
   }
 
   @Override

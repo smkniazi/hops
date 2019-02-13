@@ -105,7 +105,6 @@ import org.apache.hadoop.hdfs.protocol.LocatedBlock;
 import org.apache.hadoop.hdfs.protocol.LocatedBlocks;
 import org.apache.hadoop.hdfs.protocol.QuotaExceededException;
 import org.apache.hadoop.hdfs.protocol.RecoveryInProgressException;
-import org.apache.hadoop.hdfs.protocol.SnapshotInfo;
 import org.apache.hadoop.hdfs.protocol.datatransfer.ReplaceDatanodeOnFailure;
 import org.apache.hadoop.hdfs.security.token.block.BlockTokenSecretManager;
 import org.apache.hadoop.hdfs.security.token.block.BlockTokenSecretManager.AccessMode;
@@ -619,7 +618,6 @@ public class FSNamesystem implements Namesystem, FSNamesystemMBean,
               DFS_NAMENODE_RESOURCE_CHECK_INTERVAL_DEFAULT);
 
       this.blockManager = new BlockManager(this, conf);
-      this.snapshotManager = new SnapshotManager(this);
       this.erasureCodingEnabled =
           ErasureCodingManager.isErasureCodingEnabled(conf);
       this.erasureCodingManager = new ErasureCodingManager(this, conf);
@@ -721,6 +719,7 @@ public class FSNamesystem implements Namesystem, FSNamesystemMBean,
 
       this.dtSecretManager = createDelegationTokenSecretManager(conf);
       this.dir = new FSDirectory(this, conf);
+      this.snapshotManager = new SnapshotManager(this, dir);
       this.cacheManager = new CacheManager(this, conf, blockManager);
       this.auditLoggers = initAuditLoggers(conf);
       this.isDefaultAuditLogger = auditLoggers.size() == 1 &&
@@ -6953,11 +6952,20 @@ public class FSNamesystem implements Namesystem, FSNamesystemMBean,
   /**
    * Create a snapshot
    * @param snapshotName The name of the snapshot
-   * @param snapshotRoot The directory where the snapshot will be taken
+   * @param path The directory path where the snapshot is taken
    */
-  public void createSnapshot(String snapshotName, String snapshotRoot)
+  public void createSnapshot(String snapshotName, String path)
       throws SafeModeException, IOException {
-    // TODO: implement
+    try {
+      if (isInSafeMode()) {
+        throw new SafeModeException("Cannot create snapshot for " + path, safeMode());
+      }
+
+      FSPermissionChecker pc = getPermissionChecker();
+      checkOwner(pc, path);
+      snapshotManager.createSnapshot(snapshotName, path);
+
+      } finally { }
   }
 
   RollingUpgradeInfo queryRollingUpgrade() throws IOException {

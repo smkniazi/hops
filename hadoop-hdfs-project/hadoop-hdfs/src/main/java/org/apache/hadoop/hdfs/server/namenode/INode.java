@@ -608,7 +608,7 @@ public abstract class INode implements Comparable<byte[]>, LinkedElement {
   }
 
 
-  boolean removeNode() throws StorageException, TransactionContextException {
+  public boolean removeNode() throws StorageException, TransactionContextException {
     if (parent == null) {
       return false;
     } else {
