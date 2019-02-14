@@ -16,6 +16,9 @@ Release 2.7.0 - UNRELEASED
     (Maysam Yabandeh via wang)
 
   IMPROVEMENTS
+
+    HOPS-1109. Fixing Full Block Reports (salman)
+
     HDFS-7055. Add tracing to DFSInputStream (cmccabe)
 
     HDFS-7186. Document the "hadoop trace" command. (Masatake Iwasaki via Colin
