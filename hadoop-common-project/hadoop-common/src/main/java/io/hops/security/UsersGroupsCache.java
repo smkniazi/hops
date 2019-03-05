@@ -17,7 +17,6 @@ package io.hops.security;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Predicates;
-import com.google.common.cache.Cache;
 import com.google.common.cache.CacheBuilder;
 import com.google.common.cache.CacheLoader;
 import com.google.common.cache.LoadingCache;
@@ -85,17 +84,17 @@ class UsersGroupsCache {
     }
   }
   
-  private LoadingCache<String, List<String>> usersToGroups;
-  private Cache<String, List<String>> groupsToUsers;
+  private LoadingCache<String, List<String>> userToGroupsCache;
+
+  private LoadingCache<Integer, String> idToUserCache;
+  private LoadingCache<String, Integer> userToIdCache;
   
-  private LoadingCache<Integer, String> idsToUsers;
-  private LoadingCache<String, Integer> usersToIds;
+  private LoadingCache<Integer, String> idToGroupCache;
+  private LoadingCache<String, Integer> groupToIdCache;
   
-  private LoadingCache<Integer, String> idsToGroups;
-  private LoadingCache<String, Integer> groupsToIds;
-  
-  private CacheLoader<String, List<String>> usersToGroupsLoader =
+  private CacheLoader<String, List<String>> userToGroupsLoader =
       new CacheLoader<String, List<String>>() {
+
     @Override
     public List<String> load(String userName) throws Exception {
       LOG.debug("Get groups from DB for user=" + userName);
@@ -105,148 +104,105 @@ class UsersGroupsCache {
       }
       
       List<String> groupNames = Lists.newArrayListWithExpectedSize(groups.size());
+
       for(Group group : groups){
         groupNames.add(group.getName());
         addGroupToCache(group.getId(), group.getName());
-        
-        List<String> users = groupsToUsers.getIfPresent(group.getName());
-        if(users == null){
-          users = new ArrayList<>();
-          groupsToUsers.put(group.getName(), users);
-        }
-        users.add(userName);
       }
       return groupNames;
     }
   };
   
-  private RemovalListener<String, List<String>> usersToGroupsRemoval =
+  private RemovalListener<String, List<String>> userToGroupsRemoval =
       new RemovalListener<String, List<String>>() {
     @Override
-    public void onRemoval(
-        RemovalNotification<String, List<String>> rn) {
+    public void onRemoval(RemovalNotification<String, List<String>> rn) {
       LOG.debug("User's groups removal notification for " + rn.toString() +
           "(" + rn.getCause() + ")");
-      List<String> groups = rn.getValue();
-      for(String group : groups){
-        List<String> users = groupsToUsers.getIfPresent(group);
-        if(users != null){
-          users.remove(rn.getKey());
-          if(users.isEmpty()){
-            groupsToUsers.invalidate(group);
-          }
-        }
-      }
     }
   };
   
-  private RemovalListener<String, List<String>> groupsToUsersRemoval =
-      new RemovalListener<String, List<String>>() {
-        @Override
-        public void onRemoval(
-            RemovalNotification<String, List<String>> rn) {
-          LOG.debug("Group's users removal notification for " + rn.toString() +
-              "(" + rn.getCause() + ")");
-          List<String> users = rn.getValue();
-          for (String user : users) {
-            List<String> groups = usersToGroups.getIfPresent(user);
-            if (groups != null) {
-              groups.remove(rn.getKey());
-              if (groups.isEmpty()) {
-                usersToGroups.invalidate(user);
-              }
-            }
-          }
-        }
-  };
-  
-  private CacheLoader<Integer, String> usersByIdLoader = new CacheLoader<Integer, String>() {
+  private CacheLoader<Integer, String> idToUserLoader = new CacheLoader<Integer, String>() {
     @Override
     public String load(Integer userId) throws Exception {
       LOG.debug("Get user from DB by id=" + userId);
       User user = getUserFromDB(null, userId);
       if(user != null){
-        usersToIds.put(user.getName(), userId);
+        userToIdCache.put(user.getName(), userId);
         return user.getName();
       }
       throw new UserNotFoundException("User (" + userId + ") was not found.");
     }
   };
   
-  private RemovalListener<Integer, String> usersByIdRemoval = new RemovalListener<Integer, String>() {
+  private RemovalListener<Integer, String> idToUserRemoval = new RemovalListener<Integer, String>() {
     @Override
     public void onRemoval(RemovalNotification<Integer, String> rn) {
       LOG.debug("User removal notification for " + rn.toString() + "(" + rn.getCause() + ")");
-      usersToIds.invalidate(rn.getValue());
     }
   };
   
-  private CacheLoader<String, Integer> usersByNameLoader = new CacheLoader<String, Integer>() {
+  private CacheLoader<String, Integer> userToIdLoader = new CacheLoader<String, Integer>() {
     @Override
     public Integer load(String userName) throws Exception {
       LOG.debug("Get user from DB by name=" + userName);
       User user = getUserFromDB(userName, null);
       if(user != null){
-        idsToUsers.put(user.getId(), userName);
+        idToUserCache.put(user.getId(), userName);
         return user.getId();
       }
       throw new UserNotFoundException("User (" + userName + ") was not found.");
     }
   };
   
-  private RemovalListener<String, Integer> usersByNameRemoval =
+  private RemovalListener<String, Integer> userToIdsNameRemoval =
       new RemovalListener<String, Integer>() {
     @Override
     public void onRemoval(RemovalNotification<String, Integer> rn) {
       LOG.debug("User removal notification for " + rn.toString() + "(" + rn.getCause() + ")");
-      idsToUsers.invalidate(rn.getValue());
     }
   };
   
-  private CacheLoader<Integer, String> groupsByIdLoader = new CacheLoader<Integer, String>() {
+  private CacheLoader<Integer, String> idToGroupLoader = new CacheLoader<Integer, String>() {
     @Override
     public String load(Integer groupId) throws Exception {
       LOG.debug("Get group from DB by id=" + groupId);
       Group group = getGroupFromDB(null, groupId);
       if(group != null){
-        groupsToIds.put(group.getName(), groupId);
+        groupToIdCache.put(group.getName(), groupId);
         return group.getName();
       }
-      throw new GroupNotFoundException("Group (" + groupId + ") was not found" +
-          ".");
+      throw new GroupNotFoundException("Group (" + groupId + ") was not found.");
     }
   };
   
-  private RemovalListener<Integer, String> groupsByIdRemoval =
+  private RemovalListener<Integer, String> idToGroupsRemoval =
       new RemovalListener<Integer, String>() {
     @Override
     public void onRemoval(RemovalNotification<Integer, String> rn) {
       LOG.debug("Group removal notification for " + rn.toString() + "(" + rn.getCause() + ")");
-      groupsToIds.invalidate(rn.getValue());
     }
   };
   
-  private CacheLoader<String, Integer> groupsByNameLoader =
+  private CacheLoader<String, Integer> groupToIdsLoader =
       new CacheLoader<String, Integer>() {
     @Override
     public Integer load(String groupName) throws Exception {
       LOG.debug("Get group from DB by name=" + groupName);
       Group group = getGroupFromDB(groupName, null);
       if(group != null){
-        idsToGroups.put(group.getId(), groupName);
+        idToGroupCache.put(group.getId(), groupName);
         return group.getId();
       }
-      throw new GroupNotFoundException("Group (" + groupName + ") was not found" +
-          ".");
+      throw new GroupNotFoundException("Group (" + groupName + ") was not found.");
     }
   };
   
-  private RemovalListener<String, Integer> groupsByNameRemoval =
+  private RemovalListener<String, Integer> groupToIdsRemoval =
       new RemovalListener<String, Integer>() {
         @Override
         public void onRemoval(RemovalNotification<String, Integer> rn) {
           LOG.debug("Group removal notification for " + rn.toString() + "(" + rn.getCause() + ")");
-          idsToGroups.invalidate(rn.getValue());
         }
   };
   
@@ -262,40 +218,35 @@ class UsersGroupsCache {
     this.userGroupDataAccess = ugda;
     this.groupDataAccess = gda;
     
-    usersToGroups = CacheBuilder.newBuilder()
+    userToGroupsCache = CacheBuilder.newBuilder()
         .maximumSize(lrumax)
         .expireAfterWrite(evectionTime, TimeUnit.SECONDS)
-        .removalListener(usersToGroupsRemoval)
-        .build(usersToGroupsLoader);
+        .removalListener(userToGroupsRemoval)
+        .build(userToGroupsLoader);
     
-    groupsToUsers = CacheBuilder.newBuilder()
+    idToUserCache = CacheBuilder.newBuilder()
         .maximumSize(lrumax)
         .expireAfterWrite(evectionTime, TimeUnit.SECONDS)
-        .removalListener(groupsToUsersRemoval)
-        .build();
-    
-    idsToUsers = CacheBuilder.newBuilder()
-        .maximumSize(lrumax)
-        .expireAfterWrite(evectionTime, TimeUnit.SECONDS)
-        .removalListener(usersByIdRemoval)
-        .build(usersByIdLoader);
-    usersToIds = CacheBuilder.newBuilder()
-        .maximumSize(lrumax)
-        .expireAfterWrite(evectionTime, TimeUnit.SECONDS)
-        .removalListener(usersByNameRemoval)
-        .build(usersByNameLoader);
+        .removalListener(idToUserRemoval)
+        .build(idToUserLoader);
 
-    idsToGroups = CacheBuilder.newBuilder()
+    userToIdCache = CacheBuilder.newBuilder()
         .maximumSize(lrumax)
         .expireAfterWrite(evectionTime, TimeUnit.SECONDS)
-        .removalListener(groupsByIdRemoval)
-        .build(groupsByIdLoader);
+        .removalListener(userToIdsNameRemoval)
+        .build(userToIdLoader);
+
+    idToGroupCache = CacheBuilder.newBuilder()
+        .maximumSize(lrumax)
+        .expireAfterWrite(evectionTime, TimeUnit.SECONDS)
+        .removalListener(idToGroupsRemoval)
+        .build(idToGroupLoader);
     
-    groupsToIds = CacheBuilder.newBuilder()
+    groupToIdCache = CacheBuilder.newBuilder()
         .maximumSize(lrumax)
         .expireAfterWrite(evectionTime, TimeUnit.SECONDS)
-        .removalListener(groupsByNameRemoval)
-        .build(groupsByNameLoader);
+        .removalListener(groupToIdsRemoval)
+        .build(groupToIdsLoader);
     
     isConfigured = userDataAccess != null
         && userGroupDataAccess != null && groupDataAccess != null;
@@ -305,7 +256,7 @@ class UsersGroupsCache {
     if(!isConfigured)
       return null;
     
-    Integer userId = usersToIds.getIfPresent(userName);
+    Integer userId = userToIdCache.getIfPresent(userName);
     if(userId != null){
       LOG.debug("User " + userName + " is already in cache with id=" + userId);
       return userId;
@@ -327,8 +278,8 @@ class UsersGroupsCache {
   }
   
   private void addUserToCache(Integer userId, String userName){
-    idsToUsers.put(userId, userName);
-    usersToIds.put(userName, userId);
+    idToUserCache.put(userId, userName);
+    userToIdCache.put(userName, userId);
   }
   
   void removeUser(String userName) throws IOException {
@@ -345,13 +296,13 @@ class UsersGroupsCache {
   }
   
   void removeUserFromCache(String userName){
-    removeUserFromCache(usersToIds.getIfPresent(userName), userName);
+    removeUserFromCache(userToIdCache.getIfPresent(userName), userName);
   }
   
   private void removeUserFromCache(Integer userId, String userName){
-    idsToUsers.invalidate(userId);
-    usersToIds.invalidate(userName);
-    usersToGroups.invalidate(userName);
+    idToUserCache.invalidate(userId);
+    userToIdCache.invalidate(userName);
+    userToGroupsCache.invalidate(userName);
   }
   
   int getUserId(String userName) throws IOException {
@@ -361,7 +312,7 @@ class UsersGroupsCache {
     if(userName == null)
       return 0;
     try {
-      return usersToIds.get(userName);
+      return userToIdCache.get(userName);
     } catch (ExecutionException e) {
       if(e.getCause() instanceof UserNotFoundException){
         return 0;
@@ -374,7 +325,7 @@ class UsersGroupsCache {
     if(userName == null)
       return 0;
     
-    return usersToIds.getIfPresent(userName);
+    return userToIdCache.getIfPresent(userName);
   }
   
   String getUserName(Integer userId) throws IOException {
@@ -384,7 +335,7 @@ class UsersGroupsCache {
     if(userId == null || userId <= 0)
       return null;
     try {
-      return idsToUsers.get(userId);
+      return idToUserCache.get(userId);
     } catch (ExecutionException e) {
       if(e.getCause() instanceof UserNotFoundException){
         return null;
@@ -398,7 +349,7 @@ class UsersGroupsCache {
     if(!isConfigured)
       return null;
     
-    Integer groupId = groupsToIds.getIfPresent(groupName);
+    Integer groupId = groupToIdCache.getIfPresent(groupName);
     if(groupId != null){
       LOG.debug("Group " + groupName + " is already in cache with id=" + groupId);
       return groupId;
@@ -421,8 +372,8 @@ class UsersGroupsCache {
   }
   
   private void addGroupToCache(Integer groupId, String groupName){
-    idsToGroups.put(groupId, groupName);
-    groupsToIds.put(groupName, groupId);
+    idToGroupCache.put(groupId, groupName);
+    groupToIdCache.put(groupName, groupId);
   }
   
   void removeGroup(String groupName) throws IOException {
@@ -439,13 +390,12 @@ class UsersGroupsCache {
   }
   
   void removeGroupFromCache(String groupName){
-    removeGroupFromCache(groupsToIds.getIfPresent(groupName), groupName);
+    removeGroupFromCache(groupToIdCache.getIfPresent(groupName), groupName);
   }
   
   private void removeGroupFromCache(Integer groupId, String groupName){
-    idsToGroups.invalidate(groupId);
-    groupsToIds.invalidate(groupName);
-    groupsToUsers.invalidate(groupName);
+    idToGroupCache.invalidate(groupId);
+    groupToIdCache.invalidate(groupName);
   }
   
   int getGroupId(String groupName) throws IOException {
@@ -455,7 +405,7 @@ class UsersGroupsCache {
     if(groupName == null)
       return 0;
     try {
-      return groupsToIds.get(groupName);
+      return groupToIdCache.get(groupName);
     } catch (ExecutionException e) {
       if(e.getCause() instanceof GroupNotFoundException){
         return 0;
@@ -467,7 +417,7 @@ class UsersGroupsCache {
   Integer getGroupIdFromCache(String groupName){
     if(groupName == null)
       return 0;
-    return groupsToIds.getIfPresent(groupName);
+    return groupToIdCache.getIfPresent(groupName);
   }
   
   String getGroupName(Integer groupId) throws IOException {
@@ -477,7 +427,7 @@ class UsersGroupsCache {
     if(groupId == null || groupId <= 0)
       return null;
     try {
-      return idsToGroups.get(groupId);
+      return idToGroupCache.get(groupId);
     } catch (ExecutionException e) {
       if(e.getCause() instanceof GroupNotFoundException){
         return null;
@@ -509,7 +459,7 @@ class UsersGroupsCache {
     if(user == null)
       return null;
     try {
-      return usersToGroups.get(user);
+      return userToGroupsCache.get(user);
     } catch (ExecutionException e) {
       if(e.getCause() instanceof GroupsNotFoundForUserException){
         return null;
@@ -521,7 +471,7 @@ class UsersGroupsCache {
   List<String> getGroupsFromCache(String user) throws IOException {
     if (user == null)
       return null;
-    return usersToGroups.getIfPresent(user);
+    return userToGroupsCache.getIfPresent(user);
   }
   
   
@@ -615,7 +565,7 @@ class UsersGroupsCache {
   
     Integer userId = null;
     if(user != null){
-      List<String> availableGroups = usersToGroups.getIfPresent(user);
+      List<String> availableGroups = userToGroupsCache.getIfPresent(user);
       if (availableGroups != null && groups != null && !groups.isEmpty()) {
         if (availableGroups.containsAll(groups)) {
           LOG.debug("Groups (" + grps + ") already available in the cache for" +
@@ -644,49 +594,36 @@ class UsersGroupsCache {
   
   
   void addUserToGroupsInCache(String user, Collection<String> groups){
-    List<String> currentGroups = usersToGroups.getIfPresent(user);
+    List<String> currentGroups = userToGroupsCache.getIfPresent(user);
     if(currentGroups == null){
       currentGroups = new ArrayList<>();
-      usersToGroups.put(user, currentGroups);
+      userToGroupsCache.put(user, currentGroups);
     }
     
     Set<String> newGroups = new HashSet<>();
-    
     newGroups.addAll(groups);
     newGroups.removeAll(currentGroups);
-    
-    
-    for(String group : newGroups){
-      List<String> users = groupsToUsers.getIfPresent(group);
-      if(users == null){
-        users = new ArrayList<>();
-        groupsToUsers.put(group, users);
-      }
-      users.add(user);
-    }
-    
     currentGroups.addAll(newGroups);
   }
   
   
   void removeUserFromGroupInCache(String user, String group){
-    List<String> currentGroups = usersToGroups.getIfPresent(user);
+    List<String> currentGroups = userToGroupsCache.getIfPresent(user);
     if(currentGroups == null){
       return;
     }
     currentGroups.remove(group);
     if(currentGroups.isEmpty()){
-      usersToGroups.invalidate(user);
+      userToGroupsCache.invalidate(user);
     }
   }
   
   void clear(){
-    usersToGroups.invalidateAll();
-    groupsToUsers.invalidateAll();
-    idsToUsers.invalidateAll();
-    usersToIds.invalidateAll();
-    idsToGroups.invalidateAll();
-    groupsToIds.invalidateAll();
+    userToGroupsCache.invalidateAll();
+    idToUserCache.invalidateAll();
+    userToIdCache.invalidateAll();
+    idToGroupCache.invalidateAll();
+    groupToIdCache.invalidateAll();
   }
   
   
