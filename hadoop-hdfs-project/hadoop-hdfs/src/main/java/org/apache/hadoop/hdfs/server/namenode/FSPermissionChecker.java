@@ -515,6 +515,7 @@ class FSPermissionChecker {
   
   boolean check(long inodeId, FsAction access, FsPermission mode, String userName,
       String groupName) throws AccessControlException, TransactionContextException, IOException {
+    LOG.info("XXX user: "+userName+" group: "+groupName+" groups: "+Arrays.toString(groups.toArray()));
     if (user.equals(userName)) { //user class
       if (mode.getUserAction().implies(access)) {
         return true;
