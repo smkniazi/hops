@@ -1908,6 +1908,14 @@ public class FSNamesystem implements Namesystem, FSNamesystemMBean,
     startFileInternal(pc, iip, permissions, holder, clientMachine, create, overwrite,
         createParent, replication, blockSize);
     final HdfsFileStatus stat = FSDirStatAndListingOp.getFileInfo(dir, src, false, true);
+
+    //if the storage type is DB
+    final INode inode = iip.getLastINode();
+    final INodeFile myFile = INodeFile.valueOf(inode, src, true);
+    final BlockStoragePolicy storagePolicy =
+            getBlockManager().getStoragePolicySuite().getPolicy(myFile.getStoragePolicyID());
+    stat.setFileStoredInDB(storagePolicy.getStorageTypes()[0] == StorageType.DB);
+
     logAuditEvent(true, "create", src, null,
         (isAuditEnabled() && isExternalInvocation()) ? stat : null);
     return stat;

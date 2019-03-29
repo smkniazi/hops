@@ -304,7 +304,6 @@ public class DFSClient implements java.io.Closeable, RemotePeerFactory,
     final long shortCircuitStreamsCacheExpiryMs;
     final int shortCircuitSharedMemoryWatcherInterruptCheckMs;
     final int dbFileMaxSize;
-    final boolean storeSmallFilesInDB;
     //small delay before closing the file ensures that incremental block reporst are processed by the
     //namenodes before the file close operation.
     final int delayBeforeClose;
@@ -485,9 +484,6 @@ public class DFSClient implements java.io.Closeable, RemotePeerFactory,
           DFS_CLIENT_DATANODE_RESTART_TIMEOUT_KEY,
           DFS_CLIENT_DATANODE_RESTART_TIMEOUT_DEFAULT) * 1000;
       
-      storeSmallFilesInDB = conf.getBoolean(DFSConfigKeys.DFS_STORE_SMALL_FILES_IN_DB_KEY,
-              DFSConfigKeys.DFS_STORE_SMALL_FILES_IN_DB_DEFAULT);
-
       dbFileMaxSize = conf.getInt(DFSConfigKeys.DFS_DB_FILE_MAX_SIZE_KEY,
               DFSConfigKeys.DFS_DB_FILE_MAX_SIZE_DEFAULT);
 
@@ -632,7 +628,7 @@ public class DFSClient implements java.io.Closeable, RemotePeerFactory,
     if (this.dfsClientConf.useLegacyBlockReaderLocal) {
       LOG.debug("Using legacy short-circuit local reads.");
     }
-    checkSmallFilesSupportConf(conf);
+
     this.conf = conf;
     this.stats = stats;
     this.socketFactory = NetUtils.getSocketFactory(conf, ClientProtocol.class);
@@ -1010,14 +1006,6 @@ public class DFSClient implements java.io.Closeable, RemotePeerFactory,
       // close connections to the namenode
       closeConnectionsToNamenodes();
     }
-  }
-
-  /**
-   * Is storing small files in the database enabled?
-   * @return True/False
-   */
-  private boolean isStoreSmallFilesInDB(){
-    return dfsClientConf.storeSmallFilesInDB;
   }
 
   /**
@@ -1630,8 +1618,7 @@ public class DFSClient implements java.io.Closeable, RemotePeerFactory,
         src, masked, flag, createParent, replication, blockSize, progress,
         buffersize, dfsClientConf.createChecksum(checksumOpt),
         getFavoredNodesStr(favoredNodes),
-        policy, isStoreSmallFilesInDB(),
-        getDBFileMaxSize());
+        policy, getDBFileMaxSize());
     beginFileLease(result.getFileId(), result);
     return result;
   }
@@ -1691,7 +1678,7 @@ public class DFSClient implements java.io.Closeable, RemotePeerFactory,
       DataChecksum checksum = dfsClientConf.createChecksum(checksumOpt);
       result = DFSOutputStream.newStreamForCreate(this, src, absPermission,
           flag, createParent, replication, blockSize, progress, buffersize,
-          checksum, isStoreSmallFilesInDB(), getDBFileMaxSize());
+          checksum, getDBFileMaxSize());
     }
     beginFileLease(result.getFileId(), result);
     return result;
@@ -1746,7 +1733,7 @@ public class DFSClient implements java.io.Closeable, RemotePeerFactory,
           flag.contains(CreateFlag.NEW_BLOCK),
           buffersize, progress, blkWithStatus.getLastBlock(),
           blkWithStatus.getFileStatus(), dfsClientConf.createChecksum(), favoredNodes,
-          isStoreSmallFilesInDB(), getDBFileMaxSize(), dfsClientConf.hdfsClientEmulationForSF);
+          getDBFileMaxSize(), dfsClientConf.hdfsClientEmulationForSF);
     } catch(RemoteException re) {
       throw re.unwrapRemoteException(AccessControlException.class,
                                      FileNotFoundException.class,
@@ -3157,14 +3144,6 @@ public class DFSClient implements java.io.Closeable, RemotePeerFactory,
     return HEDGED_READ_METRIC;
   }
 
-  private void checkSmallFilesSupportConf(Configuration conf) throws IOException {
-    if(isStoreSmallFilesInDB()) {
-      if(getDBFileMaxSize() > getDefaultBlockSize()){
-        throw new IOException("The size of a file stored in the database should not more than the size of the default block size");
-      }
-    }
-  }
-  
   public boolean hasLeader(){
     return leaderNN!=null;
   }
