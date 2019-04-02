@@ -20,6 +20,7 @@ import io.hops.leader_election.node.SortedActiveNodeList;
 
 import java.io.IOException;
 import java.util.*;
+import java.util.Map.Entry;
 
 import io.hops.metadata.HdfsStorageFactory;
 import io.hops.metadata.HdfsVariables;
@@ -80,39 +81,37 @@ public class BRTrackingService {
 
   private ActiveNode getLeastLoadedNode(final SortedActiveNodeList nnList,
                                         List<ActiveBlockReport> retActiveBRs) throws IOException {
-    class Info{
+    class Tuple{
       ActiveNode an;
       Integer counter;
-      Info(ActiveNode an, Integer count){
+      Tuple(ActiveNode an, Integer count){
         this.an = an;
         this.counter = count;
       }
     }
 
-    Map<String, Info> usage = new HashMap<>();
+    Map<String, Tuple> usage = new HashMap<>();
     for (ActiveNode an : nnList.getActiveNodes()) {
-      usage.put(an.getHttpAddress(), new Info(an, new Integer(0)));
+      usage.put(an.getHttpAddress(), new Tuple(an, new Integer(0)));
     }
 
-    for(ActiveBlockReport abr : retActiveBRs){
-//      Info info =
-
+    for(ActiveBlockReport abr : retActiveBRs) {
+      Tuple entry = usage.get(abr.getNnAddress());
+      entry.counter += 1;
     }
 
+    ActiveNode leastLoaded = null;
+    int count = Integer.MAX_VALUE;
 
-//    ActiveNode leastLoaded = null;
-//    int count = Integer.MAX_VALUE;
-//
-//    for (ActiveNode an : usage.keySet()) {
-//      Integer currCount = usage.get(an);
-//      if (currCount < count) {
-//        leastLoaded = an;
-//        count = currCount;
-//      }
-//    }
-//
-//    return leastLoaded;
-    return null;
+    for (String key : usage.keySet()) {
+      Tuple tuple = usage.get(key);
+      if (tuple.counter < count) {
+        leastLoaded = tuple.an;
+        count = tuple.counter;
+      }
+    }
+
+    return leastLoaded;
   }
 
   private long lastChecked = 0;
@@ -140,19 +139,18 @@ public class BRTrackingService {
           connector.beginTransaction();
           connector.writeLock();
         }
+
         try {
           List<ActiveBlockReport> retActiveBRs = new ArrayList<>();
           if (canProcessMoreBR(nnList, retActiveBRs)) {
             ActiveNode an = getLeastLoadedNode(nnList, retActiveBRs);
-            int index = getRRIndex(nnList);
-            if (index >= 0 && index < nnList.size()) {
-              ActiveNode an = nnList.getSortedActiveNodes().get(index);
+            if( an != null) {
               ActiveBlockReport abr = new ActiveBlockReport(dnAddress, an.getId(),
                       an.getHttpAddress(), System.currentTimeMillis(),
                       noOfBlks);
               addActiveBlockReport(abr);
               LOG.info("Block report from " + dnAddress + " containing " + noOfBlks + " blocks "
-                  + "is assigned to NN [ID: " + an.getId() + ", IP: " + an.getRpcServerIpAddress() + "]");
+                      + "is assigned to NN [ID: " + an.getId() + ", IP: " + an.getRpcServerIpAddress() + "]");
               return an;
             }
           }
