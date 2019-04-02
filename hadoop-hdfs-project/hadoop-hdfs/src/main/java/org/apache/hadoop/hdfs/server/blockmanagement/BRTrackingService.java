@@ -111,7 +111,8 @@ public class BRTrackingService {
             if (index >= 0 && index < nnList.size()) {
               ActiveNode an = nnList.getSortedActiveNodes().get(index);
               ActiveBlockReport abr = new ActiveBlockReport(dnAddress, an.getId(),
-                  System.currentTimeMillis(), noOfBlks);
+                      an.getHttpAddress(), System.currentTimeMillis(),
+                      noOfBlks);
               addActiveBlockReport(abr);
               LOG.info("Block report from " + dnAddress + " containing " + noOfBlks + " blocks "
                   + "is assigned to NN [ID: " + an.getId() + ", IP: " + an.getRpcServerIpAddress() + "]");
@@ -134,7 +135,7 @@ public class BRTrackingService {
 
 
   public synchronized void blockReportCompleted( String dnAddress) throws IOException {
-    ActiveBlockReport abr = new ActiveBlockReport(dnAddress, 0, 0, 0);
+    ActiveBlockReport abr = new ActiveBlockReport(dnAddress, 0, "", 0, 0);
     LOG.info("Block report from "+dnAddress+" has completed");
     removeActiveBlockReport(abr);
   }

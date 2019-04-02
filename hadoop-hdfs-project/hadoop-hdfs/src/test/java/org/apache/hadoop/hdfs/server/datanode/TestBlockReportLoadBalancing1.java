@@ -66,7 +66,8 @@ public class TestBlockReportLoadBalancing1 {
 
     List<ActiveNode> list = new ArrayList<>();
     for (int i = 0; i < NN_COUNT; i++) {
-      ActiveNodePBImpl anode = new ActiveNodePBImpl(i, "host", "localhost", i, "0.0.0.0:10000", "", 0);
+      ActiveNodePBImpl anode = new ActiveNodePBImpl(i, "host", "localhost", i,
+              "0.0.0."+i+":10000" /*httpAddress*/, "0.0.0.0", 0);
       list.add(anode);
     }
 
