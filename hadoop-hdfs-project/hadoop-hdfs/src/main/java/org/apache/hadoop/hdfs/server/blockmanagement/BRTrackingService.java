@@ -20,7 +20,6 @@ import io.hops.leader_election.node.SortedActiveNodeList;
 
 import java.io.IOException;
 import java.util.*;
-import java.util.Map.Entry;
 
 import io.hops.metadata.HdfsStorageFactory;
 import io.hops.metadata.HdfsVariables;
@@ -44,7 +43,7 @@ public class BRTrackingService {
                            final long BR_MAX_PROCESSING_TIME) {
     this.DB_VAR_UPDATE_THRESHOLD = DB_VAR_UPDATE_THRESHOLD;
     this.BR_MAX_PROCESSING_TIME = BR_MAX_PROCESSING_TIME;
-    this.cachedMaxConcurrentBRs = MAX_CONCURRENT_BRS;
+    this.cachedMaxConcurrentBRPerNN = MAX_CONCURRENT_BRS;
   }
 
   private int getRRIndex(final SortedActiveNodeList nnList) {
@@ -111,22 +110,27 @@ public class BRTrackingService {
       }
     }
 
-    return leastLoaded;
+    if (count >= cachedMaxConcurrentBRPerNN) {
+      return null;
+    } else {
+      return leastLoaded;
+    }
+
   }
 
   private long lastChecked = 0;
-  private long cachedMaxConcurrentBRs = 0;
+  private long cachedMaxConcurrentBRPerNN = 0;
   private long getBrLbMaxConcurrentBRs(final SortedActiveNodeList nnList) throws IOException {
     if ((System.currentTimeMillis() - lastChecked) > DB_VAR_UPDATE_THRESHOLD) {
       long value = HdfsVariables.getMaxConcurrentBrs();
-      if (value != cachedMaxConcurrentBRs) {
-        cachedMaxConcurrentBRs = value;
-        LOG.info("BRTrackingService param update. Processing " + cachedMaxConcurrentBRs + " " +
+      if (value != cachedMaxConcurrentBRPerNN) {
+        cachedMaxConcurrentBRPerNN = value;
+        LOG.info("BRTrackingService param update. Processing " + cachedMaxConcurrentBRPerNN + " " +
                 "concurrent block reports");
       }
       lastChecked = System.currentTimeMillis();
     }
-    return cachedMaxConcurrentBRs * nnList.size();
+    return cachedMaxConcurrentBRPerNN * nnList.size();
   }
 
   public synchronized ActiveNode assignWork(final SortedActiveNodeList nnList,
