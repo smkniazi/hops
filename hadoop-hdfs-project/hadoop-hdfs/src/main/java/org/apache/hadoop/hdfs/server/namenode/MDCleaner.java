@@ -69,9 +69,6 @@ public class MDCleaner {
 
           clearLocks();
 
-//          if(true)
-//          throw new RuntimeException("Implement GC for BR");
-
           Thread.sleep(3000);
         } catch (InterruptedException e) {
           e.printStackTrace();
