@@ -1357,7 +1357,7 @@ public class NameNode implements NameNodeStatusMXBean {
   }
 
   private void startMDCleanerService(){
-    mdCleaner.startMDCleanerMonitor(namesystem, leaderElection,stoTableCleanDelay);
+    mdCleaner.startMDCleanerMonitor(namesystem, leaderElection, stoTableCleanDelay);
   }
 
   private void stopMDCleanerService(){
