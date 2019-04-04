@@ -23,7 +23,10 @@ import io.hops.erasure_coding.MockEncodingManager;
 import io.hops.erasure_coding.MockRepairManager;
 import io.hops.exception.StorageException;
 import io.hops.metadata.HdfsStorageFactory;
+import io.hops.metadata.hdfs.dal.INodeDataAccess;
 import io.hops.security.UsersGroups;
+import io.hops.transaction.handler.HDFSOperationType;
+import io.hops.transaction.handler.LightWeightRequestHandler;
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
 import org.apache.hadoop.classification.InterfaceAudience;
@@ -51,6 +54,7 @@ import org.apache.hadoop.hdfs.server.datanode.fsdataset.FsVolumeSpi;
 import org.apache.hadoop.hdfs.server.datanode.fsdataset.impl.FsDatasetUtil;
 import org.apache.hadoop.hdfs.server.datanode.fsdataset.impl.FsVolumeImpl;
 import org.apache.hadoop.hdfs.server.namenode.FSNamesystem;
+import org.apache.hadoop.hdfs.server.namenode.INode;
 import org.apache.hadoop.hdfs.server.namenode.NameNode;
 import org.apache.hadoop.hdfs.server.namenode.NameNodeAdapter;
 import org.apache.hadoop.hdfs.server.protocol.BlockReport;
@@ -467,6 +471,21 @@ public class MiniDFSCluster {
         builder.checkDataNodeHostConfig,
         builder.dnConfOverlays,
         builder.skipFsyncForTesting);
+
+
+    new LightWeightRequestHandler(HDFSOperationType.TEST) {
+      @Override
+      public Object performTask() throws IOException {
+        INodeDataAccess<INode> dataAccess =
+                (INodeDataAccess) HdfsStorageFactory
+                        .getDataAccess(INodeDataAccess.class);
+        List<INode> allinodes = dataAccess.allINodes();
+        for(INode inode : allinodes){
+          LOG.info("Existing inode: ID:"+inode.getId()+" name: "+inode.getLocalName()+" PID: "+inode.getParentId());
+        }
+        return null;
+      }
+    }.handle();
   }
   
   public class DataNodeProperties {
