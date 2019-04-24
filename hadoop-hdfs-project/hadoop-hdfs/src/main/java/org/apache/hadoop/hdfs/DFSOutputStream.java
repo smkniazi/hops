@@ -1787,7 +1787,6 @@ public class DFSOutputStream extends FSOutputSummer implements Syncable, CanSetD
     TraceScope scope =
       dfsClient.newPathTraceScope("newStreamForCreate", src);
     try {
-<<<<<<< HEAD
       try {
         stat = dfsClient.namenode.create(src, masked, dfsClient.clientName,
             new EnumSetWritable<>(flag), createParent, replication,
@@ -1800,13 +1799,13 @@ public class DFSOutputStream extends FSOutputSummer implements Syncable, CanSetD
             UnresolvedPathException.class);
       }
       final DFSOutputStream out = new DFSOutputStream(dfsClient, src, stat,
-          flag, progress, checksum, favoredNodes, policy, saveSmallFilesInDB, dbFileMaxSize);
+          flag, progress, checksum, favoredNodes, policy, dbFileMaxSize);
       out.start();
       return out;
     } finally {
       scope.close();
     }
-=======
+    /*
       stat = dfsClient.namenode.create(src, masked, dfsClient.clientName,
           new EnumSetWritable<>(flag), createParent, replication,
               blockSize, policy);
@@ -1821,7 +1820,8 @@ public class DFSOutputStream extends FSOutputSummer implements Syncable, CanSetD
         flag, progress, checksum,favoredNodes, policy, dbFileMaxSize);
     out.start();
     return out;
->>>>>>> Auto generated commit msg.
+
+     */
   }
 
   static DFSOutputStream newStreamForCreate(DFSClient dfsClient, String src,
@@ -1866,17 +1866,12 @@ public class DFSOutputStream extends FSOutputSummer implements Syncable, CanSetD
       LocatedBlock lastBlock, HdfsFileStatus stat, DataChecksum checksum,
       String[] favoredNodes, final int dbFileMaxSize, boolean emulateHDFSClient)
       throws IOException {
-<<<<<<< HEAD
     TraceScope scope =
         dfsClient.newPathTraceScope("newStreamForAppend", src);
-    try {        
+    try {
       if (stat.isFileStoredInDB()) {
         String errorMessage = null;
-        if (!saveSmallFilesInDB && !emulateHDFSClient) {
-          errorMessage = "The file is stored in the database. Parameter to store the data in the database is disabled. " +
-                  "Set the " + DFSConfigKeys.DFS_STORE_SMALL_FILES_IN_DB_KEY + " configuration parameter in the hdfs " +
-                  "configuration file";
-        } else if (stat.getLen() > stat.getBlockSize()) {
+        if (stat.getLen() > stat.getBlockSize()) {
           errorMessage = "Invalid paraters for appending a file stored in the database. Block size can not be smaller " +
                   "than the max size of a file stored in the database";
         } else if (dbFileMaxSize > stat.getBlockSize()) {
@@ -1885,15 +1880,12 @@ public class DFSOutputStream extends FSOutputSummer implements Syncable, CanSetD
         }
 
         if (errorMessage != null) {
-          throw new IOException(errorMessage + " Stat.isStoredInDB: " + stat.isFileStoredInDB() +
-                  " saveSmallFilesInDB: " + saveSmallFilesInDB + " Stat.len: " + stat.getLen() + " dbFileMaxSize: " +
-                  dbFileMaxSize + " BlockSize: " + stat.getBlockSize());
+          throw new IOException(errorMessage);
         }
       }
-            
-      
+
       final DFSOutputStream out = new DFSOutputStream(dfsClient, src, toNewBlock,
-          progress, lastBlock, stat, checksum, saveSmallFilesInDB, dbFileMaxSize);
+          progress, lastBlock, stat, checksum, dbFileMaxSize);
       if (favoredNodes != null && favoredNodes.length != 0) {
         out.streamer.setFavoredNodes(favoredNodes);
       }
@@ -1901,28 +1893,6 @@ public class DFSOutputStream extends FSOutputSummer implements Syncable, CanSetD
       return out;
     } finally {
       scope.close();
-=======
-            
-    if (stat.isFileStoredInDB()) {
-      String errorMessage = null;
-      if (stat.getLen() > stat.getBlockSize()) {
-        errorMessage = "Invalid paraters for appending a file stored in the database. Block size can not be smaller " +
-                "than the max size of a file stored in the database";
-      } else if (dbFileMaxSize > stat.getBlockSize()) {
-        errorMessage = "Invalid paraters for appending a file stored in the database. Files stored in the database " +
-                "can not be larger than a HDFS block";
-      }
-
-      if (errorMessage != null) {
-        throw new IOException(errorMessage);
-      }
-    }
-
-    final DFSOutputStream out = new DFSOutputStream(dfsClient, src, toNewBlock,
-        progress, lastBlock, stat, checksum, dbFileMaxSize);
-    if (favoredNodes != null && favoredNodes.length != 0) {
-      out.streamer.setFavoredNodes(favoredNodes);
->>>>>>> Auto generated commit msg.
     }
   }
 
