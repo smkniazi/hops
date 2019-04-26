@@ -1873,6 +1873,7 @@ public class FSNamesystem implements Namesystem, FSNamesystemMBean,
         } finally {
           byte[] statusArray = status == null ? null : PBHelper.convert(status).toByteArray();
           RetryCacheDistributed.setState(cacheEntry, status != null, statusArray);
+          throw new TransientStorageException("");
         }
       }
     }.handle(this);
