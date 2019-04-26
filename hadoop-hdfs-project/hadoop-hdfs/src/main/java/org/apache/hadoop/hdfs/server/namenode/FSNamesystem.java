@@ -8317,7 +8317,7 @@ public class FSNamesystem implements Namesystem, FSNamesystemMBean,
     @Override
     public void run() {
       int numRun = 0;
-      while (fsRunning && shouldCacheCleanerRun) {
+      while (fsRunning && shouldCacheCleanerRun) { //FIXME Leader should do this
         try {
           final List<CacheEntry> toRemove = new ArrayList<>();
           int num = retryCache.getToRemove().drainTo(toRemove);

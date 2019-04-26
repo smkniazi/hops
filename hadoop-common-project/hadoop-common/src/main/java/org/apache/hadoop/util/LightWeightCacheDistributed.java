@@ -103,7 +103,7 @@ public class LightWeightCacheDistributed extends LightWeightCache<CacheEntry, Ca
   
   @Override
   public CacheEntry get(CacheEntry key) {
-    CacheEntry entry = super.get(key);
+    CacheEntry entry = super.get(key); //FIXME why the fuck read / update to local memory
     try{
     RetryCacheEntry existInDB = EntityManager.find(RetryCacheEntry.Finder.ByClientIdAndCallId, key.getClientId(), key.getCallId());
     if(existInDB != null && existInDB.getExpirationTime()  > timer.now()){
