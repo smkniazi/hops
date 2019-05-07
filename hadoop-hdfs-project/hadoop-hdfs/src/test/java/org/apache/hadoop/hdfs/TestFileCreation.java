@@ -1855,5 +1855,39 @@ public class TestFileCreation {
     }
   }
 
+  @Test
+  public void testForHdfsMount() throws IOException {
+    Configuration conf = new HdfsConfiguration();
+    MiniDFSCluster cluster = new MiniDFSCluster.Builder(conf).numDataNodes(3).build();
+    try {
+      cluster.waitActive();
+      PrintWriter writer = new PrintWriter("/tmp/nn" );
+      writer.println(cluster.getNameNode().getServiceRpcAddress().getHostName()+":"+cluster.getNameNode().getServiceRpcAddress().getPort());
+      writer.close();
+
+      DistributedFileSystem dfs = cluster.getFileSystem();
+      int count = 5;
+
+      for(int i = 0; i < count ; i++){
+        Path path = new Path("/dir"+i);
+        dfs.mkdirs(path);
+        for(int j = 0; j < count; j++){
+          dfs.mkdirs(new Path(path, "dir"+j));
+        }
+      }
+
+      while (true) {
+        try {
+          Thread.sleep(Long.MAX_VALUE);
+        } catch (InterruptedException e) {
+          e.printStackTrace();
+        }
+      }
+
+
+    } finally {
+      cluster.shutdown();
+    }
+  }
 }
 
