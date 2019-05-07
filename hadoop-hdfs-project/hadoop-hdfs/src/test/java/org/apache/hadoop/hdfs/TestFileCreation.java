@@ -1876,6 +1876,9 @@ public class TestFileCreation {
         }
       }
 
+      FileStatus s = dfs.getFileStatus(new Path("/dir0"));
+      FileStatus s1[] = dfs.listStatus(new Path("/dir0"));
+
       while (true) {
         try {
           Thread.sleep(Long.MAX_VALUE);
