@@ -2,4 +2,4 @@
 
 address=$(cat /tmp/nn)
 echo "Mount Src: $address"
-./hdfs-mount $address namespace
+../../hdfs-mount/hdfs-mount $address namespace

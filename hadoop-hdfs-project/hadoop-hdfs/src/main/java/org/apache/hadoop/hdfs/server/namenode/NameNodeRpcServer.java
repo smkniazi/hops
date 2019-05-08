@@ -869,6 +869,7 @@ class NameNodeRpcServer implements NamenodeProtocols {
       metrics.incrGetListingOps();
       metrics.incrFilesInGetListingOps(files.getPartialListing().length);
     }
+    System.out.println(" Returing listing with "+files.getPartialListing().length+" items");
     return files;
   }
 

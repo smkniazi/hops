@@ -1858,6 +1858,7 @@ public class TestFileCreation {
   @Test
   public void testForHdfsMount() throws IOException {
     Configuration conf = new HdfsConfiguration();
+    conf.setBoolean(DFS_PERMISSIONS_ENABLED_KEY, false);
     MiniDFSCluster cluster = new MiniDFSCluster.Builder(conf).numDataNodes(3).build();
     try {
       cluster.waitActive();
@@ -1871,13 +1872,11 @@ public class TestFileCreation {
       for(int i = 0; i < count ; i++){
         Path path = new Path("/dir"+i);
         dfs.mkdirs(path);
-        for(int j = 0; j < count; j++){
-          dfs.mkdirs(new Path(path, "dir"+j));
-        }
-      }
 
-      FileStatus s = dfs.getFileStatus(new Path("/dir0"));
-      FileStatus s1[] = dfs.listStatus(new Path("/dir0"));
+        FSDataOutputStream out = dfs.create(new Path(path, "file"));
+        out.writeBytes("This is file "+i);
+        out.close();
+      }
 
       while (true) {
         try {

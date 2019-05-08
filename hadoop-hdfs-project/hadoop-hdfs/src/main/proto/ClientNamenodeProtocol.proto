@@ -106,7 +106,9 @@ message CreateRequestProto {
   required bool createParent = 5;
   required uint32 replication = 6; // Short: Only 16 bits used
   required uint64 blockSize = 7;
-  optional EncodingPolicyProto policy = 8; // Policy used for erasure coding if required
+
+  //hopsfs
+  optional EncodingPolicyProto policy = 9; // Policy used for erasure coding if required
 }
 
 message CreateResponseProto {
