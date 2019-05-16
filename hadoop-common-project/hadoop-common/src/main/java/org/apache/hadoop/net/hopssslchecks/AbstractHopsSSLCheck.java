@@ -18,6 +18,7 @@
 package org.apache.hadoop.net.hopssslchecks;
 
 import org.apache.hadoop.conf.Configuration;
+import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.net.HopsSSLSocketFactory;
 import org.apache.hadoop.security.UserGroupInformation;
 import org.apache.hadoop.security.ssl.CertificateLocalization;
@@ -90,9 +91,12 @@ public abstract class AbstractHopsSSLCheck implements HopsSSLCheck, Comparable<H
   protected HopsSSLCryptoMaterial readSuperuserMaterialFromFile(Configuration configuration) throws IOException {
     Configuration sslConf = new Configuration(false);
     String sslConfResource = configuration.get(SSLFactory.SSL_SERVER_CONF_KEY, "ssl-server.xml");
-  
+
+    //sslConf.addResource(new Path(sslConfResource));
     sslConf.addResource(sslConfResource);
-  
+
+    //System.out.println("XXXXXXX ");
+
     String keystoreLocation = sslConf.get(
         FileBasedKeyStoresFactory.resolvePropertyName(SSLFactory.Mode.SERVER,
             FileBasedKeyStoresFactory.SSL_KEYSTORE_LOCATION_TPL_KEY));

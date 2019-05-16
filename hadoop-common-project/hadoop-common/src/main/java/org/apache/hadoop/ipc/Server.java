@@ -1042,13 +1042,17 @@ public abstract class Server {
           Iterator<SelectionKey> iter = getSelector().selectedKeys().iterator();
           while (iter.hasNext()) {
             key = iter.next();
+
             iter.remove();
             try {
               if (key.isValid()) {
                 if (key.isAcceptable())
+                  LOG.info("XXX remaining keys "+getSelector().selectedKeys().size());
                   doAccept(key);
               }
             } catch (IOException e) {
+              LOG.info("unique_error");
+              LOG.warn("XXX "+e,e);
             }
             key = null;
           }
@@ -1121,6 +1125,7 @@ public abstract class Server {
     void doAccept(SelectionKey key) throws InterruptedException, IOException, OutOfMemoryError {
       ServerSocketChannel server = (ServerSocketChannel) key.channel();
       SocketChannel channel;
+
       while ((channel = server.accept()) != null) {
 
         channel.configureBlocking(false);
@@ -1134,7 +1139,15 @@ public abstract class Server {
           boolean handshakeDone = false;
           boolean crlValidationPassed = false;
           if (isSSLEnabled) {
-            if (!c.doHandshake()) {
+            boolean res = false;
+            try{
+              res = c.doHandshake();
+            } catch (IOException ex){
+              connectionManager.close(c);
+              throw ex;
+            }
+
+            if (!res) {
               // SSL handshake failed
               LOG.error("TLS handshake for " + c.getHostAddress() + " failed");
               connectionManager.close(c);
