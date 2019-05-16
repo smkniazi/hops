@@ -1047,12 +1047,10 @@ public abstract class Server {
             try {
               if (key.isValid()) {
                 if (key.isAcceptable())
-                  LOG.info("XXX remaining keys "+getSelector().selectedKeys().size());
                   doAccept(key);
               }
             } catch (IOException e) {
-              LOG.info("unique_error");
-              LOG.warn("XXX "+e,e);
+              LOG.warn(e,e);
             }
             key = null;
           }

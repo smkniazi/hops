@@ -77,12 +77,8 @@ public abstract class RpcSSLEngineAbstr implements RpcSSLEngine {
 
     @Override
     public boolean doHandshake() throws IOException {
-        boolean print = false;
         SSLEngineResult result;
         SSLEngineResult.HandshakeStatus handshakeStatus;
-        long tid = Thread.currentThread().getId();
-        String tname  = Thread.currentThread().getName();
-        tname = "[name: "+tname+ "tid: "+tid+"]";
 
         ByteBuffer serverAppBuffer = ByteBuffer.allocate(sslEngine.getSession().getApplicationBufferSize());
         ByteBuffer clientAppBuffer = ByteBuffer.allocate(sslEngine.getSession().getApplicationBufferSize());
@@ -95,10 +91,6 @@ public abstract class RpcSSLEngineAbstr implements RpcSSLEngine {
             switch (handshakeStatus) {
                 case NEED_UNWRAP:
                   int ret = socketChannel.read(clientNetBuffer) ;
-                  if(print) {
-                      LOG.info(tname+" XXX2 read ret val is "+ret);
-//                      print = false;
-                  }
                     if ( ret < 0 ) {
                         if (sslEngine.isInboundDone() && sslEngine.isOutboundDone()) {
                             return false;
@@ -107,12 +99,10 @@ public abstract class RpcSSLEngineAbstr implements RpcSSLEngine {
                             sslEngine.closeInbound();
                         } catch (SSLException ex) {
                             LOG.error(ex, ex);
-                            LOG.info(tname+" XXX3 "+ex);
                             throw ex;
                         }
                         sslEngine.closeOutbound();
                         handshakeStatus = sslEngine.getHandshakeStatus();
-                        LOG.info(tname+" XXX4 "+handshakeStatus);
                         break;
                     }
                     clientNetBuffer.flip();
@@ -184,8 +174,6 @@ public abstract class RpcSSLEngineAbstr implements RpcSSLEngine {
                             } catch (Exception ex) {
                                 LOG.error(ex, ex);
                                 handshakeStatus = sslEngine.getHandshakeStatus();
-                                LOG.info(ex +" "+tname+" XXX "+ handshakeStatus);
-                                print = true;
                                 throw ex;
                             }
                             break;

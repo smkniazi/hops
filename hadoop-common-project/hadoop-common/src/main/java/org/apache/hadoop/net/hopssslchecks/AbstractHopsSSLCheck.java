@@ -92,10 +92,7 @@ public abstract class AbstractHopsSSLCheck implements HopsSSLCheck, Comparable<H
     Configuration sslConf = new Configuration(false);
     String sslConfResource = configuration.get(SSLFactory.SSL_SERVER_CONF_KEY, "ssl-server.xml");
 
-    //sslConf.addResource(new Path(sslConfResource));
     sslConf.addResource(sslConfResource);
-
-    //System.out.println("XXXXXXX ");
 
     String keystoreLocation = sslConf.get(
         FileBasedKeyStoresFactory.resolvePropertyName(SSLFactory.Mode.SERVER,

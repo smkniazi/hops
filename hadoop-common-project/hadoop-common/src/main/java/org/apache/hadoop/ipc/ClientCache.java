@@ -73,10 +73,6 @@ public class ClientCache {
 
   // In case of the same user but with different crypto material and password
   private boolean invalidateCache(SocketFactory newFactory, Client client) {
-    System.out.println("Invalidate Client");
-    if(true)
-    return true;
-
     SocketFactory cachedFactory = client.getSocketFactory();
     if (newFactory instanceof HopsSSLSocketFactory
         && cachedFactory instanceof HopsSSLSocketFactory) {
