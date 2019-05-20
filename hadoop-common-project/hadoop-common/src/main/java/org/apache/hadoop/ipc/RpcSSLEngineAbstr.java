@@ -17,6 +17,8 @@ package org.apache.hadoop.ipc;
 
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
+import org.apache.hadoop.conf.Configuration;
+import org.apache.hadoop.fs.CommonConfigurationKeys;
 
 import javax.net.ssl.*;
 import java.io.*;
@@ -35,6 +37,8 @@ public abstract class RpcSSLEngineAbstr implements RpcSSLEngine {
     private final static Log LOG = LogFactory.getLog(RpcSSLEngineAbstr.class);
     protected final SocketChannel socketChannel;
     protected final SSLEngine sslEngine;
+    private final Configuration conf;
+    private final long handshakeTimeoutMS;
     protected final static int KB = 1024;
     private final ExecutorService exec = Executors.newSingleThreadExecutor();
 
@@ -65,9 +69,12 @@ public abstract class RpcSSLEngineAbstr implements RpcSSLEngine {
     protected ByteBuffer serverNetBuffer;
     protected ByteBuffer clientNetBuffer;
 
-    public RpcSSLEngineAbstr(SocketChannel socketChannel, SSLEngine sslEngine) {
+    public RpcSSLEngineAbstr(SocketChannel socketChannel, SSLEngine sslEngine, Configuration conf) {
         this.socketChannel = socketChannel;
         this.sslEngine = sslEngine;
+        this.conf = conf;
+        handshakeTimeoutMS = conf.getLong(CommonConfigurationKeys.IPC_SERVER_TLS_HANDSHAKE_TIMEOUT_MS,
+            CommonConfigurationKeys.IPC_SERVER_TLS_HANDSHAKE_TIMEOUT_MS_DEFAULT);
         //serverAppBuffer = ByteBuffer.allocate(sslEngine.getSession().getApplicationBufferSize());
         serverAppBuffer = ByteBuffer.allocate(100 * KB);
         //clientAppBuffer = ByteBuffer.allocate(sslEngine.getSession().getApplicationBufferSize());
@@ -77,7 +84,12 @@ public abstract class RpcSSLEngineAbstr implements RpcSSLEngine {
         //clientNetBuffer = ByteBuffer.allocate(sslEngine.getSession().getPacketBufferSize());
         clientNetBuffer = ByteBuffer.allocate(100 * KB);
     }
-
+    
+    @Override
+    public Configuration getConf() {
+        return conf;
+    }
+    
     @Override
     public boolean doHandshake() throws IOException {
         LOG.debug("Starting TLS handshake with peer");
@@ -95,7 +107,7 @@ public abstract class RpcSSLEngineAbstr implements RpcSSLEngine {
         handshakeStatus = sslEngine.getHandshakeStatus();
         while (handshakeStatus != SSLEngineResult.HandshakeStatus.FINISHED
                 && handshakeStatus != SSLEngineResult.HandshakeStatus.NOT_HANDSHAKING) {
-            if (timer.elapsedIn(TimeUnit.SECONDS) > 2) {
+            if (timer.elapsedIn(TimeUnit.MILLISECONDS) > handshakeTimeoutMS) {
                 if (LOG.isWarnEnabled()) {
                     SocketAddress remoteAddress = socketChannel.getRemoteAddress();
                     String remoteHost = "unknown";

@@ -3574,7 +3574,8 @@ public abstract class Server {
       }
       Connection connection;
       if (sslEngine != null) {
-        connection = new Connection(channel, Time.now(), new ServerRpcSSLEngineImpl(channel, sslEngine, maxDataLength));
+        connection = new Connection(channel, Time.now(), new ServerRpcSSLEngineImpl(channel, sslEngine,
+            maxDataLength, conf));
       } else {
         connection = new Connection(channel, Time.now());
       }
