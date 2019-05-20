@@ -1134,12 +1134,18 @@ public abstract class Server {
           boolean handshakeDone = false;
           boolean crlValidationPassed = false;
           if (isHopsTLSEnabled) {
-            if (!c.doHandshake()) {
+            try {
+              handshakeDone = c.doHandshake();
+            } catch (IOException ex) {
+              LOG.debug(ex, ex);
+              connectionManager.close(c);
+              throw ex;
+            }
+            if (!handshakeDone) {
               // SSL handshake failed
               LOG.error("TLS handshake for " + c.getHostAddress() + " failed");
               connectionManager.close(c);
             } else {
-              handshakeDone = true;
               LOG.debug("TLS handshake for " + c.getHostAddress() + " succeed");
               if (crlValidator != null) {
                 LOG.debug("Checking certificate validity against CRL");

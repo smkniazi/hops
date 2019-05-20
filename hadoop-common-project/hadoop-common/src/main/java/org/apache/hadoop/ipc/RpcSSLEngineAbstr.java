@@ -20,12 +20,15 @@ import org.apache.commons.logging.LogFactory;
 
 import javax.net.ssl.*;
 import java.io.*;
+import java.net.InetSocketAddress;
+import java.net.SocketAddress;
 import java.nio.ByteBuffer;
 import java.nio.channels.ReadableByteChannel;
 import java.nio.channels.SocketChannel;
 import java.nio.channels.WritableByteChannel;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
+import java.util.concurrent.TimeUnit;
 
 public abstract class RpcSSLEngineAbstr implements RpcSSLEngine {
 
@@ -87,19 +90,40 @@ public abstract class RpcSSLEngineAbstr implements RpcSSLEngine {
         serverNetBuffer.clear();
         clientNetBuffer.clear();
 
+        TimeWatch timer = TimeWatch.start();
+        
         handshakeStatus = sslEngine.getHandshakeStatus();
         while (handshakeStatus != SSLEngineResult.HandshakeStatus.FINISHED
                 && handshakeStatus != SSLEngineResult.HandshakeStatus.NOT_HANDSHAKING) {
+            if (timer.elapsedIn(TimeUnit.SECONDS) > 2) {
+                if (LOG.isWarnEnabled()) {
+                    SocketAddress remoteAddress = socketChannel.getRemoteAddress();
+                    String remoteHost = "unknown";
+                    if (remoteAddress != null) {
+                        if (remoteAddress instanceof InetSocketAddress) {
+                            InetSocketAddress inetRemoteAddress = (InetSocketAddress) remoteAddress;
+                            remoteHost = inetRemoteAddress.getHostString() + ":" + inetRemoteAddress.getPort();
+                        }
+                    }
+                    LOG.warn("Connection with " + remoteHost + " has been handshaking for too long. Closing the " +
+                        "connection!");
+                }
+                throw new SSLException("TLS handshake time-out. Handshaking for more than 3 seconds");
+            }
             switch (handshakeStatus) {
                 case NEED_UNWRAP:
-                    if (socketChannel.read(clientNetBuffer) < 0) {
+                    int inBytes = socketChannel.read(clientNetBuffer);
+                    if (inBytes > 0) {
+                        timer.reset();
+                    } else if (inBytes < 0) {
                         if (sslEngine.isInboundDone() && sslEngine.isOutboundDone()) {
                             return false;
                         }
                         try {
                             sslEngine.closeInbound();
                         } catch (SSLException ex) {
-                            //LOG.error(ex, ex);
+                            LOG.warn(ex, ex);
+                            throw ex;
                         }
                         sslEngine.closeOutbound();
                         handshakeStatus = sslEngine.getHandshakeStatus();
@@ -111,10 +135,9 @@ public abstract class RpcSSLEngineAbstr implements RpcSSLEngine {
                         clientNetBuffer.compact();
                         handshakeStatus = result.getHandshakeStatus();
                     } catch (SSLException ex) {
-                        LOG.error(ex, ex);
+                        LOG.warn(ex, ex);
                         sslEngine.closeOutbound();
-                        handshakeStatus = sslEngine.getHandshakeStatus();
-                        break;
+                        throw ex;
                     }
                     switch (result.getStatus()) {
                         case OK:
@@ -145,10 +168,9 @@ public abstract class RpcSSLEngineAbstr implements RpcSSLEngine {
                         result = sslEngine.wrap(serverAppBuffer, serverNetBuffer);
                         handshakeStatus = result.getHandshakeStatus();
                     } catch (SSLException ex) {
-                        LOG.error(ex, ex);
+                        LOG.warn(ex, ex);
                         sslEngine.closeOutbound();
-                        handshakeStatus = sslEngine.getHandshakeStatus();
-                        break;
+                        throw ex;
                     }
                     switch (result.getStatus()) {
                         case OK:
@@ -156,6 +178,7 @@ public abstract class RpcSSLEngineAbstr implements RpcSSLEngine {
                             while (serverNetBuffer.hasRemaining()) {
                                 socketChannel.write(serverNetBuffer);
                             }
+                            timer.reset();
                             break;
                         case BUFFER_OVERFLOW:
                             serverNetBuffer = enlargePacketBuffer(serverNetBuffer);
@@ -168,10 +191,11 @@ public abstract class RpcSSLEngineAbstr implements RpcSSLEngine {
                                 while (serverNetBuffer.hasRemaining()) {
                                     socketChannel.write(serverNetBuffer);
                                 }
+                                timer.reset();
                                 clientNetBuffer.clear();
                             } catch (Exception ex) {
-                                LOG.error(ex, ex);
-                                handshakeStatus = sslEngine.getHandshakeStatus();
+                                LOG.warn(ex, ex);
+                                throw ex;
                             }
                             break;
                         default:
