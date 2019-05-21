@@ -58,6 +58,8 @@ public class TestHopsDFSClientFailover extends HopsSSLTestUtils {
   private static void initLoggers() {
     ((Log4JLogger) HopsRandomStickyFailoverProxyProvider.LOG).getLogger().setLevel(Level.ALL);
     ((Log4JLogger) TestHopsDFSClientFailover.LOG).getLogger().setLevel(Level.ALL);
+    ((Log4JLogger) FailoverProxyHelper.LOG).getLogger().setLevel(Level.ALL);
+
   }
 
   @Test
@@ -173,25 +175,14 @@ public class TestHopsDFSClientFailover extends HopsSSLTestUtils {
     conf.setInt(DFSConfigKeys.DFS_CLIENT_FAILOVER_SLEEPTIME_BASE_KEY, /*default 500*/ 500);
     conf.setInt(DFSConfigKeys.DFS_CLIENT_FAILOVER_SLEEPTIME_MAX_KEY, /*default 15000*/1000);
     conf.setInt(DFSConfigKeys.DFS_CLIENT_FAILOVER_CONNECTION_RETRIES_KEY, /*default 0*/ 0);
-    conf.setInt(DFSConfigKeys.DFS_CLIENT_FAILOVER_CONNECTION_RETRIES_ON_SOCKET_TIMEOUTS_KEY,
-            /*default 0*/0);
+    conf.setInt(DFSConfigKeys.DFS_CLIENT_FAILOVER_CONNECTION_RETRIES_ON_SOCKET_TIMEOUTS_KEY, /*default 0*/0);
     conf.setInt(CommonConfigurationKeysPublic.IPC_CLIENT_CONNECT_MAX_RETRIES_ON_SOCKET_TIMEOUTS_KEY, /*default 45*/ 1);
     conf.setInt(DFSConfigKeys.IPC_CLIENT_CONNECT_MAX_RETRIES_KEY, /*default 10*/ 1);
 
     conf.set(HdfsClientConfigKeys.Retry.POLICY_SPEC_KEY,"1000,1");
     conf.setBoolean(HdfsClientConfigKeys.Retry.POLICY_ENABLED_KEY, true);
     conf.setInt(HdfsClientConfigKeys.Retry.MAX_ATTEMPTS_KEY, 1);
-    conf.setInt(CommonConfigurationKeys.IPC_CLIENT_CONNECT_MAX_RETRIES_ON_SASL_KEY,
-          /*default 5*/ 5);
 
-
-    long leadercheckInterval =
-            conf.getInt(DFSConfigKeys.DFS_LEADER_CHECK_INTERVAL_IN_MS_KEY,
-                    DFSConfigKeys.DFS_LEADER_CHECK_INTERVAL_IN_MS_DEFAULT);
-    int missedHeartBeatThreshold =
-            conf.getInt(DFSConfigKeys.DFS_LEADER_MISSED_HB_THRESHOLD_KEY,
-                    DFSConfigKeys.DFS_LEADER_MISSED_HB_THRESHOLD_DEFAULT);
-    long delay = (leadercheckInterval * (missedHeartBeatThreshold + 1)) + 3000;
 
     try {
       cluster = new MiniDFSCluster.Builder(conf)
@@ -205,25 +196,23 @@ public class TestHopsDFSClientFailover extends HopsSSLTestUtils {
       LOG.info("XXX NN0 "+nn0);
       LOG.info("XXX NN1 "+nn1);
 
-//      cluster.shutdownNameNode(1);
-//
+      LOG.info("XXX NN0 "+nn1+" is dead");
+
+//      cluster.stopDataNode(0);
+
       Thread.sleep(5000);
-//
-//      LOG.info("XXX NN0 "+nn1+" is dead");
 
       LOG.info("XXX test started. ");
       RpcSSLEngineAbstr.fail = true;
 
-      Configuration newConf = new HdfsConfiguration(conf);
-      newConf.unset(DFSConfigKeys.DFS_NAMENODES_RPC_ADDRESS_KEY);
-      newConf.unset(DFSConfigKeys.DFS_NAMENODES_SERVICE_RPC_ADDRESS_KEY);
-      newConf.unset(DFSConfigKeys.DFS_NAMENODE_HTTP_ADDRESS_KEY);
-      newConf.unset(DFSConfigKeys.DFS_NAMENODE_RPC_ADDRESS_KEY);
-      newConf.unset(DFSConfigKeys.DFS_NAMENODE_SERVICE_RPC_ADDRESS_KEY);
+      cluster.restartDataNode(0);
+      cluster.waitActive();
 
-      DFSClient client =  new DFSClient(NameNode.getUri(nn1), newConf);
 
-      client.mkdirs("/test", new FsPermission((short)777), true);
+      Thread.sleep(15000);
+
+      Configuration newConf = creatConfWithoutNNInfo(conf);
+
 
     } catch (Exception e) {
       e.printStackTrace();
@@ -233,6 +222,17 @@ public class TestHopsDFSClientFailover extends HopsSSLTestUtils {
         cluster.shutdown();
       }
     }
+  }
+
+  public Configuration creatConfWithoutNNInfo(Configuration conf){
+    Configuration newConf = new HdfsConfiguration(conf);
+    newConf.unset(DFSConfigKeys.DFS_NAMENODES_RPC_ADDRESS_KEY);
+    newConf.unset(DFSConfigKeys.DFS_NAMENODES_SERVICE_RPC_ADDRESS_KEY);
+    newConf.unset(DFSConfigKeys.DFS_NAMENODE_HTTP_ADDRESS_KEY);
+    newConf.unset(DFSConfigKeys.DFS_NAMENODE_RPC_ADDRESS_KEY);
+    newConf.unset(DFSConfigKeys.DFS_NAMENODE_SERVICE_RPC_ADDRESS_KEY);
+    return newConf;
+
   }
 
 }

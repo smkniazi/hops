@@ -28,7 +28,7 @@ import java.net.URI;
 import java.util.*;
 
 public class FailoverProxyHelper {
-  private static final Log LOG =
+  public static final Log LOG =
           LogFactory.getLog(FailoverProxyHelper.class);
 
   /**

@@ -1138,7 +1138,15 @@ public abstract class Server {
               handshakeDone = c.doHandshake();
             } catch (IOException ex) {
               LOG.debug(ex, ex);
-              connectionManager.close(c);
+//              LOG.info("YYY about to close the connection ");
+//              try {
+                connectionManager.close(c);
+//              } catch( Exception e){
+//                LOG.info("YYY got excetion in close "+e);
+//                LOG.info(e,e);
+//                throw e;
+//              }
+//              LOG.info("YYY closed the connection ");
               throw ex;
             }
             if (!handshakeDone) {

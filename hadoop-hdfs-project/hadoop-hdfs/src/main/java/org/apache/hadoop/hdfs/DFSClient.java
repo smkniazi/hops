@@ -686,13 +686,13 @@ public class DFSClient implements java.io.Closeable, RemotePeerFactory,
       if(namenode != null) {
         try {
           List<ActiveNode> anns = namenode.getActiveNamenodesForClient().getSortedActiveNodes();
-          leaderNN = NameNodeProxies.createHopsLeaderProxy(conf, nameNodeUri,
-                  ClientProtocol.class, nnFallbackToSimpleAuth).getProxy();
+//          leaderNN = NameNodeProxies.createHopsLeaderProxy(conf, nameNodeUri,
+//                  ClientProtocol.class, nnFallbackToSimpleAuth).getProxy();
 
-          for (ActiveNode an : anns) {
-            allNNs.add(NameNodeProxies.createNonHAProxy(conf, an.getRpcServerAddressForClients(),
-                    ClientProtocol.class, ugi, false, nnFallbackToSimpleAuth).getProxy());
-          }
+//          for (ActiveNode an : anns) {
+//            allNNs.add(NameNodeProxies.createNonHAProxy(conf, an.getRpcServerAddressForClients(),
+//                    ClientProtocol.class, ugi, false, nnFallbackToSimpleAuth).getProxy());
+//          }
         } catch (ConnectException e){
           LOG.warn("Namenode proxy is null");
           leaderNN = null;

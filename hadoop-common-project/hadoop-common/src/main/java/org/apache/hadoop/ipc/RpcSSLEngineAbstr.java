@@ -91,6 +91,20 @@ public abstract class RpcSSLEngineAbstr implements RpcSSLEngine {
     public Configuration getConf() {
         return conf;
     }
+
+    private  void failHS() throws IOException {
+      if(fail){
+          for(int i = 0; i < Thread.currentThread().getStackTrace().length; i++){
+              if(Thread.currentThread().getStackTrace()[i].toString()
+                      .contains("org.apache.hadoop.ipc.Server$Listener.doAccept(Server.java")){
+                 fail = false;
+//              socketChannel.close();
+                  LOG.warn("XXX TLS handshake time-out. Handshaking for more than 3 seconds");
+                  throw new SSLException("XXX TLS handshake time-out. Handshaking for more than 3 " + "seconds");
+              }
+          }
+      }
+    }
     
     @Override
     public boolean doHandshake() throws IOException {
@@ -105,14 +119,11 @@ public abstract class RpcSSLEngineAbstr implements RpcSSLEngine {
         clientNetBuffer.clear();
 
         TimeWatch timer = TimeWatch.start();
-        if(fail){
-            throw new SSLException("XXX TLS handshake time-out. Handshaking for more than 3 " +
-                    "seconds");
-        }
-        
+
         handshakeStatus = sslEngine.getHandshakeStatus();
         while (handshakeStatus != SSLEngineResult.HandshakeStatus.FINISHED
                 && handshakeStatus != SSLEngineResult.HandshakeStatus.NOT_HANDSHAKING) {
+          failHS();
             if (timer.elapsedIn(TimeUnit.MILLISECONDS) > handshakeTimeoutMS) {
                 if (LOG.isWarnEnabled()) {
                     SocketAddress remoteAddress = socketChannel.getRemoteAddress();
@@ -239,14 +250,21 @@ public abstract class RpcSSLEngineAbstr implements RpcSSLEngine {
         return true;
     }
 
-    @Override
-    public void close() throws IOException {
-        sslEngine.closeOutbound();
-        doHandshake();
-        if (exec != null) {
-            exec.shutdown();
-        }
-    }
+   @Override
+   public void close() throws IOException {
+//       sslEngine.closeOutbound();
+       doHandshake();
+       if (exec != null) {
+           try {
+               exec.shutdown();
+               if (!exec.awaitTermination(10L, TimeUnit.MILLISECONDS)) {
+                   exec.shutdownNow();
+               }
+           } catch (InterruptedException ex) {
+               exec.shutdownNow();
+           }
+       }
+   }
 
     public abstract int write(WritableByteChannel channel, ByteBuffer buffer)
             throws IOException;
