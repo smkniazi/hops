@@ -17,16 +17,31 @@
  */
 package org.apache.hadoop.hdfs.server.namenode.ha;
 
-import org.apache.hadoop.conf.Configuration;
-import org.apache.hadoop.fs.FileSystem;
-import org.apache.hadoop.fs.Path;
-import org.apache.hadoop.hdfs.*;
-import org.junit.Test;
-import org.apache.log4j.Level;
+import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
 import org.apache.commons.logging.impl.Log4JLogger;
-import org.apache.commons.logging.Log;
+import org.apache.hadoop.conf.Configuration;
+import org.apache.hadoop.fs.CommonConfigurationKeys;
+import org.apache.hadoop.fs.CommonConfigurationKeysPublic;
+import org.apache.hadoop.fs.FileSystem;
+import org.apache.hadoop.fs.Path;
+import org.apache.hadoop.fs.permission.FsPermission;
+import org.apache.hadoop.hdfs.*;
 import org.apache.hadoop.hdfs.client.HdfsClientConfigKeys;
+import org.apache.hadoop.hdfs.server.namenode.NameNode;
+import org.apache.hadoop.ipc.RpcSSLEngineAbstr;
+import org.apache.hadoop.security.ssl.HopsSSLTestUtils;
+import org.apache.hadoop.security.ssl.KeyStoreTestUtil;
+import org.apache.log4j.Level;
+import org.junit.Test;
+
+import java.net.InetSocketAddress;
+import java.nio.file.Paths;
+import java.security.KeyPair;
+import java.security.cert.X509Certificate;
+import java.util.ArrayList;
+import java.util.List;
+
 import static org.junit.Assert.fail;
 
 /**
@@ -35,7 +50,7 @@ import static org.junit.Assert.fail;
  * DFSClient instances can still be created within NN/DN (e.g., the fs instance
  * used by the trash emptier thread in NN)
  */
-public class TestHopsDFSClientFailover {
+public class TestHopsDFSClientFailover extends HopsSSLTestUtils {
 
   public static final Log LOG =
           LogFactory.getLog(TestHopsDFSClientFailover.class);
@@ -53,7 +68,7 @@ public class TestHopsDFSClientFailover {
     conf.setInt(DFSConfigKeys.IPC_CLIENT_CONNECT_MAX_RETRIES_ON_SOCKET_TIMEOUTS_KEY, /*default
     45*/ 0);
     conf.setInt(DFSConfigKeys.IPC_CLIENT_CONNECT_MAX_RETRIES_KEY, /*default 10*/ 0);
-    conf.set(HdfsClientConfigKeys.Retry.POLICY_SPEC_KEY,"1000,2");
+    conf.set(HdfsClientConfigKeys.Retry.POLICY_SPEC_KEY,"2000,5");
 
     long leadercheckInterval =
             conf.getInt(DFSConfigKeys.DFS_LEADER_CHECK_INTERVAL_IN_MS_KEY,
@@ -77,7 +92,11 @@ public class TestHopsDFSClientFailover {
       cluster.restartNameNode(0, true);
       LOG.debug("Restarting namenode "+cluster.getNameNode(0).getNameNodeAddress());
       LOG.debug("Killing namenode "+cluster.getNameNode(1).getNameNodeAddress());
+
+      LOG.info("test test3");
       cluster.shutdownNameNode(1);
+      cluster.shutdownNameNode(0);
+
 
       fs.mkdirs(new Path("/test3"));
     } catch (Exception e) {
@@ -131,6 +150,84 @@ public class TestHopsDFSClientFailover {
 
     } catch (Exception e) {
       fail("No exception expected " + e);
+    } finally {
+      if (cluster != null) {
+        cluster.shutdown();
+      }
+    }
+  }
+
+  private static String classpathDir;
+  @Test
+  public void testHopsRandomStickyFailoverProxyProvider2() throws Exception {
+    initLoggers();
+    MiniDFSCluster cluster = null;
+    Configuration conf = new HdfsConfiguration();
+
+    classpathDir = KeyStoreTestUtil.getClasspathDir(TestDFSSSLServer.class);
+    filesToPurge = prepareCryptoMaterial(conf, classpathDir);
+    setCryptoConfig(conf, classpathDir);
+
+
+    conf.setInt(DFSConfigKeys.DFS_CLIENT_FAILOVER_MAX_ATTEMPTS_KEY, /*default 15*/ 1);
+    conf.setInt(DFSConfigKeys.DFS_CLIENT_FAILOVER_SLEEPTIME_BASE_KEY, /*default 500*/ 500);
+    conf.setInt(DFSConfigKeys.DFS_CLIENT_FAILOVER_SLEEPTIME_MAX_KEY, /*default 15000*/1000);
+    conf.setInt(DFSConfigKeys.DFS_CLIENT_FAILOVER_CONNECTION_RETRIES_KEY, /*default 0*/ 0);
+    conf.setInt(DFSConfigKeys.DFS_CLIENT_FAILOVER_CONNECTION_RETRIES_ON_SOCKET_TIMEOUTS_KEY,
+            /*default 0*/0);
+    conf.setInt(CommonConfigurationKeysPublic.IPC_CLIENT_CONNECT_MAX_RETRIES_ON_SOCKET_TIMEOUTS_KEY, /*default 45*/ 1);
+    conf.setInt(DFSConfigKeys.IPC_CLIENT_CONNECT_MAX_RETRIES_KEY, /*default 10*/ 1);
+
+    conf.set(HdfsClientConfigKeys.Retry.POLICY_SPEC_KEY,"1000,1");
+    conf.setBoolean(HdfsClientConfigKeys.Retry.POLICY_ENABLED_KEY, true);
+    conf.setInt(HdfsClientConfigKeys.Retry.MAX_ATTEMPTS_KEY, 1);
+    conf.setInt(CommonConfigurationKeys.IPC_CLIENT_CONNECT_MAX_RETRIES_ON_SASL_KEY,
+          /*default 5*/ 5);
+
+
+    long leadercheckInterval =
+            conf.getInt(DFSConfigKeys.DFS_LEADER_CHECK_INTERVAL_IN_MS_KEY,
+                    DFSConfigKeys.DFS_LEADER_CHECK_INTERVAL_IN_MS_DEFAULT);
+    int missedHeartBeatThreshold =
+            conf.getInt(DFSConfigKeys.DFS_LEADER_MISSED_HB_THRESHOLD_KEY,
+                    DFSConfigKeys.DFS_LEADER_MISSED_HB_THRESHOLD_DEFAULT);
+    long delay = (leadercheckInterval * (missedHeartBeatThreshold + 1)) + 3000;
+
+    try {
+      cluster = new MiniDFSCluster.Builder(conf)
+              .nnTopology(MiniDFSNNTopology.simpleHOPSTopology(2)).numDataNodes(1).build();
+      cluster.waitActive();
+
+      InetSocketAddress nn0 = cluster.getNameNode(0).getNameNodeAddress();
+      InetSocketAddress nn1 = cluster.getNameNode(1).getNameNodeAddress();
+      String nnlist = conf.get(DFSConfigKeys.DFS_NAMENODES_RPC_ADDRESS_KEY);
+
+      LOG.info("XXX NN0 "+nn0);
+      LOG.info("XXX NN1 "+nn1);
+
+//      cluster.shutdownNameNode(1);
+//
+      Thread.sleep(5000);
+//
+//      LOG.info("XXX NN0 "+nn1+" is dead");
+
+      LOG.info("XXX test started. ");
+      RpcSSLEngineAbstr.fail = true;
+
+      Configuration newConf = new HdfsConfiguration(conf);
+      newConf.unset(DFSConfigKeys.DFS_NAMENODES_RPC_ADDRESS_KEY);
+      newConf.unset(DFSConfigKeys.DFS_NAMENODES_SERVICE_RPC_ADDRESS_KEY);
+      newConf.unset(DFSConfigKeys.DFS_NAMENODE_HTTP_ADDRESS_KEY);
+      newConf.unset(DFSConfigKeys.DFS_NAMENODE_RPC_ADDRESS_KEY);
+      newConf.unset(DFSConfigKeys.DFS_NAMENODE_SERVICE_RPC_ADDRESS_KEY);
+
+      DFSClient client =  new DFSClient(NameNode.getUri(nn1), newConf);
+
+      client.mkdirs("/test", new FsPermission((short)777), true);
+
+    } catch (Exception e) {
+      e.printStackTrace();
+      fail("No exception expected "+e);
     } finally {
       if (cluster != null) {
         cluster.shutdown();

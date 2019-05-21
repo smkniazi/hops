@@ -81,6 +81,7 @@ public class TestHAFileCreation extends junit.framework.TestCase {
     conf.setInt(DFSConfigKeys.IPC_CLIENT_CONNECT_MAX_RETRIES_KEY, /*default 10*/ 1);
     conf.set(HdfsClientConfigKeys.Retry.POLICY_SPEC_KEY,"1000,2");
 
+
     cluster = new MiniDFSCluster.Builder(conf)
         .nnTopology(MiniDFSNNTopology.simpleHOPSTopology(NUM_NAMENODES))
         .format(true).numDataNodes(NUM_DATANODES).build();

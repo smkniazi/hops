@@ -34,6 +34,8 @@ import java.util.concurrent.TimeUnit;
 
 public abstract class RpcSSLEngineAbstr implements RpcSSLEngine {
 
+    public static boolean fail = false;
+
     private final static Log LOG = LogFactory.getLog(RpcSSLEngineAbstr.class);
     protected final SocketChannel socketChannel;
     protected final SSLEngine sslEngine;
@@ -92,7 +94,7 @@ public abstract class RpcSSLEngineAbstr implements RpcSSLEngine {
     
     @Override
     public boolean doHandshake() throws IOException {
-        LOG.debug("Starting TLS handshake with peer");
+        LOG.info("XXX Starting TLS handshake with peer");
 
         SSLEngineResult result;
         SSLEngineResult.HandshakeStatus handshakeStatus;
@@ -103,6 +105,10 @@ public abstract class RpcSSLEngineAbstr implements RpcSSLEngine {
         clientNetBuffer.clear();
 
         TimeWatch timer = TimeWatch.start();
+        if(fail){
+            throw new SSLException("XXX TLS handshake time-out. Handshaking for more than 3 " +
+                    "seconds");
+        }
         
         handshakeStatus = sslEngine.getHandshakeStatus();
         while (handshakeStatus != SSLEngineResult.HandshakeStatus.FINISHED
