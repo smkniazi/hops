@@ -774,16 +774,23 @@ public class INodeLock extends BaseINodeLock {
   @Override
   public String toString() {
     StringBuilder sb = new StringBuilder();
-    sb.append("INodeLock {");
+    sb.append("INodeLock { "+this.getClass().getCanonicalName()+" " );
     if(paths != null && paths.length > 0){
       sb.append("paths=");
       sb.append(Arrays.toString(paths));
       sb.append(", ");
     }
+
+    if ( inodeId != -1){
+      sb.append("INodeID: ");
+      sb.append(inodeId);
+      sb.append(",");
+    }
+
     if(lockType != null){
       sb.append("lockType=");
       sb.append(lockType);
-      sb.append(", ");
+      sb.append(" ");
     }
 
     sb.append("}");
