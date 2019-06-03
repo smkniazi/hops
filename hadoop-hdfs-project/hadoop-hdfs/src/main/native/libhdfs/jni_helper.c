@@ -398,6 +398,10 @@ static JNIEnv* getGlobalJNIEnv(void)
             fprintf(stderr, "Environment variable CLASSPATH not set!\n");
             return NULL;
         } 
+        printf("CLASSPATH %s\n", hadoopClassPath);
+        printf("-----\n");
+
+        
         optHadoopClassPathLen = strlen(hadoopClassPath) + 
           strlen(hadoopClassPathVMArg) + 1;
         optHadoopClassPath = malloc(sizeof(char)*optHadoopClassPathLen);
