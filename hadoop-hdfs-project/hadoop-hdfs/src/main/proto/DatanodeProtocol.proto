@@ -397,11 +397,20 @@ message GetSmallFileDataProto {
     required uint32 id = 1;
 }
 
-message SmallFileDataResponseProto{
+message SmallFileDataResponseProto {
     required bytes data = 1;
 }
 
-message BlockReportCompletedResponseProto{
+message BlockReportCompletedResponseProto {
+}
+
+// DN requests block meta to check if it's in S3 or not
+message GetCompletedBlockMetaRequestProto {
+  required uint64 blockId = 1;
+}
+
+message GetCompletedBlockMetaResponseProto {
+  optional BlockProto block = 1;
 }
 
 /**
@@ -478,4 +487,9 @@ service DatanodeProtocolService {
   * Ask a namenode to read the small file data
   */
   rpc getSmallFileData (GetSmallFileDataProto) returns (SmallFileDataResponseProto);
+
+  /**
+  * Ask a namenode for completed block's metadata
+  */
+  rpc getCompletedBlockMeta (GetCompletedBlockMetaRequestProto) returns (GetCompletedBlockMetaResponseProto);
 }

@@ -104,7 +104,8 @@ public class FsDatasetUtil {
   static long parseGenerationStamp(File blockFile, File metaFile)
       throws IOException {
     final String metaname = metaFile.getName();
-    final String gs = metaname.substring(blockFile.getName().length() + 1,
+    final String blockname = blockFile.getName();
+    final String gs = metaname.substring(blockname.length() + 1,
         metaname.length() - Block.METADATA_EXTENSION.length());
     try {
       return Long.parseLong(gs);

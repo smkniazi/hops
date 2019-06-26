@@ -24,9 +24,11 @@ import io.hops.leader_election.node.SortedActiveNodeListPBImpl;
 import io.hops.leader_election.proto.ActiveNodeProtos;
 import io.hops.metadata.hdfs.entity.EncodingPolicy;
 import io.hops.metadata.hdfs.entity.EncodingStatus;
-import java.util.EnumSet;
+
+import java.util.*;
 
 
+import io.hops.metadata.s3.entity.S3PathMeta;
 import org.apache.hadoop.classification.InterfaceAudience;
 import org.apache.hadoop.classification.InterfaceStability;
 import org.apache.hadoop.fs.BatchedRemoteIterator.BatchedEntries;
@@ -153,9 +155,7 @@ import org.apache.hadoop.security.token.Token;
 import java.io.Closeable;
 import java.io.FileNotFoundException;
 import java.io.IOException;
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.List;
+
 import org.apache.hadoop.hdfs.protocol.CacheDirectiveEntry;
 import org.apache.hadoop.hdfs.protocol.CacheDirectiveInfo;
 import org.apache.hadoop.hdfs.protocol.CachePoolEntry;
@@ -1413,6 +1413,155 @@ public class ClientNamenodeProtocolTranslatorPB
       rpcProxy.removeUserGroup(null, req.build());
     } catch (ServiceException ex) {
       throw ProtobufHelper.getRemoteException(ex);
+    }
+  }
+
+
+  // S3GUARD METHODS
+  @Override
+  public S3PathMeta s3MetadataGetPath(String parent, String child, String bucket) throws IOException {
+    ClientNamenodeProtocolProtos.S3MetadataGetPathRequestProto req = ClientNamenodeProtocolProtos.S3MetadataGetPathRequestProto
+                    .newBuilder()
+                    .setParent(parent)
+                    .setChild(child)
+                    .setBucket(bucket)
+                    .build();
+    try {
+      ClientNamenodeProtocolProtos.S3MetadataGetPathReturnProto response = rpcProxy.s3MetadataGetPath(null, req);
+      return PBHelper.convert(response.getPath());
+    } catch (ServiceException e) {
+      throw ProtobufHelper.getRemoteException(e);
+    }
+  }
+
+
+  @Override
+  public void s3MetadataPutPath(S3PathMeta path)  throws IOException {
+    ClientNamenodeProtocolProtos.S3MetadataPutPathRequestProto req = ClientNamenodeProtocolProtos.S3MetadataPutPathRequestProto
+                    .newBuilder()
+                    .setPath(PBHelper.convert(path))
+                    .build();
+    try {
+      rpcProxy.s3MetadataPutPath(null, req);
+    } catch (ServiceException e) {
+      throw ProtobufHelper.getRemoteException(e);
+    }
+  }
+
+  @Override
+  public void s3MetadataDeletePath(String parent, String child, String bucket) throws IOException {
+    ClientNamenodeProtocolProtos.S3MetadataDeletePathRequestProto req = ClientNamenodeProtocolProtos.S3MetadataDeletePathRequestProto
+            .newBuilder()
+            .setParent(parent)
+            .setChild(child)
+            .setBucket(bucket)
+            .build();
+    try {
+      rpcProxy.s3MetadataDeletePath(null, req);
+    } catch (ServiceException e) {
+      throw ProtobufHelper.getRemoteException(e);
+    }
+  }
+
+  @Override
+  public void s3MetadataPutPaths(List<S3PathMeta> paths) throws IOException {
+    ClientNamenodeProtocolProtos.S3MetadataPutPathsRequestProto.Builder builder =
+            ClientNamenodeProtocolProtos.S3MetadataPutPathsRequestProto.newBuilder();
+    try {
+      for (int i = 0; i < paths.size(); i++) {
+        builder.addPaths(PBHelper.convert(paths.get(i)));
+      }
+      ClientNamenodeProtocolProtos.S3MetadataPutPathsRequestProto req = builder.build();
+      rpcProxy.s3MetadataPutPaths(null, req);
+
+    } catch (ServiceException e) {
+      throw ProtobufHelper.getRemoteException(e);
+    }
+  }
+
+  @Override
+  public void s3MetadataDeletePaths(List<S3PathMeta> paths) throws IOException {
+    ClientNamenodeProtocolProtos.S3MetadataDeletePathsRequestProto.Builder builder =
+            ClientNamenodeProtocolProtos.S3MetadataDeletePathsRequestProto.newBuilder();
+    try {
+      for (int i = 0; i < paths.size(); i++) {
+        builder.addPaths(PBHelper.convert(paths.get(i)));
+      }
+      ClientNamenodeProtocolProtos.S3MetadataDeletePathsRequestProto req = builder.build();
+      rpcProxy.s3MetadataDeletePaths(null, req);
+
+    } catch (ServiceException e) {
+      throw ProtobufHelper.getRemoteException(e);
+    }
+  }
+
+  @Override
+  public boolean s3MetadataIsDirEmpty(String parent, String child, String bucket) throws IOException {
+    ClientNamenodeProtocolProtos.S3MetadataIsDirEmptyRequestProto req = ClientNamenodeProtocolProtos.S3MetadataIsDirEmptyRequestProto
+            .newBuilder()
+            .setParent(parent)
+            .setChild(child)
+            .setBucket(bucket)
+            .build();
+    try {
+      ClientNamenodeProtocolProtos.S3MetadataIsDirEmptyReturnProto response = rpcProxy.s3MetadataIsDirEmpty(null, req);
+      return response.getEmpty();
+    } catch (ServiceException e) {
+      throw ProtobufHelper.getRemoteException(e);
+    }
+  }
+
+  @Override
+  public void s3MetadataDeleteBucket(String bucketName) throws IOException {
+    ClientNamenodeProtocolProtos.S3MetadataDeleteBucketRequestProto req = ClientNamenodeProtocolProtos.S3MetadataDeleteBucketRequestProto
+            .newBuilder()
+            .setBucketName(bucketName)
+            .build();
+    try {
+      rpcProxy.s3MetadataDeleteBucket(null, req);
+    } catch (ServiceException e) {
+      throw ProtobufHelper.getRemoteException(e);
+    }
+  }
+
+  @Override
+  public List<S3PathMeta> s3MetadataGetExpiredFiles(long modTime, String bucket) throws IOException {
+    ClientNamenodeProtocolProtos.S3MetadataGetExpiredFilesRequestProto.Builder reqBuilder = ClientNamenodeProtocolProtos.S3MetadataGetExpiredFilesRequestProto
+            .newBuilder()
+            .setModTime(modTime);
+    if (bucket != null) {
+      reqBuilder.setBucket(bucket);
+    }
+    ClientNamenodeProtocolProtos.S3MetadataGetExpiredFilesRequestProto req = reqBuilder.build();
+
+    try {
+      ClientNamenodeProtocolProtos.S3MetadataGetExpiredFilesReturnProto response = rpcProxy.s3MetadataGetExpiredFiles(null, req);
+      List<S3PathMeta> paths = new ArrayList(response.getPathsList().size());
+      for (int i = 0; i < response.getPathsList().size(); i++) {
+        paths.add(PBHelper.convert(response.getPathsList().get(i)));
+      }
+      return paths;
+    } catch (ServiceException e) {
+      throw ProtobufHelper.getRemoteException(e);
+    }
+  }
+
+  @Override
+  public List<S3PathMeta> s3MetadataGetPathChildren(String parent, String bucket) throws IOException {
+    ClientNamenodeProtocolProtos.S3MetadataGetPathChildrenRequestProto req = ClientNamenodeProtocolProtos.S3MetadataGetPathChildrenRequestProto
+            .newBuilder()
+            .setParent(parent)
+            .setBucket(bucket)
+            .build();
+    try {
+      ClientNamenodeProtocolProtos.S3MetadataGetPathChildrenReturnProto response = rpcProxy.s3MetadataGetPathChildren(null, req);
+      List<S3PathMeta> paths = new ArrayList(response.getPathsList().size());
+      for (int i = 0; i < response.getPathsList().size(); i++) {
+        paths.add(PBHelper.convert(response.getPathsList().get(i)));
+      }
+      return paths;
+    } catch (ServiceException e) {
+      throw ProtobufHelper.getRemoteException(e);
     }
   }
 }

@@ -18,9 +18,6 @@
 package org.apache.hadoop.hdfs.server.datanode;
 
 import com.google.common.annotations.VisibleForTesting;
-import java.io.OutputStreamWriter;
-import java.io.Writer;
-
 import org.apache.commons.logging.Log;
 import org.apache.hadoop.fs.ChecksumException;
 import org.apache.hadoop.fs.FSOutputSummer;
@@ -43,24 +40,17 @@ import org.apache.hadoop.io.IOUtils;
 import org.apache.hadoop.io.nativeio.NativeIO;
 import org.apache.hadoop.util.Daemon;
 import org.apache.hadoop.util.DataChecksum;
+import org.apache.hadoop.util.StringUtils;
+import org.apache.hadoop.util.Time;
 
-import java.io.BufferedOutputStream;
-import java.io.Closeable;
-import java.io.DataInputStream;
-import java.io.DataOutputStream;
-import java.io.File;
-import java.io.FileDescriptor;
-import java.io.FileOutputStream;
-import java.io.IOException;
-import java.io.OutputStream;
+import java.io.*;
 import java.nio.ByteBuffer;
 import java.util.Arrays;
+import java.util.Date;
 import java.util.LinkedList;
 import java.util.zip.Checksum;
 
 import static org.apache.hadoop.hdfs.server.datanode.DataNode.DN_CLIENTTRACE_FORMAT;
-import org.apache.hadoop.util.StringUtils;
-import org.apache.hadoop.util.Time;
 
 /**
  * A class that receives a block and writes to its own disk, meanwhile
@@ -188,8 +178,19 @@ class BlockReceiver implements Closeable {
       } else {
         switch (stage) {
           case PIPELINE_SETUP_CREATE:
+            Date date_rbw = new Date(); 
+            
             replicaInfo = datanode.data.createRbw(storageType, block);
+            long diffInMillies = (new Date()).getTime() - date_rbw.getTime();
+            LOG.info("createRBW time: " + diffInMillies);
+            
+            
+            Date date_notifyNN = new Date();
             datanode.notifyNamenodeCreatingBlock(block, replicaInfo.getStorageUuid());
+            
+            long diffInMillies2 = (new Date()).getTime() - date_notifyNN.getTime();
+            LOG.info("notifyNamenodeCreatingBlock time: " + diffInMillies2);
+            
             break;
           case PIPELINE_SETUP_STREAMING_RECOVERY:
             replicaInfo = datanode.data
@@ -582,6 +583,8 @@ class BlockReceiver implements Closeable {
 
       byte[] lastChunkChecksum;
       
+//      Date start_write_data_to_disk = new Date();
+      
       try {
         long onDiskLen = replicaInfo.getBytesOnDisk();
         if (onDiskLen < offsetInBlock) {
@@ -610,6 +613,7 @@ class BlockReceiver implements Closeable {
 
           int numBytesToDisk = (int) (offsetInBlock - onDiskLen);
           
+          
           // Write data to disk.
           long begin = Time.monotonicNow();
           out.write(dataBuf.array(), startByteToDisk, numBytesToDisk);
@@ -618,6 +622,9 @@ class BlockReceiver implements Closeable {
             LOG.warn("Slow BlockReceiver write data to disk cost:" + duration
                 + "ms (threshold=" + datanodeSlowLogThresholdMs + "ms)");
           }
+
+//          long diffInMillies = (new Date()).getTime() - start_write_data_to_disk.getTime();
+//          System.out.println("write_data_to_disk: " + diffInMillies);
 
           // If this is a partial chunk, then verify that this is the only
           // chunk in the packet. Calculate new crc for this chunk.
@@ -776,8 +783,12 @@ class BlockReceiver implements Closeable {
             new PacketResponder(replyOut, mirrIn, downstreams));
         responder.start(); // start thread to processes responses
       }
-
+      Date start_packet_responder = new Date();
+      
       while (receivePacket() >= 0) { /* Receive until the last packet */ }
+
+      long diffInMillies = (new Date()).getTime() - start_packet_responder.getTime();
+      LOG.info("packet_responder_time: " + diffInMillies);
 
       // wait for all outstanding packet responses. And then
       // indicate responder to gracefully shutdown.
@@ -800,7 +811,7 @@ class BlockReceiver implements Closeable {
           datanode.data.convertTemporaryToRbw(block);
         } else {
           // for isDatnode or TRANSFER_FINALIZED
-          // Finalize the block.
+          // Finalize the block.;
           datanode.data.finalizeBlock(block);
         }
         datanode.metrics.incrBlocksWritten();
@@ -953,6 +964,7 @@ class BlockReceiver implements Closeable {
 
       // open meta file and read in crc value computer earlier
       IOUtils.readFully(instr.getChecksumIn(), crcbuf, 0, crcbuf.length);
+      LOG.info("Read tmp input stream successfully for " + block);
     } finally {
       IOUtils.closeStream(instr);
     }
@@ -1156,6 +1168,7 @@ class BlockReceiver implements Closeable {
     public void run() {
       boolean lastPacketInBlock = false;
       final long startTime = ClientTraceLog.isInfoEnabled() ? System.nanoTime() : 0;
+      
       while (isRunning() && !lastPacketInBlock) {
 
         long totalAckTimeNanos = 0;
@@ -1247,11 +1260,16 @@ class BlockReceiver implements Closeable {
             running = false;
             continue;
           }
-
           if (lastPacketInBlock) {
             // Finalize the block and close the block file
             try {
+              Date finalizeBlk_start = new Date();
+              
               finalizeBlock(startTime);
+
+              long diffInMillies = (new Date()).getTime() - finalizeBlk_start.getTime();
+              LOG.info("finalizeBlk_time: " + diffInMillies);
+              
             } catch (ReplicaNotFoundException e) {
               // Verify that the exception is due to volume removal.
               FsVolumeSpi volume;
@@ -1308,11 +1326,15 @@ class BlockReceiver implements Closeable {
      * @param startTime time when BlockReceiver started receiving the block
      */
     private void finalizeBlock(long startTime) throws IOException {
+      
       BlockReceiver.this.close();
+      
       final long endTime = ClientTraceLog.isInfoEnabled() ? System.nanoTime()
           : 0;
       block.setNumBytes(replicaInfo.getNumBytes());
+      
       datanode.data.finalizeBlock(block);
+      
       datanode.closeBlock(block, DataNode.EMPTY_DEL_HINT, replicaInfo.getStorageUuid());
       if (ClientTraceLog.isInfoEnabled() && isClient) {
         long offset = 0;

@@ -18,10 +18,6 @@
 package org.apache.hadoop.hdfs.server.datanode.fsdataset;
 
 
-import java.io.EOFException;
-import java.io.FileNotFoundException;
-import java.util.Collection;
-
 import org.apache.hadoop.classification.InterfaceAudience;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.hdfs.DFSConfigKeys;
@@ -31,30 +27,17 @@ import org.apache.hadoop.hdfs.protocol.BlockLocalPathInfo;
 import org.apache.hadoop.hdfs.protocol.ExtendedBlock;
 import org.apache.hadoop.hdfs.protocol.HdfsBlocksMetadata;
 import org.apache.hadoop.hdfs.server.common.HdfsServerConstants.ReplicaState;
-import org.apache.hadoop.hdfs.server.datanode.DataNode;
-import org.apache.hadoop.hdfs.server.datanode.DataStorage;
-import org.apache.hadoop.hdfs.server.datanode.FinalizedReplica;
-import org.apache.hadoop.hdfs.server.datanode.Replica;
-import org.apache.hadoop.hdfs.server.datanode.ReplicaInPipelineInterface;
-import org.apache.hadoop.hdfs.server.datanode.ReplicaInfo;
-import org.apache.hadoop.hdfs.server.datanode.ReplicaNotFoundException;
-import org.apache.hadoop.hdfs.server.datanode.StorageLocation;
-import org.apache.hadoop.hdfs.server.datanode.UnexpectedReplicaStateException;
+import org.apache.hadoop.hdfs.server.datanode.*;
 import org.apache.hadoop.hdfs.server.datanode.fsdataset.impl.FsDatasetFactory;
+import org.apache.hadoop.hdfs.server.datanode.fsdataset.impl.S3DatasetFactory;
 import org.apache.hadoop.hdfs.server.datanode.metrics.FSDatasetMBean;
 import org.apache.hadoop.hdfs.server.protocol.BlockRecoveryCommand.RecoveringBlock;
-import org.apache.hadoop.hdfs.server.protocol.BlockReport;
-import org.apache.hadoop.hdfs.server.protocol.DatanodeStorage;
-import org.apache.hadoop.hdfs.server.protocol.NamespaceInfo;
-import org.apache.hadoop.hdfs.server.protocol.ReplicaRecoveryInfo;
-import org.apache.hadoop.hdfs.server.protocol.StorageReport;
+import org.apache.hadoop.hdfs.server.protocol.*;
 import org.apache.hadoop.util.DiskChecker.DiskErrorException;
 import org.apache.hadoop.util.ReflectionUtils;
 
-import java.io.File;
-import java.io.FileDescriptor;
-import java.io.IOException;
-import java.io.InputStream;
+import java.io.*;
+import java.util.Collection;
 import java.util.List;
 import java.util.Map;
 
@@ -74,10 +57,16 @@ public interface FsDatasetSpi<V extends FsVolumeSpi> extends FSDatasetMBean {
      */
     public static Factory<?> getFactory(Configuration conf) {
       @SuppressWarnings("rawtypes")
-      final Class<? extends Factory> clazz =
-          conf.getClass(DFSConfigKeys.DFS_DATANODE_FSDATASET_FACTORY_KEY,
-              FsDatasetFactory.class, Factory.class);
-      return ReflectionUtils.newInstance(clazz, conf);
+      boolean s3_enabled = conf.getBoolean(DFSConfigKeys.S3_DATASET, DFSConfigKeys.S3_DATASET_DEFAULT);
+      if (s3_enabled) {
+        final Class<? extends Factory> clazz = conf.getClass(DFSConfigKeys.DFS_DATANODE_FSDATASET_FACTORY_KEY, S3DatasetFactory.class, Factory.class);
+        return ReflectionUtils.newInstance(clazz, conf);
+        
+      } else {
+        final Class<? extends Factory> clazz = conf.getClass(DFSConfigKeys.DFS_DATANODE_FSDATASET_FACTORY_KEY, FsDatasetFactory.class, Factory.class);
+        return ReflectionUtils.newInstance(clazz, conf);  
+      }
+      
     }
 
     /**
@@ -175,6 +164,19 @@ public interface FsDatasetSpi<V extends FsVolumeSpi> extends FSDatasetMBean {
    */
   @Deprecated
   public Replica getReplica(String bpid, long blockId);
+
+  /**
+   * Get the meta info of stored block. To find a block,
+   * block pool Id, block Id and generation stamp must match.
+   *
+   * @param b
+   *     extended block
+   * @return the meta replica information; null if block was not found
+   * @throws ReplicaNotFoundException
+   *     if no entry is in the map or
+   *     there is a generation stamp mismatch
+   */
+  public ReplicaInfo getReplicaInfo(ExtendedBlock b) throws ReplicaNotFoundException ;
 
   /**
    * @return replica meta information

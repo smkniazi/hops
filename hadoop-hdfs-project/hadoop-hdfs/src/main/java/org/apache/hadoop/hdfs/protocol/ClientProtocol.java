@@ -20,22 +20,15 @@ package org.apache.hadoop.hdfs.protocol;
 import io.hops.leader_election.node.SortedActiveNodeList;
 import io.hops.metadata.hdfs.entity.EncodingPolicy;
 import io.hops.metadata.hdfs.entity.EncodingStatus;
-
+import io.hops.metadata.s3.entity.S3PathMeta;
 import org.apache.hadoop.classification.InterfaceAudience;
 import org.apache.hadoop.classification.InterfaceStability;
-import org.apache.hadoop.fs.ContentSummary;
-import org.apache.hadoop.fs.CreateFlag;
-import org.apache.hadoop.fs.FileAlreadyExistsException;
-import org.apache.hadoop.fs.FsServerDefaults;
-import org.apache.hadoop.fs.InvalidPathException;
-import org.apache.hadoop.fs.Options;
 import org.apache.hadoop.fs.BatchedRemoteIterator.BatchedEntries;
+import org.apache.hadoop.fs.*;
 import org.apache.hadoop.fs.Options.Rename;
-import org.apache.hadoop.fs.ParentNotDirectoryException;
-import org.apache.hadoop.fs.UnresolvedLinkException;
-import org.apache.hadoop.fs.permission.FsAction;
 import org.apache.hadoop.fs.permission.AclEntry;
 import org.apache.hadoop.fs.permission.AclStatus;
+import org.apache.hadoop.fs.permission.FsAction;
 import org.apache.hadoop.fs.permission.FsPermission;
 import org.apache.hadoop.hdfs.DFSConfigKeys;
 import org.apache.hadoop.hdfs.protocol.HdfsConstants.RollingUpgradeAction;
@@ -47,6 +40,7 @@ import org.apache.hadoop.hdfs.server.namenode.SafeModeException;
 import org.apache.hadoop.hdfs.server.protocol.DatanodeStorageReport;
 import org.apache.hadoop.io.EnumSetWritable;
 import org.apache.hadoop.io.Text;
+import org.apache.hadoop.io.retry.AtMostOnce;
 import org.apache.hadoop.io.retry.Idempotent;
 import org.apache.hadoop.security.AccessControlException;
 import org.apache.hadoop.security.KerberosInfo;
@@ -57,8 +51,6 @@ import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.util.EnumSet;
 import java.util.List;
-import org.apache.hadoop.fs.CacheFlag;
-import org.apache.hadoop.io.retry.AtMostOnce;
 
 /**
  * *******************************************************************
@@ -1660,4 +1652,82 @@ throws IOException;
   @Idempotent
   public void removeUserGroup(String userName, String groupName,
       boolean cacheOnly) throws IOException;
+
+
+  /**
+   * @param parent the parent of the path
+   * @param child  the child of the path
+   * @param bucket bucket where data lives
+   * @return S3PathMeta object that contains path metadata (row in table)
+   * @throws IOException
+   */
+  @Idempotent
+  public S3PathMeta s3MetadataGetPath(String parent, String child, String bucket) throws IOException;
+
+  /**
+   * @param path S3PathMeta object that contains path metadata of an S3 item to put (row in table)
+   * @throws IOException
+   */
+  @Idempotent
+  public void s3MetadataPutPath(S3PathMeta path) throws IOException;
+
+  /**
+   * @param parent the parent of the path to delete
+   * @param child  the child of the path to delete
+   * @param bucket bucket where data lives to delete
+   * @throws IOException
+   */
+  @Idempotent
+  public void s3MetadataDeletePath(String parent, String child, String bucket) throws IOException;
+
+  /**
+   * @param paths List of S3PathMeta objects that contain metadata of files/dirs in S3
+   * @throws IOException
+   */
+  @Idempotent
+  public void s3MetadataPutPaths(List<S3PathMeta> paths) throws IOException;
+
+  /**
+   * @param paths List of s3 metadata objects to delete
+   * @throws IOException
+   */
+  @Idempotent
+  public void s3MetadataDeletePaths(List<S3PathMeta> paths) throws IOException;
+
+  /**
+   * @param parent the parent of the path
+   * @param child  the child of the path
+   * @param bucket bucket where data lives
+   * @return boolean isEmpty
+   * @throws IOException
+   */
+  @Idempotent
+  public boolean s3MetadataIsDirEmpty(String parent, String child, String bucket) throws IOException;
+
+  /**
+   * @param bucketName name of bucket to delete
+   * @throws IOException
+   */
+  @AtMostOnce
+  public void s3MetadataDeleteBucket(String bucketName) throws IOException;
+
+  /**
+   * @param modTime modification time (System milliseconds)
+   * @param bucket name of bucket
+   * @return List of S3PathMeta objects of files older than modTime
+   * @throws IOException
+   */
+  @Idempotent
+  public List<S3PathMeta> s3MetadataGetExpiredFiles(long modTime, String bucket) throws IOException;
+
+  /**
+   * @param parent parent key of children to find
+   * @param bucket name of bucket where files live
+   * @return List of S3PathMeta objects, or paths that contain the specified parent key
+   * @throws IOException
+   */
+  @Idempotent
+  public List<S3PathMeta> s3MetadataGetPathChildren(String parent, String bucket) throws IOException;
+
+
 }

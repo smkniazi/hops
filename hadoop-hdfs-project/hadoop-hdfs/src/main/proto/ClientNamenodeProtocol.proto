@@ -749,6 +749,92 @@ message RemoveUserGroupRequestProto {
 message RemoveUserGroupResponseProto {
 }
 
+/**
+ * S3GUARD PROTOBUFS
+ */
+message S3PathMetaProto {
+  required string parent = 1;
+  required string child = 2;
+  required string bucket = 3;
+  required bool   isDeleted = 4;
+  optional bool   isDir = 5;
+  optional int64 blockSize = 6;
+  optional int64 fileLength = 7;
+  optional int64 modTime = 8;
+  optional int64 tableCreated = 9;
+  optional int64 tableVersion = 10;
+}
+
+/** GET PATH */
+message S3MetadataGetPathRequestProto {
+  required string parent = 1;
+  required string child = 2;
+  required string bucket = 3;
+}
+message S3MetadataGetPathReturnProto {
+  optional S3PathMetaProto path = 1;
+}
+/** PUT PATH */
+message S3MetadataPutPathRequestProto {
+  required S3PathMetaProto path = 1;
+}
+message S3MetadataPutPathReturnProto {}
+
+/** DELETE PATH */
+message S3MetadataDeletePathRequestProto {
+  required string parent = 1;
+  required string child = 2;
+  required string bucket = 3;
+}
+message S3MetadataDeletePathReturnProto {}
+
+/** PUT PATHS */
+message S3MetadataPutPathsRequestProto {
+  repeated S3PathMetaProto paths = 1;
+}
+message S3MetadataPutPathsReturnProto {}
+
+/** DELETE PATHS */
+message S3MetadataDeletePathsRequestProto {
+  repeated S3PathMetaProto paths = 1;
+}
+message S3MetadataDeletePathsReturnProto {}
+
+/** IS DIR EMPTY */
+message S3MetadataIsDirEmptyRequestProto {
+  required string parent = 1;
+  required string child = 2;
+  required string bucket = 3;
+}
+message S3MetadataIsDirEmptyReturnProto {
+  optional bool empty = 1;
+}
+
+/** DELETE TABLE */
+message S3MetadataDeleteBucketRequestProto {
+  required string bucketName = 1;
+}
+message S3MetadataDeleteBucketReturnProto {}
+
+/** GET EXPIRED FILES */
+message S3MetadataGetExpiredFilesRequestProto {
+  required int64 modTime = 1;
+  required string bucket = 2;
+}
+message S3MetadataGetExpiredFilesReturnProto {
+  repeated S3PathMetaProto paths = 1;
+}
+
+/** GET PATH CHILDREN */
+message S3MetadataGetPathChildrenRequestProto {
+  required string parent = 1;
+  required string bucket = 2;
+}
+message S3MetadataGetPathChildrenReturnProto {
+  repeated S3PathMetaProto paths = 1;
+}
+
+
 service ClientNamenodeProtocol {
   rpc getBlockLocations (GetBlockLocationsRequestProto) returns (GetBlockLocationsResponseProto);
   rpc getMissingBlockLocations (GetMissingBlockLocationsRequestProto) returns (GetMissingBlockLocationsResponseProto);
@@ -833,10 +919,17 @@ service ClientNamenodeProtocol {
   rpc getRepairedBlockLocations (GetRepairedBlockLocationsRequsestProto) returns (GetRepairedBlockLocationsResponseProto);
   rpc changeConf (ChangeConfProto) returns (ChangeConfResponseProto);
   rpc checkAccess(CheckAccessRequestProto) returns(CheckAccessResponseProto);
-  rpc getLastUpdatedContentSummary (GetLastUpdatedContentSummaryRequestProto)
-  returns (GetLastUpdatedContentSummaryResponseProto);
-  rpc addUserGroup (AddUserGroupRequestProto) returns
-  (AddUserGroupResponseProto);
-  rpc removeUserGroup (RemoveUserGroupRequestProto) returns
-  (RemoveUserGroupResponseProto);
+  rpc getLastUpdatedContentSummary (GetLastUpdatedContentSummaryRequestProto) returns (GetLastUpdatedContentSummaryResponseProto);
+  rpc addUserGroup (AddUserGroupRequestProto) returns (AddUserGroupResponseProto);
+  rpc removeUserGroup (RemoveUserGroupRequestProto) returns (RemoveUserGroupResponseProto);
+
+  rpc s3MetadataGetPath(S3MetadataGetPathRequestProto) returns(S3MetadataGetPathReturnProto);
+  rpc s3MetadataPutPath(S3MetadataPutPathRequestProto) returns(S3MetadataPutPathReturnProto);
+  rpc s3MetadataDeletePath(S3MetadataDeletePathRequestProto)  returns(S3MetadataDeletePathReturnProto);
+  rpc s3MetadataPutPaths(S3MetadataPutPathsRequestProto)      returns(S3MetadataPutPathsReturnProto);
+  rpc s3MetadataDeletePaths(S3MetadataDeletePathsRequestProto) returns(S3MetadataDeletePathsReturnProto);
+  rpc s3MetadataIsDirEmpty(S3MetadataIsDirEmptyRequestProto)  returns(S3MetadataIsDirEmptyReturnProto);
+  rpc s3MetadataDeleteBucket(S3MetadataDeleteBucketRequestProto) returns(S3MetadataDeleteBucketReturnProto);
+  rpc s3MetadataGetExpiredFiles(S3MetadataGetExpiredFilesRequestProto) returns(S3MetadataGetExpiredFilesReturnProto);
+  rpc s3MetadataGetPathChildren(S3MetadataGetPathChildrenRequestProto) returns(S3MetadataGetPathChildrenReturnProto);
 }

@@ -20,6 +20,7 @@ package org.apache.hadoop.hdfs.protocolPB;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static org.apache.hadoop.hdfs.protocol.proto.HdfsProtos.CipherSuiteProto;
 import com.google.common.base.Preconditions;
+import io.hops.metadata.s3.entity.S3PathMeta;
 import org.apache.hadoop.fs.CacheFlag;
 import com.google.common.collect.Lists;
 import com.google.common.primitives.Shorts;
@@ -92,6 +93,7 @@ import org.apache.hadoop.hdfs.protocol.proto.ClientNamenodeProtocolProtos.GetFsS
 import org.apache.hadoop.hdfs.protocol.proto.ClientNamenodeProtocolProtos.RollingUpgradeActionProto;
 import org.apache.hadoop.hdfs.protocol.proto.ClientNamenodeProtocolProtos.RollingUpgradeInfoProto;
 import org.apache.hadoop.hdfs.protocol.proto.ClientNamenodeProtocolProtos.SafeModeActionProto;
+import org.apache.hadoop.hdfs.protocol.proto.ClientNamenodeProtocolProtos.S3PathMetaProto;
 import org.apache.hadoop.hdfs.protocol.proto.DataTransferProtos.ShortCircuitShmSlotProto;
 import org.apache.hadoop.hdfs.protocol.proto.DataTransferProtos.ShortCircuitShmIdProto;
 import org.apache.hadoop.hdfs.protocol.proto.ClientNamenodeProtocolProtos.CacheDirectiveInfoProto;
@@ -193,10 +195,8 @@ import java.io.EOFException;
 import java.io.IOException;
 import java.io.InputStream;
 import java.nio.ByteBuffer;
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.EnumSet;
-import java.util.List;
+import java.util.*;
+
 import org.apache.hadoop.hdfs.protocol.FsAclPermission;
 import org.apache.hadoop.hdfs.server.namenode.INodeDirectory;
 
@@ -2479,5 +2479,54 @@ public class PBHelper {
     buffer.put(bytes);
     buffer.flip();//need flip 
     return buffer.getLong();
+  }
+
+  public static S3PathMetaProto convert(S3PathMeta path) {
+    if (path == null) {
+      return null;
+    }
+
+    S3PathMetaProto.Builder builder = S3PathMetaProto.newBuilder();
+    if (path.getParent() != null) {
+      builder.setParent(path.getParent());
+    }
+    if (path.getChild() != null) {
+      builder.setChild(path.getChild());
+    }
+    if (path.getBucket() != null) {
+      builder.setBucket(path.getBucket());
+    }
+    builder.setIsDeleted(path.isDeleted());
+    builder.setIsDir(path.isDir());
+    builder.setBlockSize(path.getBlockSize());
+    builder.setFileLength(path.getFileLength());
+    builder.setModTime(path.getModTime());
+
+//    if (path.getTableCreated() != null) {
+//      builder.setTableCreated(path.getChild());
+//    }
+//    if (path.getTableVersion() != null) {
+//      builder.setTableVersion(path.getChild());
+//    }
+    return builder.build();
+  }
+
+  public static S3PathMeta convert(S3PathMetaProto proto) {
+    return new S3PathMeta(
+            proto.getParent(),
+            proto.getChild(),
+            proto.getBucket(),
+            proto.getIsDeleted(),
+            proto.getIsDir(),
+            proto.getBlockSize(),
+            proto.getFileLength(),
+            proto.getModTime(),
+            proto.getTableCreated(),
+            proto.getTableVersion()
+    );
+  }
+  
+  public static Block convert(DatanodeProtocolProtos.GetCompletedBlockMetaResponseProto proto) {
+    return convert(proto.getBlock());
   }
 }

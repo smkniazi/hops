@@ -17,42 +17,27 @@
  */
 package org.apache.hadoop.hdfs;
 
+import com.google.common.annotations.VisibleForTesting;
+import com.google.common.cache.*;
 import com.google.common.collect.ImmutableSet;
 import io.hops.erasure_coding.Codec;
 import io.hops.exception.OutOfDBExtentsException;
 import io.hops.metadata.hdfs.entity.EncodingPolicy;
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
-import java.util.concurrent.atomic.AtomicInteger;
 import org.apache.hadoop.classification.InterfaceAudience;
-import org.apache.hadoop.fs.CreateFlag;
-import org.apache.hadoop.fs.FSOutputSummer;
-import org.apache.hadoop.fs.FileAlreadyExistsException;
-import org.apache.hadoop.fs.ParentNotDirectoryException;
-import org.apache.hadoop.fs.Syncable;
+import org.apache.hadoop.fs.*;
 import org.apache.hadoop.fs.permission.FsPermission;
 import org.apache.hadoop.hdfs.client.HdfsDataOutputStream;
 import org.apache.hadoop.hdfs.client.HdfsDataOutputStream.SyncFlag;
-import org.apache.hadoop.hdfs.protocol.DSQuotaExceededException;
-import org.apache.hadoop.hdfs.protocol.DatanodeInfo;
-import org.apache.hadoop.hdfs.protocol.ExtendedBlock;
-import org.apache.hadoop.hdfs.protocol.HdfsConstants;
-import org.apache.hadoop.hdfs.protocol.HdfsFileStatus;
-import org.apache.hadoop.hdfs.protocol.LocatedBlock;
-import org.apache.hadoop.hdfs.protocol.NSQuotaExceededException;
-import org.apache.hadoop.hdfs.protocol.UnresolvedPathException;
-import org.apache.hadoop.hdfs.protocol.datatransfer.BlockConstructionStage;
-import org.apache.hadoop.hdfs.protocol.datatransfer.DataTransferProtocol;
-import org.apache.hadoop.hdfs.protocol.datatransfer.IOStreamPair;
-import org.apache.hadoop.hdfs.protocol.datatransfer.InvalidEncryptionKeyException;
-import org.apache.hadoop.hdfs.protocol.datatransfer.PacketHeader;
-import org.apache.hadoop.hdfs.protocol.datatransfer.PipelineAck;
-import org.apache.hadoop.hdfs.protocol.datatransfer.Sender;
+import org.apache.hadoop.hdfs.protocol.*;
+import org.apache.hadoop.hdfs.protocol.datatransfer.*;
 import org.apache.hadoop.hdfs.protocol.proto.DataTransferProtos.BlockOpResponseProto;
 import org.apache.hadoop.hdfs.protocol.proto.DataTransferProtos.Status;
 import org.apache.hadoop.hdfs.protocolPB.PBHelper;
 import org.apache.hadoop.hdfs.security.token.block.BlockTokenIdentifier;
 import org.apache.hadoop.hdfs.security.token.block.InvalidBlockTokenException;
+import org.apache.hadoop.hdfs.server.datanode.CachingStrategy;
 import org.apache.hadoop.hdfs.server.namenode.NotReplicatedYetException;
 import org.apache.hadoop.hdfs.server.namenode.SafeModeException;
 import org.apache.hadoop.hdfs.util.ByteArrayManager;
@@ -67,46 +52,25 @@ import org.apache.hadoop.util.Daemon;
 import org.apache.hadoop.util.DataChecksum;
 import org.apache.hadoop.util.Progressable;
 import org.apache.hadoop.util.Time;
+import org.apache.htrace.core.Span;
+import org.apache.htrace.core.SpanId;
+import org.apache.htrace.core.TraceScope;
+import org.apache.htrace.core.Tracer;
 
 import javax.net.SocketFactory;
-import java.io.BufferedOutputStream;
-import java.io.DataInputStream;
-import java.io.DataOutputStream;
-import java.io.FileNotFoundException;
-import java.io.IOException;
-import java.io.InputStream;
-import java.io.InterruptedIOException;
-import java.io.OutputStream;
+import java.io.*;
 import java.net.InetAddress;
 import java.net.InetSocketAddress;
 import java.net.Socket;
 import java.nio.BufferOverflowException;
 import java.nio.channels.ClosedChannelException;
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.Collection;
-import java.util.Collections;
-import java.util.EnumSet;
-import java.util.HashSet;
-import java.util.LinkedList;
-import java.util.List;
+import java.util.*;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
-import org.apache.hadoop.fs.CanSetDropBehind;
 
 import static org.apache.hadoop.hdfs.protocol.proto.DataTransferProtos.Status.SUCCESS;
-import org.apache.hadoop.hdfs.server.datanode.CachingStrategy;
-import org.apache.htrace.core.Span;
-import org.apache.htrace.core.SpanId;
-import org.apache.htrace.core.TraceScope;
-import org.apache.htrace.core.Tracer;
-import com.google.common.annotations.VisibleForTesting;
-import com.google.common.cache.CacheBuilder;
-import com.google.common.cache.CacheLoader;
-import com.google.common.cache.LoadingCache;
-import com.google.common.cache.RemovalListener;
-import com.google.common.cache.RemovalNotification;
 
 
 /**
@@ -1978,9 +1942,14 @@ public class DFSOutputStream extends FSOutputSummer implements Syncable, CanSetD
       final int dbFileMaxSize) throws IOException {
     final HdfsFileStatus stat;
     try {
+      // record time on NN
+      Date start = new Date();
       stat = dfsClient.namenode.create(src, masked, dfsClient.clientName,
           new EnumSetWritable<>(flag), createParent, replication,
               blockSize, policy);
+      
+      long diffInMillies = (new Date()).getTime() - start.getTime();
+      LOG.info("=== NN CREATE TIME: " + diffInMillies + " ms");
     } catch (RemoteException re) {
       throw re.unwrapRemoteException(AccessControlException.class,
               DSQuotaExceededException.class, FileAlreadyExistsException.class,
@@ -2630,7 +2599,14 @@ public class DFSOutputStream extends FSOutputSummer implements Syncable, CanSetD
     flushInternal();             // flush all data to Datanodes
     // get last block before destroying the streamer
     ExtendedBlock lastBlock = streamer.getBlock();
+    
+    Date start_close = new Date();
+    
     completeFile(lastBlock);
+    
+    long diffInMillies_close = (new Date()).getTime() - start_close.getTime();
+    LOG.info("completeFile(): " + diffInMillies_close);
+    
     closeThreads(false);
     dfsClient.endFileLease(fileId);
   }
@@ -2643,16 +2619,14 @@ public class DFSOutputStream extends FSOutputSummer implements Syncable, CanSetD
     }
 
     long localstart = Time.now();
-    long localTimeout = 400;
+    long localTimeout = dfsClient.getCompleteFileTimeout();
     boolean fileComplete = false;
     int retries = dfsClient.getConf().nBlockWriteLocateFollowingRetry;
-
+    
     backoffBeforeClose(last);
-
+    
     while (!fileComplete) {
-
       fileComplete = completeFileInternal(last);
-
       if (!fileComplete) {
         final int hdfsTimeout = dfsClient.getHdfsTimeout();
         if (!dfsClient.clientRunning || (hdfsTimeout > 0 && localstart + hdfsTimeout < Time.now())) {
@@ -2699,7 +2673,9 @@ public class DFSOutputStream extends FSOutputSummer implements Syncable, CanSetD
     if (canStoreFileInDB()) {
       data = getSmallFileData();
     }
-
+    
+    Date start_close = new Date();
+    
     try {
       fileComplete =
               dfsClient.namenode.complete(src, dfsClient.clientName, last, fileId, data);
@@ -2714,6 +2690,10 @@ public class DFSOutputStream extends FSOutputSummer implements Syncable, CanSetD
         throw e;
       }
     }
+    
+    long diffInMillies_close = (new Date()).getTime() - start_close.getTime();
+    LOG.info("dfsClient.namenode.complete(): " + diffInMillies_close);
+    
     return fileComplete;
   }
 

@@ -46,7 +46,7 @@ public class DFSConfigKeys extends CommonConfigurationKeys {
   public static final String DFS_STORAGE_DRIVER_CONFIG_FILE =
       "dfs.storage.driver.configfile";
   public static final String DFS_STORAGE_DRIVER_CONFIG_FILE_DEFAULT =
-      "ndb-config.properties";
+          "ndb-config.properties";
 
   public static final String DFS_NAMENODE_QUOTA_ENABLED_KEY =
       "dfs.namenode.quota.enabled";
@@ -573,6 +573,9 @@ public class DFSConfigKeys extends CommonConfigurationKeys {
   public static final int DFS_DATANODE_SOCKET_REUSE_KEEPALIVE_DEFAULT = 4000;
   public static final String  DFS_DATANODE_OOB_TIMEOUT_KEY = "dfs.datanode.oob.timeout-ms";
   public static final String  DFS_DATANODE_OOB_TIMEOUT_DEFAULT = "1500,0,0,0"; // OOB_TYPE1, OOB_TYPE2, OOB_TYPE3, OOB_TYPE4
+  public static final String DFS_CLIENT_COMPLETE_FILE_TIMEOUT = "dfs.client.complete_file_timeout";
+  public static final int DFS_CLIENT_COMPLETE_FILE_TIMEOUT_DEFAULT = 400;
+  
 
   public static final String DFS_DATANODE_CACHE_REVOCATION_TIMEOUT_MS = "dfs.datanode.cache.revocation.timeout.ms";
   public static final long DFS_DATANODE_CACHE_REVOCATION_TIMEOUT_MS_DEFAULT = 900000L;
@@ -1072,4 +1075,12 @@ public class DFSConfigKeys extends CommonConfigurationKeys {
   public static final String NNTOP_WINDOWS_MINUTES_KEY =
       "dfs.namenode.top.windows.minutes";
   public static final String[] NNTOP_WINDOWS_MINUTES_DEFAULT = {"1","5","25"};
+  
+  public static final String S3_DATASET = "dfs.datanode.use_s3";
+  public static final boolean S3_DATASET_DEFAULT = false;
+  public static final String S3_DATASET_BUCKET = "dfs.datanode.s3_bucket";
+
+  public static final String S3A_IMPL = "fs.s3a.impl";
+  public static final String S3A_IMPL_DEFAULT = "org.apache.hadoop.fs.s3a.S3AFileSystem";
+  
 }

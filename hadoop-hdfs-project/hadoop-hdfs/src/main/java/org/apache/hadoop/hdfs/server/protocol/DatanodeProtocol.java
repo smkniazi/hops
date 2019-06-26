@@ -22,15 +22,15 @@ import io.hops.leader_election.node.ActiveNode;
 import io.hops.leader_election.node.SortedActiveNodeList;
 import org.apache.hadoop.classification.InterfaceAudience;
 import org.apache.hadoop.hdfs.DFSConfigKeys;
+import org.apache.hadoop.hdfs.protocol.Block;
 import org.apache.hadoop.hdfs.protocol.DatanodeID;
 import org.apache.hadoop.hdfs.protocol.ExtendedBlock;
 import org.apache.hadoop.hdfs.protocol.LocatedBlock;
+import org.apache.hadoop.io.retry.Idempotent;
 import org.apache.hadoop.security.KerberosInfo;
 
 import java.io.IOException;
 import java.util.List;
-import org.apache.hadoop.io.retry.AtMostOnce;
-import org.apache.hadoop.io.retry.Idempotent;
 
 /**
  * *******************************************************************
@@ -240,4 +240,6 @@ public interface DatanodeProtocol {
   @Idempotent
   public byte[] getSmallFileData(int id) throws IOException;
 
+  @Idempotent
+  public Block getCompletedBlockMeta(long blockId) throws IOException;
 }

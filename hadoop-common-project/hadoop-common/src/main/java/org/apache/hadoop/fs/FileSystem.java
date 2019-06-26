@@ -17,31 +17,7 @@
  */
 package org.apache.hadoop.fs;
 
-import java.io.Closeable;
-import java.io.FileNotFoundException;
-import java.io.IOException;
-import java.lang.ref.WeakReference;
-import java.lang.ref.ReferenceQueue;
-import java.net.URI;
-import java.net.URISyntaxException;
-import java.security.PrivilegedExceptionAction;
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.EnumSet;
-import java.util.HashMap;
-import java.util.HashSet;
-import java.util.IdentityHashMap;
-import java.util.Iterator;
-import java.util.List;
-import java.util.Map;
-import java.util.NoSuchElementException;
-import java.util.ServiceConfigurationError;
-import java.util.ServiceLoader;
-import java.util.Set;
-import java.util.Stack;
-import java.util.TreeSet;
-import java.util.concurrent.atomic.AtomicLong;
-
+import com.google.common.annotations.VisibleForTesting;
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
 import org.apache.hadoop.classification.InterfaceAudience;
@@ -63,15 +39,18 @@ import org.apache.hadoop.security.Credentials;
 import org.apache.hadoop.security.SecurityUtil;
 import org.apache.hadoop.security.UserGroupInformation;
 import org.apache.hadoop.security.token.Token;
-import org.apache.hadoop.util.ClassUtil;
-import org.apache.hadoop.util.DataChecksum;
-import org.apache.hadoop.util.Progressable;
-import org.apache.hadoop.util.ReflectionUtils;
-import org.apache.hadoop.util.ShutdownHookManager;
-import org.apache.hadoop.util.StringUtils;
+import org.apache.hadoop.util.*;
 
-import com.google.common.annotations.VisibleForTesting;
-import java.util.Collection;
+import java.io.Closeable;
+import java.io.FileNotFoundException;
+import java.io.IOException;
+import java.lang.ref.ReferenceQueue;
+import java.lang.ref.WeakReference;
+import java.net.URI;
+import java.net.URISyntaxException;
+import java.security.PrivilegedExceptionAction;
+import java.util.*;
+import java.util.concurrent.atomic.AtomicLong;
 
 /****************************************************************
  * An abstract base class for a fairly generic filesystem.  It
@@ -912,9 +891,15 @@ public abstract class FileSystem extends Configured implements Closeable {
                                             long blockSize,
                                             Progressable progress
                                             ) throws IOException {
-    return this.create(f, FsPermission.getFileDefault().applyUMask(
-        FsPermission.getUMask(getConf())), overwrite, bufferSize,
-        replication, blockSize, progress);
+    Date start_create = new Date();
+    FSDataOutputStream ret = this.create(f, FsPermission.getFileDefault().applyUMask(
+            FsPermission.getUMask(getConf())), overwrite, bufferSize,
+            replication, blockSize, progress);
+
+    long diffInMillies_create = (new Date()).getTime() - start_create.getTime();
+    LOG.info("DFS.create: " + diffInMillies_create);
+    
+    return ret;
   }
 
   /**

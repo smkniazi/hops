@@ -44,18 +44,18 @@ public class TestWriteRead {
   private static final int WR_CHUNK_SIZE = 10000;
 
   private static final int BUFFER_SIZE = 8192 * 100;
-  private static final String ROOT_DIR = "/tmp/";
-  private static final long blockSize = 1024 * 100;
+  protected static final String ROOT_DIR = "/tmp/";
+  protected static final long blockSize = 1024 * 100;
 
   // command-line options. Different defaults for unit test vs real cluster
   String filenameOption = ROOT_DIR + "fileX1";
   int chunkSizeOption = 10000;
   int loopOption = 10;
 
-  private MiniDFSCluster cluster;
-  private Configuration conf; // = new HdfsConfiguration();
-  private FileSystem mfs; // = cluster.getFileSystem();
-  private FileContext mfc; // = FileContext.getFileContext();
+  protected MiniDFSCluster cluster;
+  protected Configuration conf; // = new HdfsConfiguration();
+  protected FileSystem mfs; // = cluster.getFileSystem();
+  protected FileContext mfc; // = FileContext.getFileContext();
 
   // configuration
   private boolean useFCOption = false; // use either FileSystem or FileContext
@@ -64,7 +64,7 @@ public class TestWriteRead {
   private boolean truncateOption = false;
   private boolean abortTestOnFailure = true;
 
-  static private Log LOG = LogFactory.getLog(TestWriteRead.class);
+  protected static Log LOG = LogFactory.getLog(TestWriteRead.class);
 
   @Before
   public void initJunitModeTest() throws Exception {

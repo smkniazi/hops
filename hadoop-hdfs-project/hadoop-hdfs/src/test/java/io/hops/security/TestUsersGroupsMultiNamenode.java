@@ -20,16 +20,9 @@ import io.hops.leader_election.node.SortedActiveNodeList;
 import io.hops.metadata.HdfsStorageFactory;
 import io.hops.metadata.hdfs.entity.EncodingPolicy;
 import io.hops.metadata.hdfs.entity.EncodingStatus;
+import io.hops.metadata.s3.entity.S3PathMeta;
 import org.apache.hadoop.conf.Configuration;
-import org.apache.hadoop.fs.BatchedRemoteIterator;
-import org.apache.hadoop.fs.CacheFlag;
-import org.apache.hadoop.fs.ContentSummary;
-import org.apache.hadoop.fs.CreateFlag;
-import org.apache.hadoop.fs.FileAlreadyExistsException;
-import org.apache.hadoop.fs.FsServerDefaults;
-import org.apache.hadoop.fs.Options;
-import org.apache.hadoop.fs.ParentNotDirectoryException;
-import org.apache.hadoop.fs.UnresolvedLinkException;
+import org.apache.hadoop.fs.*;
 import org.apache.hadoop.fs.permission.AclEntry;
 import org.apache.hadoop.fs.permission.AclStatus;
 import org.apache.hadoop.fs.permission.FsAction;
@@ -37,27 +30,7 @@ import org.apache.hadoop.fs.permission.FsPermission;
 import org.apache.hadoop.hdfs.DFSClientAdapter;
 import org.apache.hadoop.hdfs.DistributedFileSystem;
 import org.apache.hadoop.hdfs.HdfsConfiguration;
-import org.apache.hadoop.hdfs.protocol.AlreadyBeingCreatedException;
-import org.apache.hadoop.hdfs.protocol.BlockStoragePolicy;
-import org.apache.hadoop.hdfs.protocol.CacheDirectiveEntry;
-import org.apache.hadoop.hdfs.protocol.CacheDirectiveInfo;
-import org.apache.hadoop.hdfs.protocol.CachePoolEntry;
-import org.apache.hadoop.hdfs.protocol.CachePoolInfo;
-import org.apache.hadoop.hdfs.protocol.ClientProtocol;
-import org.apache.hadoop.hdfs.protocol.CorruptFileBlocks;
-import org.apache.hadoop.hdfs.protocol.DSQuotaExceededException;
-import org.apache.hadoop.hdfs.protocol.DatanodeID;
-import org.apache.hadoop.hdfs.protocol.DatanodeInfo;
-import org.apache.hadoop.hdfs.protocol.DirectoryListing;
-import org.apache.hadoop.hdfs.protocol.ExtendedBlock;
-import org.apache.hadoop.hdfs.protocol.HdfsConstants;
-import org.apache.hadoop.hdfs.protocol.HdfsFileStatus;
-import org.apache.hadoop.hdfs.protocol.LastUpdatedContentSummary;
-import org.apache.hadoop.hdfs.protocol.LocatedBlock;
-import org.apache.hadoop.hdfs.protocol.LocatedBlocks;
-import org.apache.hadoop.hdfs.protocol.NSQuotaExceededException;
-import org.apache.hadoop.hdfs.protocol.QuotaExceededException;
-import org.apache.hadoop.hdfs.protocol.RollingUpgradeInfo;
+import org.apache.hadoop.hdfs.protocol.*;
 import org.apache.hadoop.hdfs.security.token.block.DataEncryptionKey;
 import org.apache.hadoop.hdfs.security.token.delegation.DelegationTokenIdentifier;
 import org.apache.hadoop.hdfs.server.namenode.NotReplicatedYetException;
@@ -76,16 +49,8 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.EnumSet;
 import java.util.List;
-import org.apache.hadoop.hdfs.protocol.LastBlockWithStatus;
 
-import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertFalse;
-import static org.junit.Assert.assertNotEquals;
-import static org.junit.Assert.assertNotNull;
-import static org.junit.Assert.assertNotSame;
-import static org.junit.Assert.assertNull;
-import static org.junit.Assert.assertThat;
-import static org.junit.Assert.assertTrue;
+import static org.junit.Assert.*;
 
 public class TestUsersGroupsMultiNamenode {
   
@@ -601,7 +566,52 @@ public class TestUsersGroupsMultiNamenode {
       usersGroupsMapping.removeUserGroupTx(userName, groupName, cacheOnly);
      this.cacheOnly = cacheOnly;
     }
-    
+
+    @Override
+    public S3PathMeta s3MetadataGetPath(String parent, String child, String bucket) throws IOException {
+      return null;
+    }
+
+    @Override
+    public void s3MetadataPutPath(S3PathMeta path) throws IOException {
+
+    }
+
+    @Override
+    public void s3MetadataDeletePath(String parent, String child, String bucket) throws IOException {
+
+    }
+
+    @Override
+    public void s3MetadataPutPaths(List<S3PathMeta> paths) throws IOException {
+
+    }
+
+    @Override
+    public void s3MetadataDeletePaths(List<S3PathMeta> paths) throws IOException {
+
+    }
+
+    @Override
+    public boolean s3MetadataIsDirEmpty(String parent, String child, String bucket) throws IOException {
+      return false;
+    }
+
+    @Override
+    public void s3MetadataDeleteBucket(String tableName) throws IOException {
+
+    }
+
+    @Override
+    public List<S3PathMeta> s3MetadataGetExpiredFiles(long modTime, String bucket) throws IOException {
+      return null;
+    }
+
+    @Override
+    public List<S3PathMeta> s3MetadataGetPathChildren(String parent, String bucket) throws IOException {
+      return null;
+    }
+
     void reset(){
       cacheOnly = null;
     }

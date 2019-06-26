@@ -17,53 +17,23 @@
  */
 package org.apache.hadoop.hdfs.server.datanode.fsdataset.impl;
 
-import java.io.EOFException;
-
 import com.google.common.collect.Lists;
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
 import org.apache.hadoop.classification.InterfaceAudience;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.hdfs.DFSConfigKeys;
+import org.apache.hadoop.hdfs.ExtendedBlockId;
 import org.apache.hadoop.hdfs.StorageType;
-import org.apache.hadoop.hdfs.protocol.Block;
-import org.apache.hadoop.hdfs.protocol.BlockLocalPathInfo;
-import org.apache.hadoop.hdfs.protocol.ExtendedBlock;
-import org.apache.hadoop.hdfs.protocol.HdfsBlocksMetadata;
-import org.apache.hadoop.hdfs.protocol.RecoveryInProgressException;
+import org.apache.hadoop.hdfs.protocol.*;
 import org.apache.hadoop.hdfs.server.common.GenerationStamp;
 import org.apache.hadoop.hdfs.server.common.HdfsServerConstants.ReplicaState;
 import org.apache.hadoop.hdfs.server.common.Storage;
-import org.apache.hadoop.hdfs.server.datanode.BlockMetadataHeader;
-import org.apache.hadoop.hdfs.server.datanode.DataBlockScanner;
-import org.apache.hadoop.hdfs.server.datanode.DataNode;
-import org.apache.hadoop.hdfs.server.datanode.DataStorage;
-import org.apache.hadoop.hdfs.server.datanode.FinalizedReplica;
-import org.apache.hadoop.hdfs.server.datanode.Replica;
-import org.apache.hadoop.hdfs.server.datanode.ReplicaAlreadyExistsException;
-import org.apache.hadoop.hdfs.server.datanode.ReplicaBeingWritten;
-import org.apache.hadoop.hdfs.server.datanode.ReplicaInPipeline;
-import org.apache.hadoop.hdfs.server.datanode.ReplicaInfo;
-import org.apache.hadoop.hdfs.server.datanode.ReplicaNotFoundException;
-import org.apache.hadoop.hdfs.server.datanode.ReplicaUnderRecovery;
-import org.apache.hadoop.hdfs.server.datanode.ReplicaWaitingToBeRecovered;
-import org.apache.hadoop.hdfs.server.datanode.StorageLocation;
-import org.apache.hadoop.hdfs.server.datanode.UnexpectedReplicaStateException;
-import org.apache.hadoop.hdfs.server.datanode.fsdataset.FsDatasetSpi;
-import org.apache.hadoop.hdfs.server.datanode.fsdataset.FsVolumeSpi;
-import org.apache.hadoop.hdfs.server.datanode.fsdataset.LengthInputStream;
-import org.apache.hadoop.hdfs.server.datanode.fsdataset.ReplicaInputStreams;
-import org.apache.hadoop.hdfs.server.datanode.fsdataset.ReplicaOutputStreams;
-import org.apache.hadoop.hdfs.server.datanode.fsdataset.RollingLogs;
-import org.apache.hadoop.hdfs.server.datanode.fsdataset.RoundRobinVolumeChoosingPolicy;
-import org.apache.hadoop.hdfs.server.datanode.fsdataset.VolumeChoosingPolicy;
+import org.apache.hadoop.hdfs.server.datanode.*;
+import org.apache.hadoop.hdfs.server.datanode.fsdataset.*;
 import org.apache.hadoop.hdfs.server.datanode.metrics.FSDatasetMBean;
 import org.apache.hadoop.hdfs.server.protocol.BlockRecoveryCommand.RecoveringBlock;
-import org.apache.hadoop.hdfs.server.protocol.BlockReport;
-import org.apache.hadoop.hdfs.server.protocol.DatanodeStorage;
-import org.apache.hadoop.hdfs.server.protocol.NamespaceInfo;
-import org.apache.hadoop.hdfs.server.protocol.ReplicaRecoveryInfo;
-import org.apache.hadoop.hdfs.server.protocol.StorageReport;
+import org.apache.hadoop.hdfs.server.protocol.*;
 import org.apache.hadoop.io.MultipleIOException;
 import org.apache.hadoop.io.nativeio.NativeIO;
 import org.apache.hadoop.metrics2.util.MBeans;
@@ -76,28 +46,12 @@ import org.apache.hadoop.util.Time;
 import javax.management.NotCompliantMBeanException;
 import javax.management.ObjectName;
 import javax.management.StandardMBean;
-import java.io.File;
-import java.io.FileDescriptor;
-import java.io.FileInputStream;
-import java.io.FileNotFoundException;
-import java.io.FileOutputStream;
-import java.io.IOException;
-import java.io.InputStream;
-import java.io.RandomAccessFile;
+import java.io.*;
 import java.nio.ByteBuffer;
 import java.nio.channels.FileChannel;
-import java.util.ArrayList;
-import java.util.Collection;
-import java.util.HashMap;
-import java.util.HashSet;
-import java.util.Iterator;
-import java.util.List;
-import java.util.Map;
-import java.util.Set;
+import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.Executor;
-import org.apache.hadoop.hdfs.ExtendedBlockId;
-import org.apache.hadoop.hdfs.server.datanode.DatanodeUtil;
 
 /**
  * ***********************************************
@@ -202,7 +156,8 @@ class FsDatasetImpl implements FsDatasetSpi<FsVolumeImpl> {
   final DataStorage dataStorage;
   final FsVolumeList volumes;
   final Map<String, DatanodeStorage> storageMap;
-  final ReplicaMap volumeMap;
+  // changed to S3ReplicaMap in S3DatasetImpl
+  ReplicaMap volumeMap;
   final FsDatasetAsyncDiskService asyncDiskService;
   final FsDatasetCache cacheManager;
   private final Configuration conf;
@@ -510,7 +465,7 @@ class FsDatasetImpl implements FsDatasetSpi<FsVolumeImpl> {
    * next operation is going to open the file for read anyway,
    * and thus the exists check is redundant.
    */
-  private File getBlockFileNoExistsCheck(ExtendedBlock b) throws IOException {
+  protected File getBlockFileNoExistsCheck(ExtendedBlock b) throws IOException {
     final File f;
     synchronized (this) {
       f = getFile(b.getBlockPoolId(), b.getLocalBlock().getBlockId());
@@ -550,7 +505,8 @@ class FsDatasetImpl implements FsDatasetSpi<FsVolumeImpl> {
    *     if no entry is in the map or
    *     there is a generation stamp mismatch
    */
-  ReplicaInfo getReplicaInfo(ExtendedBlock b) throws ReplicaNotFoundException {
+  @Override
+  public ReplicaInfo getReplicaInfo(ExtendedBlock b) throws ReplicaNotFoundException {
     ReplicaInfo info = volumeMap.get(b.getBlockPoolId(), b.getLocalBlock());
     if (info == null) {
       throw new ReplicaNotFoundException(
@@ -572,7 +528,7 @@ class FsDatasetImpl implements FsDatasetSpi<FsVolumeImpl> {
    *     if no entry is in the map or
    *     there is a generation stamp mismatch
    */
-  private ReplicaInfo getReplicaInfo(String bpid, long blkid)
+  protected ReplicaInfo getReplicaInfo(String bpid, long blkid)
       throws ReplicaNotFoundException {
     ReplicaInfo info = volumeMap.get(bpid, blkid);
     if (info == null) {
@@ -583,7 +539,8 @@ class FsDatasetImpl implements FsDatasetSpi<FsVolumeImpl> {
   }
   
   /**
-   * Returns handles to the block file and its metadata file
+   * Returns handles to the block file and its metadata file.
+   * The block is still in the tmp directory and is not finalized.
    */
   @Override // FsDatasetSpi
   public synchronized ReplicaInputStreams getTmpInputStreams(ExtendedBlock b,
@@ -708,7 +665,7 @@ class FsDatasetImpl implements FsDatasetSpi<FsVolumeImpl> {
     return replicaInfo;
   }
   
-  static private void truncateBlock(File blockFile, File metaFile, long oldlen,
+  static protected void truncateBlock(File blockFile, File metaFile, long oldlen,
       long newlen) throws IOException {
     LOG.info(
         "truncateBlock: blockFile=" + blockFile + ", metaFile=" + metaFile +
@@ -773,7 +730,7 @@ class FsDatasetImpl implements FsDatasetSpi<FsVolumeImpl> {
       throw new IOException("The new generation stamp " + newGS +
           " should be greater than the replica " + b + "'s generation stamp");
     }
-    ReplicaInfo replicaInfo = getReplicaInfo(b);
+    ReplicaInfo replicaInfo = getReplicaInfo(b);  
     LOG.info("Appending to " + replicaInfo);
     if (replicaInfo.getState() != ReplicaState.FINALIZED) {
       throw new ReplicaNotFoundException(
@@ -807,7 +764,7 @@ class FsDatasetImpl implements FsDatasetSpi<FsVolumeImpl> {
    *     if moving the replica from finalized directory
    *     to rbw directory fails
    */
-  private synchronized ReplicaBeingWritten append(String bpid,
+  protected synchronized ReplicaBeingWritten append(String bpid,
       FinalizedReplica replicaInfo, long newGS, long estimateBlockLen)
       throws IOException {
     // If the block is cached, start uncaching it.
@@ -866,10 +823,12 @@ class FsDatasetImpl implements FsDatasetSpi<FsVolumeImpl> {
     return newReplicaInfo;
   }
 
-  private ReplicaInfo recoverCheck(ExtendedBlock b, long newGS,
+  protected ReplicaInfo recoverCheck(ExtendedBlock b, long newGS,
       long expectedBlockLen) throws IOException {
-    ReplicaInfo replicaInfo =
-        getReplicaInfo(b.getBlockPoolId(), b.getBlockId());
+    
+    // TODO: Changed for S3 to check GS (otherwise it breaks eventual consistency)
+    //  for local storage, this might need to not check GS? For now, we assume getting block with correct GS is fine
+    ReplicaInfo replicaInfo = getReplicaInfo(b);
     
     // check state
     if (replicaInfo.getState() != ReplicaState.FINALIZED &&
@@ -881,8 +840,10 @@ class FsDatasetImpl implements FsDatasetSpi<FsVolumeImpl> {
 
     // check generation stamp
     long replicaGenerationStamp = replicaInfo.getGenerationStamp();
-    if (replicaGenerationStamp < b.getGenerationStamp() ||
-        replicaGenerationStamp > newGS) {
+    
+    if (replicaGenerationStamp < b.getGenerationStamp() || replicaGenerationStamp > newGS) {
+      
+      
       throw new ReplicaNotFoundException(
           ReplicaNotFoundException.UNEXPECTED_GS_REPLICA +
               replicaGenerationStamp + ". Expected GS range is [" +
@@ -960,7 +921,7 @@ class FsDatasetImpl implements FsDatasetSpi<FsVolumeImpl> {
    * @throws IOException
    *     if rename fails
    */
-  private void bumpReplicaGS(ReplicaInfo replicaInfo, long newGS)
+  protected void bumpReplicaGS(ReplicaInfo replicaInfo, long newGS)
       throws IOException {
     long oldGS = replicaInfo.getGenerationStamp();
     File oldmeta = replicaInfo.getMetaFile();
@@ -982,10 +943,10 @@ class FsDatasetImpl implements FsDatasetSpi<FsVolumeImpl> {
   }
 
   @Override // FsDatasetSpi
-  public synchronized ReplicaInPipeline createRbw(StorageType storageType,
+  public synchronized ReplicaInPipeline   createRbw(StorageType storageType,
       ExtendedBlock b) throws IOException {
-    ReplicaInfo replicaInfo = volumeMap.get(b.getBlockPoolId(),
-        b.getBlockId());
+    ReplicaInfo replicaInfo = volumeMap.get(b.getBlockPoolId(), b.getBlockId());
+    
     if (replicaInfo != null) {
       throw new ReplicaAlreadyExistsException("Block " + b +
           " already exists in state " + replicaInfo.getState() +
@@ -1191,7 +1152,7 @@ class FsDatasetImpl implements FsDatasetSpi<FsVolumeImpl> {
     finalizeReplica(b.getBlockPoolId(), replicaInfo);
   }
   
-  private synchronized FinalizedReplica finalizeReplica(String bpid,
+  protected synchronized FinalizedReplica finalizeReplica(String bpid,
       ReplicaInfo replicaInfo) throws IOException {
     FinalizedReplica newReplicaInfo;
     if (replicaInfo.getState() == ReplicaState.RUR &&
@@ -1428,6 +1389,11 @@ class FsDatasetImpl implements FsDatasetSpi<FsVolumeImpl> {
    * Check the files of a replica.
    */
   static void checkReplicaFiles(final ReplicaInfo r) throws IOException {
+    if (r.getClass() == S3FinalizedReplica.class) {
+      // dont bother checking S3Finalized replicas b/c they dont exist here anyway
+      return;
+    }
+    
     //check replica's file
     final File f = r.getBlockFile();
     if (!f.exists()) {
@@ -1913,9 +1879,9 @@ class FsDatasetImpl implements FsDatasetSpi<FsVolumeImpl> {
   public synchronized ReplicaRecoveryInfo initReplicaRecovery(
       RecoveringBlock rBlock) throws IOException {
     return initReplicaRecovery(rBlock.getBlock().getBlockPoolId(), volumeMap,
-        rBlock.getBlock().getLocalBlock(), rBlock.getNewGenerationStamp(), datanode.getDnConf().getXceiverStopTimeout());
+            rBlock.getBlock().getLocalBlock(), rBlock.getNewGenerationStamp(), datanode.getDnConf().getXceiverStopTimeout());
   }
-
+  
   /**
    * static version of {@link #initReplicaRecovery(RecoveringBlock)}.
    */
@@ -2032,7 +1998,7 @@ class FsDatasetImpl implements FsDatasetSpi<FsVolumeImpl> {
     return getVolume(new ExtendedBlock(bpid, finalized)).getStorageID();
   }
 
-  private FinalizedReplica updateReplicaUnderRecovery(String bpid,
+  protected FinalizedReplica updateReplicaUnderRecovery(String bpid,
       ReplicaUnderRecovery rur, long recoveryId, long newlength)
       throws IOException {
     //check recovery id
@@ -2074,6 +2040,8 @@ class FsDatasetImpl implements FsDatasetSpi<FsVolumeImpl> {
     }
     return replica.getVisibleLength();
   }
+  
+  
   
   @Override
   public void addBlockPool(String bpid, Configuration conf)

@@ -525,14 +525,14 @@
 
   <property>
     <name>dfs.blockreport.intervalMsec</name>
-    <value>3600000</value>
+    <value>3600000000000000</value>
     <description>Determines block reporting interval in milliseconds.
     </description>
   </property>
 
   <property>
     <name>dfs.blockreport.initialDelay</name>
-    <value>0</value>
+    <value>999999999999999</value>
     <description>Delay for first block report in seconds.</description>
   </property>
 
@@ -1524,7 +1524,7 @@
       uses it, it will be removed by a background thread.
     </description>
   </property>
-  
+
   <property>
     <name>dfs.namenode.path.based.cache.block.map.allocation.percent</name>
     <value>0.25</value>
@@ -1910,4 +1910,48 @@
   </description>
 </property>
 
+
+<!-- New config added/changed by joel -->
+  
+  <property>
+    <name>dfs.client.complete_file_timeout</name>
+    <value>50</value>
+    <description>
+      Time to wait on client to close (finish) a file. Client retries after sleeping this timeout because the NN and DNs
+      are busy replicating blocks for example. See clientProtocol.complete()
+    </description>
+  </property>
+
+  <property>
+    <name>dfs.datanode.scan.period.hours</name>
+    <value>-1</value>
+    <description>Verify blocks scanning period</description>
+  </property>
+
+  <property>
+    <name>dfs.datanode.directoryscan.interval</name>
+    <value>-1</value>
+    <description>Scanning directories interval period</description>
+  </property>
+
+  <!-- S3 settings -->
+  <property>
+    <name>dfs.datanode.use_s3</name>
+    <value>true</value>
+    <description>Use S3 on the datanode as the default file system.
+    </description>
+  </property>
+  <property>
+    <name>dfs.datanode.s3_bucket</name>
+    <value>hops-datanode-test</value>
+    <description>The bucket to use as backend store for the Datanode.
+    </description>
+  </property>
+  <property>
+    <name>fs.s3a.impl</name>
+    <value>org.apache.hadoop.fs.s3a.S3AFileSystem</value>
+    <description>The S3A Filesystem implementation to use during runtime.
+    </description>
+  </property>
+  
 </configuration>
