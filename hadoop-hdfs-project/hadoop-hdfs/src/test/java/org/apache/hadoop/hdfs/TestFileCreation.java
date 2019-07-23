@@ -1915,5 +1915,33 @@ public class TestFileCreation {
 
 
   }
+
+  @Test
+  public void testls() throws IOException {
+    Configuration conf = new HdfsConfiguration();
+    MiniDFSCluster cluster =
+            new MiniDFSCluster.Builder(conf).numDataNodes(3).build();
+    DistributedFileSystem dfs = null;
+    try {
+      cluster.waitActive();
+      dfs = cluster.getFileSystem();
+      DFSClient client = dfs.dfs;
+
+      Path f = new Path("/dir/file1.txt");
+      createFile(dfs, f, 3);
+
+      f = new Path("/dir/file2.txt");
+      createFile(dfs, f, 3);
+
+      f = new Path("/dir/file3.txt");
+      createFile(dfs, f, 3);
+
+
+      dfs.listStatus(new Path("/dir"));
+    } finally {
+      IOUtils.closeStream(dfs);
+      cluster.shutdown();
+    }
+  }
 }
 

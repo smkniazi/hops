@@ -3977,8 +3977,12 @@ public class FSNamesystem implements Namesystem, FSNamesystemMBean,
       throws IOException {
     DirectoryListing dl = null;
     try {
+      long st = System.currentTimeMillis();
       dl = FSDirStatAndListingOp.getListingInt(dir, src, startAfter,
           needLocation);
+            LOG.warn("LS: Done. needLocation: "+needLocation+". Start After: "+
+              (new String(startAfter))+ " " + "Total time: "+
+              (System.currentTimeMillis() - st));
     } catch (AccessControlException e) {
       logAuditEvent(false, "listStatus", src);
       throw e;

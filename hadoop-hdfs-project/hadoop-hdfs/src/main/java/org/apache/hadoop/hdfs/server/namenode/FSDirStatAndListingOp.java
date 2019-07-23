@@ -74,7 +74,8 @@ class FSDirStatAndListingOp {
     }
 
     final byte[] startAfter = startAfterArg;
-    
+
+    final long st = System.currentTimeMillis();
     HopsTransactionalRequestHandler getListingHandler = new HopsTransactionalRequestHandler(
         HDFSOperationType.GET_LISTING, src) {
       @Override
@@ -93,6 +94,7 @@ class FSDirStatAndListingOp {
 
       @Override
       public Object performTask() throws IOException {
+        FSNamesystem.LOG.warn("LS: lock phase took "+(System.currentTimeMillis() - st));
         FSPermissionChecker pc = fsd.getPermissionChecker();
         final INodesInPath iip = fsd.getINodesInPath(src, true);
         final boolean isSuperUser = pc.isSuperUser();
