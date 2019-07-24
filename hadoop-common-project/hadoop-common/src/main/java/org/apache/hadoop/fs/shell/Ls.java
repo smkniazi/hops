@@ -226,13 +226,16 @@ class Ls extends FsCommand {
     if (dirRecurse && item.stat.isDirectory()) {
       recursePath(item);
     } else {
+      long ts  = System.currentTimeMillis();
       super.processPathArgument(item);
+      System.err.println("ProcessPathArgs took: "+(System.currentTimeMillis()-ts));
     }
   }
 
   @Override
   protected void processPaths(PathData parent, PathData ... items)
   throws IOException {
+    long ts = System.currentTimeMillis();
     if (parent != null && !isRecursive() && items.length != 0) {
       if (!pathOnly) {
         out.println("Found " + items.length + " items");
@@ -243,6 +246,7 @@ class Ls extends FsCommand {
       adjustColumnWidths(items);
     }
     super.processPaths(parent, items);
+    System.err.println("processpaths took: "+(System.currentTimeMillis()-ts));
   }
 
   @Override

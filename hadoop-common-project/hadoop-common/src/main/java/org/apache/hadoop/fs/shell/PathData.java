@@ -23,7 +23,10 @@ import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.net.URI;
 import java.net.URISyntaxException;
+import java.text.DateFormat;
+import java.text.SimpleDateFormat;
 import java.util.Arrays;
+import java.util.Date;
 import java.util.regex.Pattern;
 
 import org.apache.hadoop.classification.InterfaceAudience;
@@ -265,7 +268,15 @@ public class PathData implements Comparable<PathData> {
    */
   public PathData[] getDirectoryContents() throws IOException {
     checkIfExists(FileTypeRequirement.SHOULD_BE_DIRECTORY);
+
+    DateFormat dateFormat = new SimpleDateFormat("yyyy/MM/dd HH:mm:ss:SSS");
+    Date date = new Date();
+    System.err.println("Client LS started: "+dateFormat.format(date));
+    long ts = System.currentTimeMillis();
     FileStatus[] stats = fs.listStatus(path);
+    System.err.println("Client LS took "+(System.currentTimeMillis() - ts));
+    date = new Date();
+    System.err.println("Client LS finished: "+dateFormat.format(date));
     PathData[] items = new PathData[stats.length];
     for (int i=0; i < stats.length; i++) {
       // preserve relative paths

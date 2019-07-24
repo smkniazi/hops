@@ -41,6 +41,9 @@ import io.hops.transaction.lock.*;
 import io.hops.transaction.lock.TransactionLockTypes.INodeLockType;
 import io.hops.transaction.lock.TransactionLockTypes.INodeResolveType;
 import io.hops.transaction.lock.TransactionLockTypes.LockType;
+
+import java.text.DateFormat;
+import java.text.SimpleDateFormat;
 import java.util.TreeMap;
 import java.util.concurrent.TimeUnit;
 
@@ -3975,12 +3978,16 @@ public class FSNamesystem implements Namesystem, FSNamesystemMBean,
   DirectoryListing getListing(final String src, byte[] startAfter,
       final boolean needLocation)
       throws IOException {
+
+    DateFormat dateFormat = new SimpleDateFormat("yyyy/MM/dd HH:mm:ss:SSS");
     DirectoryListing dl = null;
     try {
+      Date date = new Date();
+      LOG.warn("NN RPC server LS started: "+dateFormat.format(date));
       long st = System.currentTimeMillis();
       dl = FSDirStatAndListingOp.getListingInt(dir, src, startAfter,
           needLocation);
-            LOG.warn("LS: Done. needLocation: "+needLocation+". Start After: "+
+            LOG.warn("NN RPC server. LS: Done. needLocation: "+needLocation+". Start After: "+
               (new String(startAfter))+ " " + "Total time: "+
               (System.currentTimeMillis() - st));
     } catch (AccessControlException e) {
@@ -3988,6 +3995,9 @@ public class FSNamesystem implements Namesystem, FSNamesystemMBean,
       throw e;
     } 
     logAuditEvent(true, "listStatus", src);
+
+    Date date = new Date();
+    LOG.warn("NN RPC server LS finished: "+dateFormat.format(date));
     return dl;
   }
 

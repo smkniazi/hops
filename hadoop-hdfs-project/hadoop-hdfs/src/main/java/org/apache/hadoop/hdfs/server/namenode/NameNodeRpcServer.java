@@ -877,7 +877,10 @@ class NameNodeRpcServer implements NamenodeProtocols {
   public HdfsFileStatus getFileInfo(String src) throws IOException {
     checkNNStartup();
     metrics.incrFileInfoOps();
-    return namesystem.getFileInfo(src, true);
+    long ts = System.currentTimeMillis();
+    HdfsFileStatus status = namesystem.getFileInfo(src, true);
+    LOG.warn("INFO Took" +(System.currentTimeMillis() - ts));
+    return status;
   }
   
   @Override // ClientProtocol

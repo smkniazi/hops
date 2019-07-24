@@ -23,6 +23,10 @@ import io.hops.leader_election.node.ActiveNode;
 import io.hops.leader_election.node.SortedActiveNodeList;
 import io.hops.leader_election.proto.ActiveNodeProtos;
 import io.hops.metadata.hdfs.entity.EncodingStatus;
+
+import java.text.DateFormat;
+import java.text.SimpleDateFormat;
+import java.util.Date;
 import java.util.EnumSet;
 
 import org.apache.hadoop.classification.InterfaceAudience;
@@ -722,12 +726,23 @@ public class ClientNamenodeProtocolServerSideTranslatorPB
   public GetListingResponseProto getListing(RpcController controller,
       GetListingRequestProto req) throws ServiceException {
     try {
+
+      DateFormat dateFormat = new SimpleDateFormat("yyyy/MM/dd HH:mm:ss:SSS");
+      Date date = new Date();
+      System.err.println("NN PB. LS Request Received: "+dateFormat.format(date));
       DirectoryListing result = server
           .getListing(req.getSrc(), req.getStartAfter().toByteArray(),
               req.getNeedLocation());
+      date = new Date();
+      System.err.println("NN PB. LS Request process finished: "+dateFormat.format(date));
       if (result != null) {
-        return GetListingResponseProto.newBuilder()
+        long ts = System.currentTimeMillis();
+        GetListingResponseProto resp = GetListingResponseProto.newBuilder()
             .setDirList(PBHelper.convert(result)).build();
+        System.err.println("NN PB. LS Response obj created in: "+(System.currentTimeMillis() - ts));
+        date = new Date();
+        System.err.println("NN PB. LS Request Response obj created: "+dateFormat.format(date));
+        return resp;
       } else {
         return VOID_GETLISTING_RESPONSE;
       }

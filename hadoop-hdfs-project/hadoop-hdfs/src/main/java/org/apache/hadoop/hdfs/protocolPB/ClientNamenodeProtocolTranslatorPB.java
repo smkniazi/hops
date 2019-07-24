@@ -24,7 +24,10 @@ import io.hops.leader_election.node.SortedActiveNodeListPBImpl;
 import io.hops.leader_election.proto.ActiveNodeProtos;
 import io.hops.metadata.hdfs.entity.EncodingPolicy;
 import io.hops.metadata.hdfs.entity.EncodingStatus;
-import java.util.EnumSet;
+
+import java.text.DateFormat;
+import java.text.SimpleDateFormat;
+import java.util.*;
 
 
 import org.apache.hadoop.classification.InterfaceAudience;
@@ -161,9 +164,7 @@ import org.apache.hadoop.security.token.Token;
 import java.io.Closeable;
 import java.io.FileNotFoundException;
 import java.io.IOException;
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.List;
+
 import org.apache.hadoop.hdfs.protocol.CacheDirectiveEntry;
 import org.apache.hadoop.hdfs.protocol.CacheDirectiveInfo;
 import org.apache.hadoop.hdfs.protocol.CachePoolEntry;
@@ -646,14 +647,25 @@ public class ClientNamenodeProtocolTranslatorPB
       boolean needLocation)
       throws AccessControlException, FileNotFoundException,
       UnresolvedLinkException, IOException {
+
+    DateFormat dateFormat = new SimpleDateFormat("yyyy/MM/dd HH:mm:ss:SSS");
+    Date date = new Date();
+    System.err.println("Client PB. LS Req Received: "+dateFormat.format(date));
     GetListingRequestProto req = GetListingRequestProto.newBuilder().setSrc(src)
         .setStartAfter(ByteString.copyFrom(startAfter))
         .setNeedLocation(needLocation).build();
     try {
       GetListingResponseProto result = rpcProxy.getListing(null, req);
-      
+
+      date = new Date();
+      System.err.println("Client PB. LS Response Received: "+dateFormat.format(date));
+
       if (result.hasDirList()) {
-        return PBHelper.convert(result.getDirList());
+
+        DirectoryListing resp = PBHelper.convert(result.getDirList());
+        date = new Date();
+        System.err.println("Client PB. LS Response obj created: "+dateFormat.format(date));
+        return resp;
       }
       return null;
     } catch (ServiceException e) {
