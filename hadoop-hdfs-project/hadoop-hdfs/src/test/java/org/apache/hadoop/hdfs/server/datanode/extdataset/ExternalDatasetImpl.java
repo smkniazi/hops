@@ -110,7 +110,7 @@ public class ExternalDatasetImpl implements FsDatasetSpi<ExternalVolumeImpl> {
 
   @Override
   @Deprecated
-  public Replica getReplica(String bpid, long blockId) {
+  public Replica getReplica(ExtendedBlock block) {
     return new ExternalReplica();
   }
 
@@ -176,6 +176,11 @@ public class ExternalDatasetImpl implements FsDatasetSpi<ExternalVolumeImpl> {
   public String recoverClose(ExtendedBlock b, long newGS, long expectedBlockLen)
       throws IOException {
     return null;
+  }
+
+  @Override
+  public void preFinalize(ExtendedBlock b) throws IOException {
+
   }
 
   @Override
@@ -264,7 +269,7 @@ public class ExternalDatasetImpl implements FsDatasetSpi<ExternalVolumeImpl> {
   @Override
   public ReplicaRecoveryInfo initReplicaRecovery(RecoveringBlock rBlock)
       throws IOException {
-    return new ReplicaRecoveryInfo(0, 0, 0, ReplicaState.FINALIZED);
+    return new ReplicaRecoveryInfo(0, 0, 0, Block.NON_EXISTING_BUCKET_ID, ReplicaState.FINALIZED);
   }
 
   @Override

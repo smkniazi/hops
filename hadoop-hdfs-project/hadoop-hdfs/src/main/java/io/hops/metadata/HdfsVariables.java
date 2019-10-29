@@ -99,6 +99,24 @@ public class HdfsVariables {
     return handleVariable(handler, true);
   }
 
+  public static long getMaxBlockID() throws IOException {
+    return (long) new LightWeightRequestHandler(
+            HDFSOperationType.GET_BLOCK_ID_COUNTER) {
+      @Override
+      public Object performTask() throws IOException {
+        return (long) handleVariableWithWriteLock(new Handler() {
+          @Override
+          public Object handle(VariableDataAccess<Variable, Variable.Finder> vd)
+                  throws StorageException {
+            long maxBlockID = (long) vd.getVariable(Variable.Finder.BlockID).getValue();
+            LOG.debug("HopsFS-Cloud. Get Max Bock ID "+maxBlockID);
+            return maxBlockID;
+          }
+        });
+      }
+    }.handle();
+  }
+
   public static CountersQueue.Counter incrementBlockIdCounter(
       final long increment) throws IOException {
     return (CountersQueue.Counter) new LightWeightRequestHandler(
@@ -617,7 +635,7 @@ public class HdfsVariables {
       }
     }.handle();
   }
-  
+
   public static void setBlockTotal(final int value) throws IOException {
     new LightWeightRequestHandler(HDFSOperationType.SET_BLOCK_TOTAL) {
       @Override
@@ -795,6 +813,10 @@ public class HdfsVariables {
         new IntVariable(0).getBytes());
     Variable.registerVariableDefaultValue(Variable.Finder.curScanCount,
         new IntVariable(-1).getBytes());
+    Variable.registerVariableDefaultValue(Variable.Finder.providedBlockReportsCount,
+            new LongVariable(0).getBytes());
+    Variable.registerVariableDefaultValue(Variable.Finder.providedBlocksCheckStartTime,
+            new LongVariable(0).getBytes());
     VarsRegister.registerHdfsDefaultValues();
     // This is a workaround that is needed until HA-YARN has its own format command
     VarsRegister.registerYarnDefaultValues();

@@ -218,6 +218,7 @@ public class DataNodeCluster {
             blocks[i] =
                 new Block(blkid++, blockSize, GenerationStamp.LAST_RESERVED_STAMP
                     //HOP                CreateEditsLog.BLOCK_GENERATION_STAMP
+                    , Block.NON_EXISTING_BUCKET_ID
                 );
           }
           for (int i = 1; i <= replication; ++i) {

@@ -16,23 +16,30 @@
  */
 package org.apache.hadoop.hdfs.server.blockmanagement;
 
+import com.google.common.collect.Iterables;
 import io.hops.exception.StorageException;
 import io.hops.exception.TransactionContextException;
 import io.hops.metadata.HdfsStorageFactory;
 import io.hops.metadata.common.FinderType;
-import io.hops.metadata.hdfs.dal.BlockInfoDataAccess;
+import io.hops.metadata.hdfs.entity.ProvidedBlockCacheLoc;
 import io.hops.metadata.hdfs.entity.Replica;
 import io.hops.metadata.hdfs.entity.ReplicaBase;
 import io.hops.transaction.EntityManager;
+import io.hops.transaction.handler.HDFSOperationType;
+import io.hops.transaction.handler.LightWeightRequestHandler;
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
 import org.apache.hadoop.classification.InterfaceAudience;
+import org.apache.hadoop.fs.StorageType;
 import org.apache.hadoop.hdfs.protocol.Block;
+import org.apache.hadoop.hdfs.protocol.DatanodeInfo;
 import org.apache.hadoop.hdfs.server.common.HdfsServerConstants;
 import org.apache.hadoop.hdfs.server.common.HdfsServerConstants.BlockUCState;
+import org.apache.hadoop.hdfs.server.common.Storage;
 import org.apache.hadoop.hdfs.server.namenode.INodeFile;
 import org.apache.hadoop.hdfs.server.protocol.DatanodeStorage;
 
+import java.io.IOException;
 import java.util.*;
 
 /**
@@ -54,7 +61,7 @@ public class BlockInfoContiguous extends Block {
     ByMaxBlockIndexForINode,
     ByBlockIdsAndINodeIds,
     ByINodeIdAndIndex;
-    
+
     @Override
     public Class getType() {
       return BlockInfoContiguous.class;
@@ -79,9 +86,9 @@ public class BlockInfoContiguous extends Block {
       }
     }
   }
-  
+
   public static enum Order implements Comparator<BlockInfoContiguous> {
-    
+
     ByBlockIndex() {
       @Override
       public int compare(BlockInfoContiguous o1, BlockInfoContiguous o2) {
@@ -125,14 +132,14 @@ public class BlockInfoContiguous extends Block {
         }
       }
     };
-    
+
     @Override
     public abstract int compare(BlockInfoContiguous o1, BlockInfoContiguous o2);
-    
+
     public Comparator acsending() {
       return this;
     }
-    
+
     public Comparator descending() {
       return Collections.reverseOrder(this);
     }
@@ -142,12 +149,13 @@ public class BlockInfoContiguous extends Block {
   protected BlockCollection bc;
   private int blockIndex = -1;
   private long timestamp = 1;
-  
+
   protected long inodeId = NON_EXISTING_ID;
-  
+
   public BlockInfoContiguous(Block blk, long inodeId) {
     super(blk);
     this.inodeId = inodeId;
+    this.timestamp = System.currentTimeMillis();
     if (blk instanceof BlockInfoContiguous) {
       this.bc = ((BlockInfoContiguous) blk).bc;
       this.blockIndex = ((BlockInfoContiguous) blk).blockIndex;
@@ -157,7 +165,7 @@ public class BlockInfoContiguous extends Block {
       }
     }
   }
-  
+
   public BlockInfoContiguous() {
     this.bc = null;
   }
@@ -175,7 +183,7 @@ public class BlockInfoContiguous extends Block {
     this.timestamp = from.timestamp;
     this.inodeId = from.inodeId;
   }
-  
+
   public BlockCollection getBlockCollection()
       throws StorageException, TransactionContextException {
     //Every time get block collection is called, get it from DB
@@ -191,7 +199,7 @@ public class BlockInfoContiguous extends Block {
     }
     return bc;
   }
-  
+
   public void setBlockCollection(BlockCollection bc)
       throws StorageException, TransactionContextException {
     this.bc = bc;
@@ -214,7 +222,11 @@ public class BlockInfoContiguous extends Block {
    */
   public int numNodes(DatanodeManager datanodeMgr)
       throws StorageException, TransactionContextException {
-    return getReplicas(datanodeMgr).size();
+    if(isProvidedBlock()){
+      return 1;
+    } else {
+      return getReplicas(datanodeMgr).size();
+    }
   }
 
   /**
@@ -223,9 +235,66 @@ public class BlockInfoContiguous extends Block {
    * @return array of storages that store a replica of this block
    */
   public DatanodeStorageInfo[] getStorages(DatanodeManager datanodeMgr)
-      throws StorageException, TransactionContextException {
+          throws TransactionContextException, StorageException {
     List<Replica> replicas = getReplicas(datanodeMgr);
+    if (replicas.size() == 0 && isProvidedBlock()) {
+      // get a phantom block
+      return phantomStoragesForProvidedBlocks(datanodeMgr);
+    }
     return getStorages(datanodeMgr, replicas);
+  }
+
+  public DatanodeStorageInfo[] phantomStoragesForProvidedBlocks(DatanodeManager dnMgm) throws StorageException {
+    //NOTE: The solution for HopsFS-Cloud assumes that a single replica (DN)
+    //manipulates a provided block. Returning multiple replica locations
+    //will break the solution
+
+
+    //returning a phantom 'cloud' storage
+    List<DatanodeStorageInfo> ret = new ArrayList<>();
+
+    ProvidedBlockCacheLoc loc =
+            ProvidedBlocksCacheHelper.getProvidedBlockCacheLocation(getBlockId());
+    if (loc != null) {
+      // check that the datanode is alive
+      DatanodeDescriptor dns = dnMgm.getDatanodeBySid(loc.getStorageID());
+      if (dns.isAlive && !dns.isStale(dnMgm.getStaleInterval())) {
+        LOG.debug("HopsFS-Cloud. The block ID: " + getBlockId() + " is cached on DN: " + dns.toString());
+        DatanodeStorageInfo storageInfo = dnMgm.getStorage(loc.getStorageID());
+        ret.add(storageInfo);
+      }
+    }
+
+    if (ret.isEmpty()) {
+      ret.addAll(getNonStaleRandomCloudStorage(1, dnMgm));
+    }
+
+    return Iterables.toArray(ret, DatanodeStorageInfo.class);
+  }
+
+  private List<DatanodeStorageInfo> getNonStaleRandomCloudStorage(int count,
+                                                                  DatanodeManager dnMgm) {
+    List<DatanodeStorageInfo> ret = new ArrayList();
+    List<DatanodeDescriptor> dnDescs = dnMgm.getRandomDN(dnMgm.getNumLiveDataNodes());
+    for (DatanodeDescriptor dnDesc : dnDescs) {
+      //A data node may have multiple CLOUD volumes. Return a random
+      //CLOUD Volume on the datanode.
+      List<DatanodeStorageInfo> storages = Arrays.asList(dnDesc.getStorageInfos());
+      Collections.shuffle(storages);
+      for (DatanodeStorageInfo info : storages) {
+        DatanodeDescriptor dnd = dnMgm.getDatanodeBySid(info.getSid());
+        if (info.getStorageType() == StorageType.CLOUD && !dnd.isStale(dnMgm.getStaleInterval())) {
+          LOG.debug("HopsFS-Cloud. The block ID: " + getBlockId() + " will be cached on DN: " + info.toString());
+          ret.add(info);
+          break;
+        }
+      }
+
+      if (ret.size() == count) {
+        break;
+      }
+    }
+    return ret;
   }
 
   /**
@@ -238,7 +307,7 @@ public class BlockInfoContiguous extends Block {
     List<Replica> replicas = getReplicas(datanodeMgr);
     return getStorages(datanodeMgr, replicas, state);
   }
-  
+
   /**
    * Returns the storage on the given node which stores this block, or null
    * if it can't find such a storage.
@@ -278,14 +347,14 @@ public class BlockInfoContiguous extends Block {
     return replicas;
   }
 
-  
+
   /**
    * Adds new replica for this block.
    * @return the replica stored, or null if it is already stored on this storage
    */
   boolean addStorage(DatanodeStorageInfo storage)
       throws StorageException, TransactionContextException {
- 
+
     Replica replica =
         new Replica(storage.getSid(), getBlockId(), getInodeId(), HashBuckets
             .getInstance().getBucketForBlock(this));
@@ -322,7 +391,7 @@ public class BlockInfoContiguous extends Block {
     }
     return replica;
   }
-  
+
   Replica removeReplica(int sid)
       throws StorageException, TransactionContextException {
     List<Replica> replicas = getReplicasNoCheck();
@@ -361,7 +430,7 @@ public class BlockInfoContiguous extends Block {
     }
     return null;
   }
-  
+
   boolean isReplicatedOnStorage(DatanodeStorageInfo storage)
       throws StorageException, TransactionContextException {
     Replica replica = EntityManager
@@ -400,57 +469,57 @@ public class BlockInfoContiguous extends Block {
       BlockUCState s, DatanodeStorageInfo[] targets)
       throws StorageException, TransactionContextException {
     if (isComplete()) {
-      BlockInfoContiguousUnderConstruction ucBlock = 
-          new BlockInfoContiguousUnderConstruction(this, 
+      BlockInfoContiguousUnderConstruction ucBlock =
+          new BlockInfoContiguousUnderConstruction(this,
               this.getInodeId(), s, targets);
       ucBlock.setBlockCollection(getBlockCollection());
       return ucBlock;
     }
     // the block is already under construction
-    BlockInfoContiguousUnderConstruction ucBlock = 
+    BlockInfoContiguousUnderConstruction ucBlock =
         (BlockInfoContiguousUnderConstruction) this;
     ucBlock.setBlockUCState(s);
     ucBlock.setExpectedLocations(targets);
     ucBlock.setBlockCollection(getBlockCollection());
     return ucBlock;
   }
-  
+
   public long getInodeId() {
     return inodeId;
   }
-  
+
   public void setINodeIdNoPersistance(long id) {
     this.inodeId = id;
   }
-  
+
   public void setINodeId(long id)
       throws StorageException, TransactionContextException {
     setINodeIdNoPersistance(id);
     save();
   }
-  
+
   public int getBlockIndex() {
     return this.blockIndex;
   }
-  
+
   public void setBlockIndexNoPersistance(int bindex) {
     this.blockIndex = bindex;
   }
-  
+
   public void setBlockIndex(int bindex)
       throws StorageException, TransactionContextException {
     setBlockIndexNoPersistance(bindex);
     save();
   }
-  
+
   public long getTimestamp() {
     return this.timestamp;
   }
-  
+
   public void setTimestampNoPersistance(long ts) {
     this.timestamp = ts;
   }
-  
+
   public void setTimestamp(long ts)
       throws StorageException, TransactionContextException {
     setTimestampNoPersistance(ts);
@@ -494,7 +563,7 @@ public class BlockInfoContiguous extends Block {
     DatanodeStorageInfo[] storages = new DatanodeStorageInfo[set.size()];
     return set.toArray(storages);
   }
-  
+
   protected DatanodeDescriptor[] getDatanodes(DatanodeManager datanodeMgr,
       List<? extends ReplicaBase> replicas) {
     int numLocations = replicas.size();
@@ -511,23 +580,23 @@ public class BlockInfoContiguous extends Block {
     DatanodeDescriptor[] locations = new DatanodeDescriptor[datanodes.size()];
     return datanodes.toArray(locations);
   }
-  
+
   public DatanodeDescriptor getDatanode(DatanodeManager datanodeMgr, int i) throws StorageException, TransactionContextException{
     return getDatanodes(datanodeMgr, getReplicasNoCheck())[i];
   }
-  
+
   protected void update(Replica replica)
       throws TransactionContextException, StorageException {
     EntityManager.update(replica);
   }
 
   public static final Log LOG = LogFactory.getLog(BlockInfoContiguous.class);
-  
+
   protected void remove(Replica replica)
       throws StorageException, TransactionContextException {
     EntityManager.remove(replica);
   }
-  
+
   @Override
   public int hashCode() {
     // Super implementation is sufficient
@@ -539,13 +608,13 @@ public class BlockInfoContiguous extends Block {
     // Sufficient to rely on super's implementation
     return (this == obj) || super.equals(obj);
   }
-  
+
   @Override
   public String toString() {
     return "bid= " + getBlockId() + "  State = " + getBlockUCState();
   }
 
-  
+
   public void setBlockId(long bid)
       throws StorageException, TransactionContextException {
     setBlockIdNoPersistance(bid);
@@ -564,9 +633,9 @@ public class BlockInfoContiguous extends Block {
     save();
   }
 
-  public void set(long blkid, long len, long genStamp)
+  public void set(long blkid, long len, long genStamp, short cloudBucketID)
       throws StorageException, TransactionContextException {
-    setNoPersistance(blkid, len, genStamp);
+    setNoPersistance(blkid, len, genStamp, cloudBucketID);
     save();
   }
 
@@ -579,7 +648,7 @@ public class BlockInfoContiguous extends Block {
       throws StorageException, TransactionContextException {
     EntityManager.remove(this);
   }
-  
+
   public static BlockInfoContiguous cloneBlock(BlockInfoContiguous block) throws StorageException {
     if (block == null){
       throw new StorageException("Unable to create a clone of the Block");

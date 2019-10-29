@@ -60,6 +60,7 @@ public class TestCommitBlockSynchronization {
   private static final long blockId = 100;
   private static final long length = 200;
   private static final long genStamp = 300;
+  private static final short NON_EXISTING_BUCKET_ID = Block.NON_EXISTING_BUCKET_ID;
 
   private MiniDFSCluster cluster;
   @Before
@@ -162,7 +163,7 @@ public class TestCommitBlockSynchronization {
   @Test
   public void testCommitBlockSynchronization() throws IOException {
     INodeFile file = mockFileUnderConstruction();
-    Block block = new Block(blockId, length, genStamp);
+    Block block = new Block(blockId, length, genStamp, Block.NON_EXISTING_BUCKET_ID);
     FSNamesystem namesystemSpy = makeNameSystemSpy(block, file);
     DatanodeID[] newTargets = new DatanodeID[0];
 
@@ -230,7 +231,7 @@ public class TestCommitBlockSynchronization {
   public void testCommitBlockSynchronization2() throws IOException {
     INodeFile file = mockFileUnderConstruction();
     
-    Block block = new Block(blockId, length, genStamp);
+    Block block = new Block(blockId, length, genStamp, NON_EXISTING_BUCKET_ID);
     FSNamesystem namesystemSpy = makeNameSystemSpy(block, file);
     DatanodeID[] newTargets = new DatanodeID[0];
 
@@ -255,7 +256,7 @@ public class TestCommitBlockSynchronization {
   @Test
   public void testCommitBlockSynchronizationWithDelete() throws IOException {
     INodeFile file = mockFileUnderConstruction();
-    Block block = new Block(blockId, length, genStamp);
+    Block block = new Block(blockId, length, genStamp, NON_EXISTING_BUCKET_ID);
     FSNamesystem namesystemSpy = makeNameSystemSpy(block, file);
     DatanodeDescriptor[] targets = new DatanodeDescriptor[0];
     DatanodeID[] newTargets = new DatanodeID[0];
@@ -276,7 +277,7 @@ public class TestCommitBlockSynchronization {
   @Test
   public void testCommitBlockSynchronizationWithClose() throws IOException {
     INodeFile file = mockFileUnderConstruction();
-    Block block = new Block(blockId, length, genStamp);
+    Block block = new Block(blockId, length, genStamp, NON_EXISTING_BUCKET_ID);
     FSNamesystem namesystemSpy = makeNameSystemSpy(block, file);
     DatanodeDescriptor[] targets = new DatanodeDescriptor[0];
     DatanodeID[] newTargets = new DatanodeID[0];
@@ -309,7 +310,7 @@ public class TestCommitBlockSynchronization {
   public void testCommitBlockSynchronizationWithCloseAndNonExistantTarget()
       throws IOException {
     INodeFile file = mockFileUnderConstruction();
-    Block block = new Block(blockId, length, genStamp);
+    Block block = new Block(blockId, length, genStamp, NON_EXISTING_BUCKET_ID);
     FSNamesystem namesystemSpy = makeNameSystemSpy(block, file);
     DatanodeID[] newTargets = new DatanodeID[]{
         new DatanodeID("0.0.0.0", "nonexistantHost", "1", 0, 0, 0, 0)};

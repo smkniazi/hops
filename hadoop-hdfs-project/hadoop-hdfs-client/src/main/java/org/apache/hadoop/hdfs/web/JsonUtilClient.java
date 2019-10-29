@@ -146,7 +146,9 @@ class JsonUtilClient {
     final long numBytes = ((Number) m.get("numBytes")).longValue();
     final long generationStamp =
         ((Number) m.get("generationStamp")).longValue();
-    return new ExtendedBlock(blockPoolId, blockId, numBytes, generationStamp);
+    final short cloudBucketID = ((Number) m.get("cloudBucketID")).shortValue();
+    return new ExtendedBlock(blockPoolId, blockId,
+            numBytes, generationStamp, cloudBucketID);
   }
 
   static int getInt(Map<?, ?> m, String key, final int defaultValue) {

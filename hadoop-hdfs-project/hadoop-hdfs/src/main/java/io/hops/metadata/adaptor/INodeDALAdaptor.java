@@ -185,6 +185,11 @@ public class INodeDALAdaptor
   }
 
   @Override
+  public List<org.apache.hadoop.hdfs.server.namenode.INode> findINodes(String name) throws StorageException {
+    return (List) convertDALtoHDFS(dataAccess.findINodes(name));
+  }
+
+  @Override
   public void deleteInode(String name) throws StorageException {
     dataAccess.deleteInode(name);
   }

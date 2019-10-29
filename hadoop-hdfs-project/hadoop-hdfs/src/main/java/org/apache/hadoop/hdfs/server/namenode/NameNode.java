@@ -47,6 +47,8 @@ import org.apache.hadoop.hdfs.server.common.HdfsServerConstants.NamenodeRole;
 import org.apache.hadoop.hdfs.server.common.HdfsServerConstants.RollingUpgradeStartupOption;
 import org.apache.hadoop.hdfs.server.common.HdfsServerConstants.StartupOption;
 import org.apache.hadoop.hdfs.server.common.StorageInfo;
+import org.apache.hadoop.hdfs.server.datanode.fsdataset.CloudPersistenceProvider;
+import org.apache.hadoop.hdfs.server.datanode.fsdataset.impl.CloudPersistenceProviderFactory;
 import org.apache.hadoop.hdfs.server.namenode.metrics.NameNodeMetrics;
 import org.apache.hadoop.hdfs.server.namenode.startupprogress.StartupProgress;
 import org.apache.hadoop.hdfs.server.namenode.startupprogress.StartupProgressMetrics;
@@ -573,8 +575,8 @@ public class NameNode implements NameNodeStatusMXBean {
             DFSConfigKeys.DFS_BR_LB_MAX_CONCURRENT_BR_PER_NN_DEFAULT);
     final long brMaxProcessingTime = conf.getLong(DFSConfigKeys.DFS_BR_LB_MAX_BR_PROCESSING_TIME,
             DFSConfigKeys.DFS_BR_LB_MAX_BR_PROCESSING_TIME_DEFAULT);
-     this.brTrackingService = new BRTrackingService(updateThreshold, maxConcurrentBRs,
-             brMaxProcessingTime);
+    this.brTrackingService = new BRTrackingService(updateThreshold, maxConcurrentBRs,
+            brMaxProcessingTime);
     this.mdCleaner = MDCleaner.getInstance();
     this.stoTableCleanDelay = conf.getLong(
             DFSConfigKeys.DFS_SUBTREE_CLEAN_FAILED_OPS_LOCKS_DELAY_KEY,
@@ -639,7 +641,7 @@ public class NameNode implements NameNodeStatusMXBean {
     startLeaderElectionService();
 
     startMDCleanerService();
-    
+
     namesystem.startCommonServices(conf);
     registerNNSMXBean();
     rpcServer.start();
@@ -945,6 +947,8 @@ public class NameNode implements NameNodeStatusMXBean {
       throw new RuntimeException(e.getMessage());
     }
 
+    formatCloud(conf);
+
     return false;
   }
 
@@ -976,7 +980,22 @@ public class NameNode implements NameNodeStatusMXBean {
       throw new RuntimeException(e.getMessage());
     }
 
+    formatCloud(conf);
+
     return false;
+  }
+
+  private static void formatCloud(Configuration conf){
+    // Wipe cloud buckets
+    boolean cloud = conf.getBoolean(DFSConfigKeys.DFS_ENABLE_CLOUD_PERSISTENCE,
+            DFSConfigKeys.DFS_ENABLE_CLOUD_PERSISTENCE_DEFAULT);
+    if(cloud){
+      System.out.println("Formatting Cloud Buckets");
+      CloudPersistenceProvider cloudConnector =
+              CloudPersistenceProviderFactory.getCloudClient(conf);
+      cloudConnector.format();
+      cloudConnector.shutdown();
+    }
   }
 
   public static void checkAllowFormat(Configuration conf) throws IOException {
@@ -1413,7 +1432,7 @@ public class NameNode implements NameNodeStatusMXBean {
       LOG.warn("NN was interrupted");
     }
   }
-  
+
   private void createAndStartCRLFetcherService(Configuration conf) throws Exception {
     if (conf.getBoolean(CommonConfigurationKeysPublic.IPC_SERVER_SSL_ENABLED,
         CommonConfigurationKeysPublic.IPC_SERVER_SSL_ENABLED_DEFAULT)) {
@@ -1444,5 +1463,8 @@ public class NameNode implements NameNodeStatusMXBean {
   NameNodeRpcServer getNameNodeRpcServer(){
     return rpcServer;
   }
+
+
 }
+
 

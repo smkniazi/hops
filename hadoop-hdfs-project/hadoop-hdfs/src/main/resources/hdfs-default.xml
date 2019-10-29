@@ -2070,4 +2070,147 @@
     <description>No of retries for moving a block</description>
   </property>
 
+  <property>
+    <name>dfs.enable.cloud.persistence</name>
+    <value>false</value>
+    <description>Enable/Disable cloud storage. Default: false</description>
+  </property>
+
+  <property>
+    <name>dfs.cloud.provider</name>
+    <value>AWS</value>
+    <description>Cloud provider. Default: AWS</description>
+  </property>
+
+  <property>
+    <name>dfs.cloud.aws.s3.bucket.prefix</name>
+    <value>hopsfs.bucket</value>
+    <description>Prefix for new s3 buckets</description>
+  </property>
+
+  <property>
+    <name>dfs.cloud.aws.s3.region</name>
+    <value>eu-north-1</value>
+    <description>S3 regions. Default: eu-north-1</description>
+  </property>
+
+  <property>
+    <name>dfs.cloud.aws.s3.num.buckets</name>
+    <value>1</value>
+    <description>Number of bucket.</description>
+  </property>
+
+  <property>
+    <name>dfs.namenode.invalidate.cloud.blocks.per.iteration</name>
+    <value>10000</value>
+    <description>Number of cloud blocks to schedule for deletion per cycle</description>
+  </property>
+
+  <property>
+    <name>dfs.cloud.multipart.size</name>
+    <value>10485760</value>
+    <description>S3 multipart default size. Default 10 MB</description>
+  </property>
+
+  <property>
+    <name>dfs.cloud.multipart.threshold</name>
+    <value>2147483647</value>
+    <description>Currently multipart is disabled. Default: Integer.MAX_VALUE</description>
+  </property>
+
+  <property>
+    <name>dfs.dn.cloud.max.upload.threads</name>
+    <value>20</value>
+    <description>the maximum number of threads to allow in the pool used by TransferManager
+    </description>
+  </property>
+
+  <property>
+    <name>dfs.cloud.threads.keepalivetime.sec</name>
+    <value>60</value>
+    <description>the time an idle thread waits before terminating</description>
+  </property>
+
+  <property>
+    <name>dfs.dn.cloud.bypass.cache</name>
+    <value>false</value>
+    <description></description>
+  </property>
+
+  <property>
+    <name>dfs.dnfcloud.cache.check.interval</name>
+    <value>3000</value>
+    <description>Interval between checking disk space for cache</description>
+  </property>
+
+  <property>
+    <name>dfs.dn.cloud.cache.delete.activation.percentage</name>
+    <value>80</value>
+    <description></description>
+  </property>
+
+  <property>
+    <name>dfs.dn.cloud.cache.delete.batch.size</name>
+    <value>100</value>
+    <description></description>
+  </property>
+
+  <property>
+    <name>dfs.dn.cloud.cache.delete.wait</name>
+    <value>1800000</value>
+    <description>
+      block file must be an 30 mins old before it can be deleted.
+      This is to make sure that we do not delete newly downloaded
+      blocks in the cache that are being read by remote clients
+    </description>
+  </property>
+
+  <property>
+    <name>dfs.nn.max.threads.for.formatting.cloud.buckets</name>
+    <value>30</value>
+    <description>
+    </description>
+  </property>
+
+  <property>
+    <name>dfs.cloud.prefix.size</name>
+    <value>500</value>
+    <description>
+    </description>
+  </property>
+
+  <property>
+    <name>dfs.cloud.block.report.delay</name>
+    <value>3600000</value>
+    <description>
+    </description>
+  </property>
+
+  <property>
+    <name>dfs.cloud.block.report.thread.sleep.interval</name>
+    <value>10000</value>
+    <description>
+    </description>
+  </property>
+
+  <property>
+    <name>dfs.cloud.mark.partially.listed.blocks.corrupt.after</name>
+    <value>3600000</value>
+    <description>
+    </description>
+  </property>
+
+  <property>
+    <name>dfs.cloud.max.br.sub.tasks</name>
+    <value>1000</value>
+    <description>
+    </description>
+  </property>
+
+  <property>
+    <name>dfs.cloud.max.br.threads</name>
+    <value>10</value>
+    <description>
+    </description>
+  </property>
 </configuration>

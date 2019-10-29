@@ -1396,7 +1396,8 @@ class DataStreamer extends Daemon {
     if (success) {
       // update pipeline at the namenode
       ExtendedBlock newBlock = new ExtendedBlock(
-          block.getBlockPoolId(), block.getBlockId(), block.getNumBytes(), newGS);
+          block.getBlockPoolId(), block.getBlockId(), block.getNumBytes(),
+          newGS, block.getCloudBucketID());
       dfsClient.namenode.updatePipeline(dfsClient.clientName, block, newBlock,
           nodes, storageIDs);
       // update client side generation stamp
@@ -1714,7 +1715,7 @@ class DataStreamer extends Daemon {
               throw e;
             } else {
               --retries;
-              LOG.info("Exception while adding a block", e);
+              LOG.debug("Exception while adding a block", e);
               long elapsed = Time.monotonicNow() - localstart;
               if (elapsed > 5000) {
                 LOG.info("Waiting for replication for "
@@ -1779,6 +1780,15 @@ class DataStreamer extends Daemon {
    */
   ExtendedBlock getBlock() {
     return block;
+  }
+
+  /**
+   * get the file status
+   *
+   * @return file status 
+   */
+  HdfsFileStatus getStat() {
+    return stat;
   }
 
   /**

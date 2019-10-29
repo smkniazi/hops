@@ -64,6 +64,8 @@ import org.apache.hadoop.hdfs.protocol.HdfsConstants;
 import org.apache.hadoop.hdfs.protocol.HdfsConstantsClient;
 import org.apache.hadoop.hdfs.protocol.HdfsFileStatus;
 import org.apache.hadoop.hdfs.protocol.QuotaExceededException;
+import org.apache.hadoop.hdfs.protocol.FSLimitException.MaxDirectoryItemsExceededException;
+import org.apache.hadoop.hdfs.protocol.FSLimitException.PathComponentTooLongException;
 import org.apache.hadoop.hdfs.server.blockmanagement.BlockInfoContiguous;
 import org.apache.hadoop.hdfs.server.blockmanagement.BlockInfoContiguousUnderConstruction;
 import org.apache.hadoop.hdfs.protocol.proto.HdfsProtos;
@@ -178,8 +180,21 @@ public class FSDirectory implements Closeable {
 
     namesystem = ns;
 
+    BlockStoragePolicySuite storagePolicySuite = BlockStoragePolicySuite.createDefaultSuite();
+    byte storagePolicy;
+    boolean storagePolicyEnabled = conf.getBoolean(DFSConfigKeys.DFS_STORAGE_POLICY_ENABLED_KEY,
+            DFS_STORAGE_POLICY_ENABLED_DEFAULT);
+    boolean cloudStrageEnabled = conf.getBoolean(DFSConfigKeys.DFS_ENABLE_CLOUD_PERSISTENCE,
+            DFSConfigKeys.DFS_ENABLE_CLOUD_PERSISTENCE_DEFAULT);
+    if (storagePolicyEnabled && cloudStrageEnabled) {
+      storagePolicy = storagePolicySuite.getPolicy(HdfsConstants.CLOUD_STORAGE_POLICY_NAME).getId();
+    } else {
+      storagePolicy = HdfsConstantsClient.BLOCK_STORAGE_POLICY_ID_UNSPECIFIED;
+    }
+
     createRoot(ns.createFsOwnerPermissions(new FsPermission((short) 0755)),
-        false /*dont overwrite if root inode already existes*/);
+        false /*dont overwrite if root inode already existes*/,
+            storagePolicy);
     this.isPermissionEnabled = conf.getBoolean(
       DFSConfigKeys.DFS_PERMISSIONS_ENABLED_KEY,
       DFSConfigKeys.DFS_PERMISSIONS_ENABLED_DEFAULT);
@@ -342,7 +357,7 @@ public class FSDirectory implements Closeable {
     throws IOException {
 
     long modTime = now();
-    
+
     INodeFile newNode = new INodeFile(IDsGeneratorFactory.getInstance().getUniqueINodeID(), permissions,
         BlockInfoContiguous.EMPTY_ARRAY, replication, modTime, modTime, preferredBlockSize, (byte) 0);
     newNode.setLocalNameNoPersistance(localName.getBytes(Charsets.UTF_8));
@@ -360,6 +375,7 @@ public class FSDirectory implements Closeable {
     if (NameNode.stateChangeLog.isDebugEnabled()) {
       NameNode.stateChangeLog.debug("DIR* addFile: " + localName + " is added");
     }
+
     return newiip;
   }
 
@@ -1171,7 +1187,7 @@ public class FSDirectory implements Closeable {
   void reset() throws IOException {
     createRoot(
         namesystem.createFsOwnerPermissions(new FsPermission((short) 0755)),
-        true);    
+        true, HdfsConstantsClient.BLOCK_STORAGE_POLICY_ID_UNSPECIFIED);
     // addToInodeMap(rootDir) is only adding encryption zones and no zone is created at this point.
     nameCache.reset();
   }  
@@ -1670,7 +1686,7 @@ public class FSDirectory implements Closeable {
   
   //add root inode if its not there
   public INodeDirectory createRoot(
-      final PermissionStatus ps, final boolean overwrite) throws IOException {
+          final PermissionStatus ps, final boolean overwrite, final byte defaultStoragePolicy ) throws IOException {
     LightWeightRequestHandler addRootINode =
         new LightWeightRequestHandler(HDFSOperationType.SET_ROOT) {
           @Override
@@ -1683,6 +1699,7 @@ public class FSDirectory implements Closeable {
                     HdfsConstantsClient.GRANDFATHER_INODE_ID, INodeDirectory.getRootDirPartitionKey());
             if (rootInode == null || overwrite == true) {
               newRootINode = INodeDirectory.createRootDir(ps);
+              newRootINode.setBlockStoragePolicyIDNoPersistance(defaultStoragePolicy);
 
               DirectoryWithQuotaFeature quotaFeature = new DirectoryWithQuotaFeature.Builder(newRootINode.getId()).
                   nameSpaceQuota(DirectoryWithQuotaFeature.DEFAULT_NAMESPACE_QUOTA).
@@ -1694,7 +1711,6 @@ public class FSDirectory implements Closeable {
               
               newRootINode.addDirectoryWithQuotaFeature(quotaFeature);
               
-              // Set the block storage policy to DEFAULT
               List<INode> newINodes = new ArrayList();
               newINodes.add(newRootINode);
               da.prepare(INode.EMPTY_LIST, newINodes, INode.EMPTY_LIST);

@@ -344,12 +344,14 @@ public class PBHelper {
   // Block
   public static BlockProto convert(Block b) {
     return BlockProto.newBuilder().setBlockId(b.getBlockId())
-        .setGenStamp(b.getGenerationStamp()).setNumBytes(b.getNumBytes())
+        .setGenStamp(b.getGenerationStamp())
+        .setNumBytes(b.getNumBytes())
+        .setCloudBucketID(b.getCloudBucketID())
         .build();
   }
 
   public static Block convert(BlockProto b) {
-    return new Block(b.getBlockId(), b.getNumBytes(), b.getGenStamp());
+    return new Block(b.getBlockId(), b.getNumBytes(), b.getGenStamp(), (short) b.getCloudBucketID());
   }
 
   public static BlockWithLocationsProto convert(BlockWithLocations blk) {
@@ -456,7 +458,7 @@ public class PBHelper {
       return null;
     }
     return new ExtendedBlock(eb.getPoolId(), eb.getBlockId(), eb.getNumBytes(),
-        eb.getGenerationStamp());
+        eb.getGenerationStamp(), (short)eb.getCloudBucketID());
   }
 
   public static ExtendedBlockProto convert(final ExtendedBlock b) {
@@ -468,6 +470,7 @@ public class PBHelper {
         setBlockId(b.getBlockId()).
         setNumBytes(b.getNumBytes()).
         setGenerationStamp(b.getGenerationStamp()).
+        setCloudBucketID(b.getCloudBucketID()).
         build();
   }
 
@@ -669,6 +672,7 @@ public class PBHelper {
     if(b.isPhantomBlock() && b.isDataSet()){
       builder.setData(ByteString.copyFrom(b.getData()));
     }
+
     return builder.build();
   }
 
@@ -1728,6 +1732,8 @@ public class PBHelper {
         return StorageTypeProto.DB;
       case PROVIDED:
         return StorageTypeProto.PROVIDED;
+      case CLOUD:
+        return StorageTypeProto.CLOUD;
       default:
         Preconditions.checkState(
             false,
@@ -1751,6 +1757,8 @@ public class PBHelper {
         return StorageType.DB;
       case PROVIDED:
         return StorageType.PROVIDED;
+      case CLOUD:
+        return StorageType.CLOUD;
       default:
         throw new IllegalStateException(
             "BUG: StorageTypeProto not found, type=" + type);

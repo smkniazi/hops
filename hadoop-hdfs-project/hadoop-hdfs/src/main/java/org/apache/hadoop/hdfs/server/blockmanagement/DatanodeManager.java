@@ -98,6 +98,7 @@ public class DatanodeManager {
   private final DecommissionManager decomManager;
   private final HeartbeatManager heartbeatManager;
   private final FSClusterStats fsClusterStats;
+  private Random rand = new Random(System.currentTimeMillis());
 
   /**
    * Maps datanode uuid's to the DatanodeDescriptor
@@ -1740,19 +1741,18 @@ public class DatanodeManager {
     }
   }
 
-  Random rand = new Random(System.currentTimeMillis());
-  public DatanodeDescriptor getRandomDN(List<DatanodeInfo> existing, int tries){
+  public List<DatanodeDescriptor> getRandomDN(int count){
     if(datanodeMap.isEmpty()){
-        return null;
+        return Collections.EMPTY_LIST;
     }else{
-      for(int i = 0; i < tries; i++){
-        DatanodeDescriptor dd = (DatanodeDescriptor) datanodeMap.values()
-                .toArray()[rand.nextInt(datanodeMap.size())];
-        if(!existing.contains(dd)){
-          return dd;
-        }
+      int retCount = Math.min(count, datanodeMap.size());
+      if(retCount == 0){
+        return new ArrayList();
       }
-      return null;
+
+      List<DatanodeDescriptor> dns = new ArrayList(datanodeMap.values());
+      Collections.shuffle(dns);
+      return dns.subList(0, retCount);
     }
   }
 

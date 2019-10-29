@@ -47,9 +47,13 @@ import org.apache.hadoop.hdfs.protocol.LocatedBlock;
 import org.apache.hadoop.hdfs.protocol.NSQuotaExceededException;
 import org.apache.hadoop.hdfs.protocol.QuotaByStorageTypeExceededException;
 import org.apache.hadoop.hdfs.protocol.UnresolvedPathException;
+import org.apache.hadoop.hdfs.client.HdfsDataOutputStream;
+import org.apache.hadoop.hdfs.client.HdfsDataOutputStream.SyncFlag;
+import org.apache.hadoop.hdfs.protocol.*;
 import org.apache.hadoop.hdfs.protocol.datatransfer.PacketHeader;
 import org.apache.hadoop.hdfs.security.token.block.BlockTokenIdentifier;
 import org.apache.hadoop.hdfs.server.blockmanagement.BlockStoragePolicySuite;
+import org.apache.hadoop.hdfs.server.common.HdfsServerConstants;
 import org.apache.hadoop.hdfs.server.datanode.CachingStrategy;
 import org.apache.hadoop.hdfs.server.namenode.NotReplicatedYetException;
 import org.apache.hadoop.hdfs.server.namenode.RetryStartFileException;
@@ -291,7 +295,14 @@ public class DFSOutputStream extends FSOutputSummer
     initialFileSize = stat.getLen(); // length of file when opened
     this.shouldSyncBlock = flags.contains(CreateFlag.SYNC_BLOCK);
 
-    boolean toNewBlock = flags.contains(CreateFlag.NEW_BLOCK);
+    //incase of provided blocks always create a new block. We can not append to
+    //objects stored in S3
+    boolean toNewBlock;
+    if (lastBlock != null && lastBlock.getBlock().isProvidedBlock()) {
+      toNewBlock = true;
+    } else {
+      toNewBlock = flags.contains(CreateFlag.NEW_BLOCK);
+    }
 
     // The last partial block of the file has to be filled.
     if (!toNewBlock && lastBlock != null && policySuite.getPolicy(stat.getStoragePolicy()).getStorageTypes()[0] != StorageType.DB) {
@@ -614,6 +625,16 @@ public class DFSOutputStream extends FSOutputSummer
       long toWaitFor;
       long lastBlockLength = -1L;
       boolean updateLength = syncFlags.contains(SyncFlag.UPDATE_LENGTH);
+
+      if(getStat().getStoragePolicy() == HdfsConstants.CLOUD_STORAGE_POLICY_ID ||
+              getStat().getStoragePolicy() == HdfsConstants.DB_STORAGE_POLICY_ID){
+        //force to create a new block on sync / flush
+        if(!syncFlags.contains(SyncFlag.END_BLOCK)){
+
+          syncFlags.add(SyncFlag.END_BLOCK);
+        }
+      }
+
       boolean endBlock = syncFlags.contains(SyncFlag.END_BLOCK);
       synchronized (this) {
         // flush checksum buffer, but keep checksum buffer intact if we do not
@@ -1022,6 +1043,10 @@ public class DFSOutputStream extends FSOutputSummer
   @VisibleForTesting
   ExtendedBlock getBlock() {
     return streamer.getBlock();
+  }
+
+  HdfsFileStatus getStat() {
+    return streamer.getStat();
   }
 
   @VisibleForTesting

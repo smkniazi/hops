@@ -607,7 +607,8 @@ public class DFSClient implements java.io.Closeable, RemotePeerFactory,
   }
 
   /** Abort and release resources held.  Ignore all errors. */
-  void abort() {
+  @VisibleForTesting
+  public void abort() {
     clientRunning = false;
     closeAllFilesBeingWritten(true);
     try {

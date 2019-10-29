@@ -48,7 +48,7 @@ class BlocksMap {
       Collections.unmodifiableList(new ArrayList<DatanodeDescriptor>());
   private final static List<DatanodeStorageInfo> empty_storage_list =
       Collections.unmodifiableList(new ArrayList<DatanodeStorageInfo>());
-  
+
   BlocksMap(DatanodeManager datanodeManager) {
     this.datanodeManager = datanodeManager;
   }
@@ -122,7 +122,9 @@ class BlocksMap {
     if (storedBlock == null) {
       return null;
     }
+
     DatanodeStorageInfo[] desc = storedBlock.getStorages(datanodeManager);
+
     if (desc == null) {
       return empty_storage_list;
     } else {

@@ -165,20 +165,15 @@ import org.apache.hadoop.hdfs.protocol.datatransfer.ReplaceDatanodeOnFailure;
 import org.apache.hadoop.hdfs.security.token.block.BlockTokenIdentifier;
 import org.apache.hadoop.hdfs.security.token.delegation.DelegationTokenIdentifier;
 import org.apache.hadoop.hdfs.security.token.delegation.DelegationTokenSecretManager;
-import org.apache.hadoop.hdfs.server.blockmanagement.BlockInfoContiguous;
-import org.apache.hadoop.hdfs.server.blockmanagement.BlockInfoContiguousUnderConstruction;
-import org.apache.hadoop.hdfs.server.blockmanagement.BlockManager;
-import org.apache.hadoop.hdfs.server.blockmanagement.DatanodeDescriptor;
-import org.apache.hadoop.hdfs.server.blockmanagement.DatanodeManager;
-import org.apache.hadoop.hdfs.server.blockmanagement.DatanodeStatistics;
-import org.apache.hadoop.hdfs.server.blockmanagement.HashBuckets;
-import org.apache.hadoop.hdfs.server.blockmanagement.DatanodeStorageInfo;
+import org.apache.hadoop.hdfs.server.blockmanagement.*;
 import org.apache.hadoop.hdfs.server.common.HdfsServerConstants;
 import org.apache.hadoop.hdfs.server.common.HdfsServerConstants.BlockUCState;
 import org.apache.hadoop.hdfs.server.common.HdfsServerConstants.StartupOption;
 import org.apache.hadoop.hdfs.server.common.HdfsServerConstants.RollingUpgradeStartupOption;
 import org.apache.hadoop.hdfs.server.common.Storage;
 import org.apache.hadoop.hdfs.server.common.StorageInfo;
+import org.apache.hadoop.hdfs.server.datanode.fsdataset.CloudPersistenceProvider;
+import org.apache.hadoop.hdfs.server.datanode.fsdataset.impl.CloudPersistenceProviderFactory;
 import org.apache.hadoop.hdfs.server.namenode.INode.BlocksMapUpdateInfo;
 import org.apache.hadoop.hdfs.server.namenode.metrics.FSNamesystemMBean;
 import org.apache.hadoop.hdfs.server.namenode.metrics.NameNodeMetrics;
@@ -494,6 +489,10 @@ public class FSNamesystem implements Namesystem, FSNamesystemMBean,
   private final TopConf topConf;
   private TopMetrics topMetrics;
 
+  // HopsFS Cloud Storage
+  // Max buckets
+  private final int MAX_CLOUD_BUCKETS;
+
   /**
    * Notify that loading of this FSDirectory is complete, and
    * it is imageLoaded for use
@@ -628,6 +627,9 @@ public class FSNamesystem implements Namesystem, FSNamesystemMBean,
       DB_ON_DISK_MEDIUM_BUCKET_SIZE < DB_ON_DISK_LARGE_BUCKET_SIZE)){
         throw new IllegalArgumentException("The size for the database files is not correctly set");
       }
+
+      MAX_CLOUD_BUCKETS = conf.getInt(DFSConfigKeys.DFS_CLOUD_AWS_S3_NUM_BUCKETS,
+              DFS_CLOUD_AWS_S3_NUM_BUCKETS_DEFAULT);
 
       this.datanodeStatistics =
           blockManager.getDatanodeManager().getDatanodeStatistics();
@@ -856,6 +858,10 @@ public class FSNamesystem implements Namesystem, FSNamesystemMBean,
     RootINodeCache.start();
     nnResourceChecker = new NameNodeResourceChecker(conf);
     checkAvailableResources();
+
+    boolean cloud = conf.getBoolean(DFSConfigKeys.DFS_ENABLE_CLOUD_PERSISTENCE,
+            DFSConfigKeys.DFS_ENABLE_CLOUD_PERSISTENCE_DEFAULT);
+
     if (isLeader()) {
       // the node is starting and directly leader, this means that no NN was alive before
       clearSafeBlocks();
@@ -868,9 +874,22 @@ public class FSNamesystem implements Namesystem, FSNamesystemMBean,
       prog.setTotal(Phase.SAFEMODE, STEP_AWAITING_REPORTED_BLOCKS,
           getCompleteBlocksTotal());
       setBlockTotal();
+
+      if (cloud) {
+        //delete all BR tasks
+        ProvidedBlocksChecker.deleteAllTask();
+        //schedule new BR
+        ProvidedBlocksChecker.scheduleBlockReportNow();
+      }
     }
+
     shouldPopulateReplicationQueue = true;
     blockManager.activate(conf);
+
+    if (cloud) {
+      blockManager.startProvidedBlocksChecker(conf);
+    }
+
     if (dir.isQuotaEnabled()) {
       quotaUpdateManager.activate();
     }
@@ -904,6 +923,15 @@ public class FSNamesystem implements Namesystem, FSNamesystemMBean,
     LOG.info("Starting services required for active state");
     LOG.info("Catching up to latest edits from old active before " + "taking over writer role in edits logs");
     try {
+      boolean cloud = conf.getBoolean(DFSConfigKeys.DFS_ENABLE_CLOUD_PERSISTENCE,
+              DFSConfigKeys.DFS_ENABLE_CLOUD_PERSISTENCE_DEFAULT);
+      if(cloud){
+        CloudPersistenceProvider cloudConnector =
+                CloudPersistenceProviderFactory.getCloudClient(conf);
+        cloudConnector.checkAllBuckets();
+        cloudConnector.shutdown();
+      }
+
       blockManager.getDatanodeManager().markAllDatanodesStale();
 
       // Only need to re-process the queue, If not in SafeMode.
@@ -1805,10 +1833,11 @@ public class FSNamesystem implements Namesystem, FSNamesystemMBean,
         file.getFileUnderConstructionFeature().getClientName(), src);
     boolean shouldRecoverNow = (newBlock == null);
     BlockInfoContiguous oldBlock = file.getLastBlock();
-    boolean shouldCopyOnTruncate = shouldCopyOnTruncate(file, oldBlock);
+    boolean shouldCopyOnTruncate = shouldCopyOnTruncate(file, oldBlock); //always false for HopsFS
     if(newBlock == null) {
       newBlock = (shouldCopyOnTruncate) ? createNewBlock(file) :
-          new Block(oldBlock.getBlockId(), oldBlock.getNumBytes(), file.nextGenerationStamp());
+          new Block(oldBlock.getBlockId(), oldBlock.getNumBytes(), file.nextGenerationStamp(),
+                  oldBlock.getCloudBucketID());
     }
 
     BlockInfoContiguousUnderConstruction truncatedBlockUC;
@@ -2148,14 +2177,35 @@ public class FSNamesystem implements Namesystem, FSNamesystemMBean,
     final INodesInPath iip = dir.getINodesInPath4Write(src);
     startFileInternal(pc, iip, permissions, holder, clientMachine, create, overwrite,
         createParent, replication, blockSize, suite, version, edek);
-    final HdfsFileStatus stat = FSDirStatAndListingOp.
+     HdfsFileStatus stat = FSDirStatAndListingOp.
         getFileInfo(dir, src, false, FSDirectory.isReservedRawName(srcArg), true);
 
-    //Set HdfsFileStatus if the file shoudl be stored in DB
-    final INode inode = dir.getINodesInPath4Write(src).getLastINode();
-    final INodeFile myFile = INodeFile.valueOf(inode, src, true);
-    final BlockStoragePolicy storagePolicy =
-            getBlockManager().getStoragePolicySuite().getPolicy(myFile.getStoragePolicyID());
+    // HopsFS-Cloud
+    // ============
+    // For new files if the parent storage policy is CLOUD then
+    // we override the storage policy to DB. The client will first try
+    // to write the file to DB. If the file is large then the client will request
+    // for a block allocation and the file will be written accoring to the parent
+    // storage policy
+    if(stat.getStoragePolicy() ==  HdfsConstants.CLOUD_STORAGE_POLICY_ID){
+      LOG.debug("HopsFS-Cloud. Override Storage policy. CLOUD -> DB");
+      stat = new HdfsFileStatus(
+              stat.getLen(),
+              stat.isDir(),
+              stat.getReplication(),
+              stat.getBlockSize(),
+              stat.getModificationTime(),
+              stat.getAccessTime(),
+              stat.getPermission(),
+              stat.getOwner(),
+              stat.getGroup(),
+              stat.getSymlinkInBytes(),
+              stat.getLocalNameInBytes(),
+              stat.getFileId(),
+              stat.getChildrenNum(),
+              stat.getFileEncryptionInfo(),
+              HdfsConstants.DB_STORAGE_POLICY_ID);
+    }
 
     logAuditEvent(true, "create", src, null,
         (isAuditEnabled() && isExternalInvocation()) ? stat : null);
@@ -2321,9 +2371,17 @@ public class FSNamesystem implements Namesystem, FSNamesystemMBean,
       
       final BlockInfoContiguous lastBlock = myFile.getLastBlock();
       // Check that the block has at least minimum replication.
-      if (lastBlock != null && lastBlock.isComplete() && !getBlockManager().isSufficientlyReplicated(lastBlock)) {
-        throw new IOException("append: lastBlock=" + lastBlock + " of src=" + src
-            + " is not sufficiently replicated yet.");
+      if( lastBlock != null ) {
+        if (!lastBlock.isProvidedBlock() &&
+                lastBlock.isComplete() &&
+                !getBlockManager().isSufficientlyReplicated(lastBlock)) {
+          throw new IOException("append: lastBlock=" + lastBlock + " of src=" + src
+                  + " is not sufficiently replicated yet.");
+        } else if (lastBlock.isProvidedBlock() &&
+                !lastBlock.isComplete()) {
+          throw new IOException("append: lastBlock=" + lastBlock + " of src=" + src
+                  + " is not complete yet.");
+        }
       }
       return prepareFileForAppend(src, iip, holder, clientMachine, newBlock);
     } catch (IOException ie) {
@@ -2364,6 +2422,11 @@ public class FSNamesystem implements Namesystem, FSNamesystemMBean,
       return blockManager.createPhantomLocatedBlocks(file, file.getFileDataInDB(), true, false, null).getLocatedBlocks().
           get(0);
     } else {
+
+      if ( file.getStoragePolicyID() == HdfsConstants.CLOUD_STORAGE_POLICY_ID ){
+        newBlock = true;  //force create new blocks on append for CLOUD storage policy
+      }
+
       LocatedBlock ret = null;
       if (!newBlock) {
         ret = blockManager.convertLastBlockToUnderConstruction(file, 0);
@@ -2868,10 +2931,19 @@ public class FSNamesystem implements Namesystem, FSNamesystemMBean,
 
     FileState fileState = analyzeFileState(src, fileId, clientName, previous, onRetryBlock);
     INodeFile pendingFile = fileState.inode;
+    boolean storedInCloud =
+            pendingFile.getStoragePolicyID() == HdfsConstants.CLOUD_STORAGE_POLICY_ID;
+
     // Check if the penultimate block is minimally replicated
-    if (!checkFileProgress(src, pendingFile, false)) {
+    boolean checkFullFile = false;
+    if(storedInCloud){
+      checkFullFile = true;
+    }
+
+    if (!checkFileProgress(src, pendingFile, checkFullFile)) {
       throw new NotReplicatedYetException("Not replicated yet: " + src);
     }
+
     src = fileState.path;
 
     if (onRetryBlock[0] != null && onRetryBlock[0].getLocations().length > 0) {
@@ -2895,22 +2967,31 @@ public class FSNamesystem implements Namesystem, FSNamesystemMBean,
     replication = pendingFile.getBlockReplication();
 
     // Get the storagePolicyID of this file
-    byte storagePolicyID = pendingFile.getStoragePolicyID();
-
-    if(getBlockManager().getStoragePolicySuite().getPolicy(storagePolicyID).getName()
-            .equals(HdfsConstants.DB_STORAGE_POLICY_NAME)){
+    if(pendingFile.getStoragePolicyID()== HdfsConstants.DB_STORAGE_POLICY_ID){
       //Policy is DB but the file is moved to DNs so change the policy for this file
-      pendingFile.setStoragePolicyID(getBlockManager().getStoragePolicySuite()
-              .getDefaultPolicy().getId());
+      if( pendingFile.getParent().getStoragePolicyID() == HdfsConstants.DB_STORAGE_POLICY_ID ){
+        pendingFile.setStoragePolicyID(getBlockManager().getStoragePolicySuite()
+                .getDefaultPolicy().getId());
+      } else {
+        pendingFile.setStoragePolicyID(pendingFile.getParent().getStoragePolicyID());
+      }
     }
+    storedInCloud = pendingFile.getStoragePolicyID() == HdfsConstants.CLOUD_STORAGE_POLICY_ID;
 
     if (clientNode == null) {
       clientNode = getClientNode(clientMachine);
     }
     // choose targets for the new block to be allocated.
+    if(storedInCloud){
+      //so that we choose only one target. The client writes to
+      //target datanode and then the datanode uploads the block to the cloud.
+      // no need to write to multiple datanodes
+      replication = 1;
+    }
+
     return getBlockManager().chooseTarget4NewBlock(
         src, replication, clientNode, excludedNodes, blockSize,
-        favoredNodes, storagePolicyID);
+        favoredNodes, pendingFile.getStoragePolicyID());
   }
       
               /**
@@ -2949,6 +3030,10 @@ public class FSNamesystem implements Namesystem, FSNamesystemMBean,
 
     // allocate new block, record block locations in INode.
     newBlock = createNewBlock(pendingFile);
+    if(pendingFile.getStoragePolicyID() == HdfsConstants.CLOUD_STORAGE_POLICY_ID) {
+      ProvidedBlocksCacheHelper.updateProvidedBlockCacheLocation(newBlock, targets);
+    }
+
     INodesInPath inodesInPath = INodesInPath.fromINode(pendingFile);
     saveAllocatedBlock(src, inodesInPath, newBlock, targets);
 
@@ -3544,8 +3629,15 @@ public class FSNamesystem implements Namesystem, FSNamesystemMBean,
    */
   private Block createNewBlock(INodeFile pendingFile)
       throws IOException {
-    Block b = new Block(nextBlockId()
-        , 0, 0);
+    short bucketID = Block.NON_EXISTING_BUCKET_ID;
+    long blockID = nextBlockId();
+
+    if(pendingFile.getStoragePolicyID() == HdfsConstants.CLOUD_STORAGE_POLICY_ID){
+      bucketID = Block.getCloudBucket(MAX_CLOUD_BUCKETS, blockID);
+      LOG.debug("HopsFS-Cloud. The new block ID: "+blockID+" for file: \""+pendingFile.getName()+
+                      "\" will be stored in cloud bucket: "+bucketID);
+    }
+    Block b = new Block(blockID, 0, 0, bucketID);
     // Increment the generation stamp for every new block.
     b.setGenerationStampNoPersistance(pendingFile.nextGenerationStamp());
     return b;
@@ -3856,9 +3948,26 @@ public class FSNamesystem implements Namesystem, FSNamesystemMBean,
           }
         }
         final INodeFile pendingFile = checkLease(src2, clientName, inode, fileId, true);
+        
         if (lastBlockLength > 0) {
-          pendingFile.getFileUnderConstructionFeature().updateLengthOfLastBlock(pendingFile, lastBlockLength);
+          if (pendingFile.getStoragePolicyID() == HdfsConstants.CLOUD_STORAGE_POLICY_ID){
+            BlockInfoContiguous lastBlock = pendingFile.getLastBlock();
+            if(lastBlock.getBlockUCState() == BlockUCState.COMPLETE  ) {
+              //for provided blocks there is a race condition between
+              //FSYNC and BLOCK_RECEIVED_AND_DELETED.
+              //BLOCK_RECEIVED_AND_DELETED COMPLETS the blocks and updates the
+              //length making updating the block length in FSYNC redundant. Plus
+              //assert statements in  updateLengthOfLastBlock fail for completed blocks.
+              //for COMPLETED provided blocks there is no need to re-update the length.
+              //TestsS3FileCreation.TestDataRace
+              assert lastBlock.getNumBytes() == lastBlockLength;
+            }
+          } else {
+            pendingFile.getFileUnderConstructionFeature().
+                    updateLengthOfLastBlock(pendingFile, lastBlockLength);
+          }
         }
+
         persistBlocks(src2, pendingFile);
         pendingFile.recomputeFileSize();
         return null;
@@ -4030,22 +4139,46 @@ public class FSNamesystem implements Namesystem, FSNamesystemMBean,
   }
 
   private void commitOrCompleteLastBlock(
-      final INodeFile fileINode, final INodesInPath iip, final Block commitBlock)
-      throws IOException {
+          final INodeFile fileINode, final INodesInPath iip, final Block commitBlock)
+          throws IOException {
     Preconditions.checkArgument(fileINode.isUnderConstruction());
-    if (!blockManager.commitOrCompleteLastBlock(fileINode, commitBlock)) {
+
+    // For provided block the process of marking block COMITTED/COMPLETED
+    // is handled by the block manger when
+    // it receives the FINALIZED notification from the datanodes.
+    if (commitBlock != null && commitBlock.isProvidedBlock()) {
+      LOG.debug("HopsFS-Cloud. FSnamesystem CommitOrComplete for file: "+fileINode.getName()+
+              " BlockID: "+commitBlock.getBlockId()+" GenStamp: "+commitBlock.getGenerationStamp());
+      BlockInfoContiguous lastBlock = fileINode.getLastBlock();
+      if (lastBlock == null)
+        return;
+
+      //if we get here and blocks are not complete then the
+      //checkFileProgress fn should throw an exception to the client
+
+      updateQuotaUponBlockCompletion(fileINode, iip, commitBlock);
+
       return;
+    } else {
+      if (!blockManager.commitOrCompleteLastBlock(fileINode, commitBlock)) {
+        return;
+      }
+      updateQuotaUponBlockCompletion(fileINode, iip, commitBlock);
     }
 
+  }
+
+  public void updateQuotaUponBlockCompletion(final INodeFile fileINode, final INodesInPath iip,
+                                             final Block commitBlock) throws IOException {
     fileINode.recomputeFileSize();
 
     if (dir.isQuotaEnabled()) {
       final long diff = fileINode.getPreferredBlockSize()
-          - commitBlock.getNumBytes();
+              - commitBlock.getNumBytes();
       if (diff > 0) {
         // Adjust disk space consumption if required
         dir.updateSpaceConsumed(iip, 0,
-            -diff, fileINode.getBlockReplication());
+                -diff, fileINode.getBlockReplication());
       }
     }
   }
@@ -4054,7 +4187,8 @@ public class FSNamesystem implements Namesystem, FSNamesystemMBean,
       INodeFile pendingFile)
       throws IOException {
     boolean skipReplicationCheck = false;
-    if (pendingFile.getStoragePolicyID() == HdfsConstants.DB_STORAGE_POLICY_ID){
+    if (pendingFile.getStoragePolicyID() == HdfsConstants.CLOUD_STORAGE_POLICY_ID ||
+         pendingFile.getStoragePolicyID() == HdfsConstants.DB_STORAGE_POLICY_ID   ){
       skipReplicationCheck = true;
     }
 
@@ -4067,7 +4201,7 @@ public class FSNamesystem implements Namesystem, FSNamesystemMBean,
     FileUnderConstructionFeature uc = pendingFile.getFileUnderConstructionFeature();
     Preconditions.checkArgument(uc != null);
     leaseManager.removeLease(uc.getClientName(), src);
-    
+
     // close file and persist block allocations for this file
     pendingFile.toCompleteFile(now());
     closeFile(src, pendingFile);
@@ -4114,14 +4248,13 @@ public class FSNamesystem implements Namesystem, FSNamesystemMBean,
         // If a DN tries to commit to the standby, the recovery will
         // fail, and the next retry will succeed on the new NN.
 
-        checkNameNodeSafeMode(
-          "Cannot commitBlockSynchronization while in safe mode");
-        LOG.info("commitBlockSynchronization(oldBlock=" + oldBlock +
-            ", newGenerationStamp=" + newGenerationStamp + ", newLength=" +
-            newLength + ", newTargets=" + Arrays.asList(newTargets) +
-            ", closeFile=" + closeFile + ", deleteBlock=" + deleteBlock + ")");
-        final BlockInfoContiguous storedBlock =
-            getStoredBlock(ExtendedBlock.getLocalBlock(oldBlock));
+        if (inodeIdentifier == null) {
+          throw new FileNotFoundException("File not found for block: " + oldBlock
+                  + ", likely due to delayed block"
+                  + " removal");
+        }
+
+        final BlockInfoContiguous storedBlock = getStoredBlock(ExtendedBlock.getLocalBlock(oldBlock));
         if (storedBlock == null) {
           if (deleteBlock) {
             // This may be a retry attempt so ignore the failure
@@ -4134,6 +4267,48 @@ public class FSNamesystem implements Namesystem, FSNamesystemMBean,
             throw new IOException("Block (=" + oldBlock + ") not found");
           }
         }
+
+        BlockCollection blockCollection = storedBlock.getBlockCollection();
+        if (blockCollection == null) {
+          throw new IOException("The blockCollection of " + storedBlock
+                  + " is null, likely because the file owning this block was"
+                  + " deleted and the block removal is delayed");
+        }
+
+        checkNameNodeSafeMode(
+                "Cannot commitBlockSynchronization while in safe mode");
+        LOG.info("commitBlockSynchronization Provided Block (oldBlock=" + oldBlock +
+                ", newGenerationStamp=" + newGenerationStamp + ", newLength=" +
+                newLength + ", newTargets=" + Arrays.asList(newTargets) +
+                ", closeFile=" + closeFile + ", deleteBlock=" + deleteBlock + ")");
+
+        INodeFile iFile = ((INode)blockCollection).asFile();
+
+        if(iFile.getStoragePolicyID() == HdfsConstants.CLOUD_STORAGE_POLICY_ID) {
+          commitBlockSynchronizationInternalProvidedBlks(oldBlock, newGenerationStamp, newLength,
+                  closeFile, deleteBlock, newTargets, newTargetStorages);
+        } else {
+          commitBlockSynchronizationInternal(oldBlock, newGenerationStamp, newLength,
+                  closeFile, deleteBlock, newTargets, newTargetStorages,
+                  src, copyTruncate, truncatedBlock);
+        }
+        return null;
+      }
+    }.handle(this);
+  }
+
+  void commitBlockSynchronizationInternal(final ExtendedBlock oldBlock,
+                                  final long newGenerationStamp, final long newLength,
+                                  final boolean closeFile, final boolean deleteBlock,
+                                  final DatanodeID[] newTargets, final String[] newTargetStorages,
+                                          final String[] src, final boolean[] copyTruncate,
+                                          final BlockInfoContiguousUnderConstruction[] truncatedBlock )
+          throws IOException {
+        // If a DN tries to commit to the standby, the recovery will
+        // fail, and the next retry will succeed on the new NN.
+
+        final BlockInfoContiguous storedBlock =
+            getStoredBlock(ExtendedBlock.getLocalBlock(oldBlock));
         final long oldGenerationStamp = storedBlock.getGenerationStamp();
         final long oldNumBytes = storedBlock.getNumBytes();
         //
@@ -4155,11 +4330,7 @@ public class FSNamesystem implements Namesystem, FSNamesystemMBean,
               + " deleted and the block removal is delayed");
         }
         INodeFile iFile = ((INode)storedBlock.getBlockCollection()).asFile();
-        if (inodeIdentifier==null) {
-          throw new FileNotFoundException("File not found: "
-              + iFile.getFullPathName() + ", likely due to delayed block"
-              + " removal");
-        }
+
         if ((!iFile.isUnderConstruction() || storedBlock.isComplete()) &&
           iFile.getLastBlock().isComplete()) {
           if (LOG.isDebugEnabled()) {
@@ -4167,7 +4338,7 @@ public class FSNamesystem implements Namesystem, FSNamesystemMBean,
                 + ") since the file (=" + iFile.getLocalName()
                 + ") is not under construction");
           }
-          return null;
+          return;
         }
           
         truncatedBlock[0] = (BlockInfoContiguousUnderConstruction) iFile
@@ -4249,22 +4420,49 @@ public class FSNamesystem implements Namesystem, FSNamesystemMBean,
           src[0] = iFile.getFullPathName();
           persistBlocks(src[0], iFile);
         }
-        return null;
-      }
+  }
 
-    }.handle(this);
+  void commitBlockSynchronizationInternalProvidedBlks(final ExtendedBlock oldBlock,
+          final long newGenerationStamp, final long newLength,
+          final boolean closeFile, final boolean deleteBlock,
+          final DatanodeID[] newTargets, final String[] newTargetStorages)
+          throws IOException {
+    String src;
+    LOG.debug("HopsFS-Cloud. Commit Block Synchronization for provided block");
+
+    Preconditions.checkArgument(deleteBlock == false);
+    Preconditions.checkArgument(closeFile == true);
+
+    final BlockInfoContiguous storedBlock =
+            getStoredBlock(ExtendedBlock.getLocalBlock(oldBlock));
+    BlockCollection blockCollection = storedBlock.getBlockCollection();
+    INodeFile iFile = ((INode) blockCollection).asFile();
+
+    //at this stage the block may have been marked completed by the
+    //incremental BR.
+    BlockUCState storedState = iFile.getLastBlock().getBlockUCState();
+    if (!iFile.isUnderConstruction()) {
+      if (LOG.isDebugEnabled()) {
+        LOG.debug("Unexpected block (=" + oldBlock
+                + ") since the file (=" + iFile.getLocalName()
+                + ") is not under construction");
+      }
+      return;
+    }
+
+    if (storedState != BlockUCState.COMPLETE) {
+      throw new NotReplicatedYetException("Unable to syn block. Waiting for incremental blcok " +
+              "report");
+    }
+
     if (closeFile) {
+      src = closeFileCommitBlocks(iFile, storedBlock);
       LOG.info(
-          "commitBlockSynchronization(oldBlock=" + oldBlock
-          + ", file=" + src[0]
-          + (copyTruncate[0] ? ", newBlock=" + truncatedBlock
-              : ", newgenerationstamp=" + newGenerationStamp)
-          + ", newLength=" + newLength + ", newTargets=" + Arrays.asList(newTargets)
-          + ") successful"
-      
-      );
-        } else {
-          LOG.info("commitBlockSynchronization(" + oldBlock + ") successful");
+              "commitBlockSynchronization(oldBlock=" + oldBlock + ", file=" +
+                      src + ", newGenerationStamp=" + newGenerationStamp +
+                      ", newLength=" + newLength + ", newTargets=" +
+                      Arrays.asList(newTargets) +
+                      ") successful");
     }
   }
 

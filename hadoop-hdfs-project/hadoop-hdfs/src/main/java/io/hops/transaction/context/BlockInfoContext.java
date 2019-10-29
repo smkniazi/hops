@@ -71,7 +71,8 @@ public class BlockInfoContext extends BaseEntityContext<Long, BlockInfoContiguou
     updateInodeBlocks(blockInfo);
     if(isLogTraceEnabled()) {
       log("updated-blockinfo", "bid", blockInfo.getBlockId(), "inodeId",
-              blockInfo.getInodeId(), "blk index", blockInfo.getBlockIndex());
+              blockInfo.getInodeId(), "blk index", blockInfo.getBlockIndex(),
+              "cloudBucketID", blockInfo.getCloudBucketID());
     }
 
   }

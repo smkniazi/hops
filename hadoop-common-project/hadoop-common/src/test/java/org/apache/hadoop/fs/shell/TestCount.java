@@ -286,6 +286,7 @@ public class TestCount {
         "     DB_QUOTA      REM_DB_QUOTA     SSD_QUOTA     REM_SSD_QUOTA    DISK_QUOTA    REM_DISK_QUOTA " +
         // <----13---> <-------17------> <----13-----> <-------17------>
         "  RAID5_QUOTA   REM_RAID5_QUOTA ARCHIVE_QUOTA REM_ARCHIVE_QUOTA PROVIDED_QUOTA REM_PROVIDED_QUOTA " +
+        "  CLOUD_QUOTA   REM_CLOUD_QUOTA " +
         "PATHNAME";
     verify(out).println(withStorageTypeHeader);
     verifyNoMoreInteractions(out);
@@ -343,6 +344,7 @@ public class TestCount {
         "  RAID5_QUOTA   REM_RAID5_QUOTA " +
         "ARCHIVE_QUOTA REM_ARCHIVE_QUOTA " +
         "PROVIDED_QUOTA REM_PROVIDED_QUOTA " +
+        "  CLOUD_QUOTA   REM_CLOUD_QUOTA " +	
         "PATHNAME";
     verify(out).println(withStorageTypeHeader);
     verifyNoMoreInteractions(out);

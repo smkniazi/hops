@@ -2962,7 +2962,10 @@ public abstract class Server {
       // on the server side, as opposed to just a normal exceptional
       // result.
       logger.warn(logMsg, e);
-    } else {
+    } else if(e instanceof  IOException && e.getMessage().contains("Not replicated yet")){
+      logger.debug(logMsg, e);
+    }
+    else {
       logger.info(logMsg, e);
     }
   }

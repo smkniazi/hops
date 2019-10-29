@@ -164,6 +164,8 @@ class FSDirConcatOp {
     final INodeFile targetINode = targetIIP.getLastINode().asFile();
     final INodeDirectory targetParent = targetINode.getParent();
     // now check the srcs
+    int diskFiles = 0;
+    int cloudFiles = 0;
     for (String src : srcs) {
       final INodesInPath iip = fsd.getINodesInPath4Write(src);
       // permission check for srcs
@@ -189,6 +191,19 @@ class FSDirConcatOp {
       if(srcINodeFile.getStoragePolicyID() == HdfsConstants.DB_STORAGE_POLICY_ID) {
         throw new HadoopIllegalArgumentException("concat: source file " + src
                 + " is stored in DB.");
+      }
+
+      if(srcINodeFile.getStoragePolicyID() == HdfsConstants.CLOUD_STORAGE_POLICY_ID){
+        cloudFiles++;
+      } else {
+        diskFiles++;
+      }
+
+      //for CLOUD storage policy all file should have same storage policy
+      //we can not mix different storage policies.
+      if(cloudFiles > 1 && diskFiles > 1) {
+        throw new HadoopIllegalArgumentException("concat: some src files are stored on" +
+                " DN disks and some are stored in the cloud");
       }
 
       // source file cannot be under construction or empty
@@ -292,6 +307,7 @@ class FSDirConcatOp {
     }
 
     trgInode.setModificationTime(timestamp);
+    trgInode.setHasBlocks(true);
     trgParent.updateModificationTime(timestamp);
     // update quota on the parent directory ('count' files removed, 0 space)
     fsd.unprotectedUpdateCount(targetIIP, targetIIP.length() - 1, deltas);
