@@ -69,6 +69,11 @@ public class HopsFilesTestHelper {
    * This method reads the file using different read methods.
    */
   public static void verifyFile(FileSystem dfs, String file, int size) throws IOException {
+      //verify size
+      long sizeDFS = dfs.getFileStatus(new Path(file)).getLen();
+      assertTrue("Expected: "+size+" Actual: "+sizeDFS, sizeDFS == size);
+
+    //verify content
     //reading one byte at a time.
     FSDataInputStream is = dfs.open(new Path(file));
     byte[] buffer = new byte[size];
