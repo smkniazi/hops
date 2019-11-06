@@ -379,7 +379,11 @@ public class INodeFile extends INodeWithAdditionalFields implements BlockCollect
   
   public long computeFileSize()
       throws StorageException, TransactionContextException {
-    return computeFileSize(true, false);
+    if(isFileStoredInDB){
+      return this.getSize();
+    } else {
+      return computeFileSize(true, false);
+    }
   }  
 
   /**

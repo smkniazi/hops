@@ -184,6 +184,12 @@ class FSDirConcatOp {
         throw new HadoopIllegalArgumentException("concat: the src file " + src
             + " is the same with the target file " + targetIIP.getPath());
       }
+
+      if(srcINodeFile.getStoragePolicyID() == HdfsConstants.DB_STORAGE_POLICY_ID) {
+        throw new HadoopIllegalArgumentException("concat: source file " + src
+                + " is stored in DB.");
+      }
+
       // source file cannot be under construction or empty
       if(srcINodeFile.isUnderConstruction() || srcINodeFile.numBlocks() == 0) {
         throw new HadoopIllegalArgumentException("concat: source file " + src
