@@ -66,6 +66,19 @@ public class LocatedBlocks {
     }
   }
 
+  public boolean hasProvidedBlocks() throws IOException {
+    boolean hasProvidedBlocks = false;
+    if (blocks != null) {
+      for (LocatedBlock blk : blocks) {
+        if (blk.getBlock().isProvidedBlock()) {
+          hasProvidedBlocks = true;
+          break;
+        }
+      }
+    }
+    return hasProvidedBlocks;
+  }
+
   public boolean hasPhantomBlock() throws IOException {
     boolean hasPhantomBlocks = false;
     if (blocks != null) {

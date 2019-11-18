@@ -351,6 +351,13 @@ public class BlockInfoContiguousUnderConstruction extends BlockInfoContiguous {
     return this.primaryNodeIndex;
   }
 
+  public void removeFromUCReplicas() throws StorageException,
+          TransactionContextException {
+    for (ReplicaUnderConstruction rep : getExpectedReplicas()) {
+      EntityManager.remove(rep);
+    }
+  }
+
   private void complete() throws StorageException, TransactionContextException {
     for (ReplicaUnderConstruction rep : getExpectedReplicas()) {
       EntityManager.remove(rep);

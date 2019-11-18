@@ -2222,5 +2222,10 @@
         before throwing an exception.
     </description>
   </property>
-
+  
+  <property>
+    <name>dfs.cloud.max.phantom.blocks.for.read</name>
+    <value>3</value>
+    <description>Number of block replicas returned to the client when reading provided blocks</description>
+  </property>
 </configuration>

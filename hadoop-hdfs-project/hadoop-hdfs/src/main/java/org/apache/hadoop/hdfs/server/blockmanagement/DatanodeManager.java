@@ -966,6 +966,21 @@ public class DatanodeManager {
   }
 
   /**
+   * @return live datanodes
+   */
+  private List<DatanodeDescriptor> getLiveDataNodes() {
+    List<DatanodeDescriptor> list = new ArrayList<>();
+    synchronized (datanodeMap) {
+      for (DatanodeDescriptor dn : datanodeMap.values()) {
+        if (!isDatanodeDead(dn)) {
+          list.add(dn);
+        }
+      }
+    }
+    return list;
+  }
+
+  /**
    * @return the number of dead datanodes.
    */
   public int getNumDeadDataNodes() {
@@ -1742,17 +1757,14 @@ public class DatanodeManager {
   }
 
   public List<DatanodeDescriptor> getRandomDN(int count){
-    if(datanodeMap.isEmpty()){
+    List<DatanodeDescriptor> liveNodes = getLiveDataNodes();
+
+    if(liveNodes.isEmpty()){
         return Collections.EMPTY_LIST;
     }else{
-      int retCount = Math.min(count, datanodeMap.size());
-      if(retCount == 0){
-        return new ArrayList();
-      }
-
-      List<DatanodeDescriptor> dns = new ArrayList(datanodeMap.values());
-      Collections.shuffle(dns);
-      return dns.subList(0, retCount);
+      int retCount = Math.min(count, liveNodes.size());
+      Collections.shuffle(liveNodes);
+      return liveNodes.subList(0, retCount);
     }
   }
 

@@ -176,6 +176,10 @@ public class DFSConfigKeys extends CommonConfigurationKeys {
           "dfs.cloud.failed.ops.retry.count";
   public static final int DFS_CLOUD_FAILED_OPS_RETRY_COUNT_DEFAULT = 5;
 
+  public static final String DFS_CLOUD_MAX_PHANTOM_BLOCKS_FOR_READ_KEY =
+          "dfs.cloud.max.phantom.blocks.for.read";
+  public static final int DFS_CLOUD_MAX_PAHNTOM_BLOCKS_FOR_READ_DEFAULT = 3;
+
   /*for client failover api*/
   // format {ip:port, ip:port, ip:port} comma separated
   public static final String DFS_NAMENODES_RPC_ADDRESS_KEY = "dfs.namenodes.rpc.addresses";

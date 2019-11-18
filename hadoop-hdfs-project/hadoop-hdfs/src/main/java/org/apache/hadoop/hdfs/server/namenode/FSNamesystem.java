@@ -1239,7 +1239,6 @@ public class FSNamesystem implements Namesystem, FSNamesystemMBean,
       @Override
       public Object performTask() throws IOException {
         GetBlockLocationsResult res = null;
-        
         res = getBlockLocationsInt(srcArg, src, offset, length, true, true);
 
         if (res.updateAccessTime()) {
@@ -1260,17 +1259,20 @@ public class FSNamesystem implements Namesystem, FSNamesystemMBean,
 
         LocatedBlocks blocks = res.blocks;
 
-        if (blocks != null && !blocks
-            .hasPhantomBlock()) { // no need to sort phantom datanodes
-          blockManager.getDatanodeManager()
-              .sortLocatedBlocks(clientMachine, blocks.getLocatedBlocks());
+        if (blocks != null) {
+          if (!blocks.hasPhantomBlock() && !res.blocks.hasProvidedBlocks()) { // no need to sort phantom datanodes
+            blockManager.getDatanodeManager()
+                    .sortLocatedBlocks(clientMachine, blocks.getLocatedBlocks());
 
-          // lastBlock is not part of getLocatedBlocks(), might need to sort it too
-          LocatedBlock lastBlock = blocks.getLastLocatedBlock();
-          if (lastBlock != null) {
-            ArrayList<LocatedBlock> lastBlockList = Lists.newArrayList(lastBlock);
-            blockManager.getDatanodeManager().sortLocatedBlocks(
-                clientMachine, lastBlockList);
+            // lastBlock is not part of getLocatedBlocks(), might need to sort it too
+            LocatedBlock lastBlock = blocks.getLastLocatedBlock();
+            if (lastBlock != null) {
+              ArrayList<LocatedBlock> lastBlockList = Lists.newArrayList(lastBlock);
+              blockManager.getDatanodeManager().sortLocatedBlocks(clientMachine, lastBlockList);
+            }
+          } else if (res.blocks.hasProvidedBlocks()) {
+            //For provided blocks we would like to add more storage to HA
+            blocks = blockManager.addProvideStorageBlocksForHA(blocks);
           }
         }
         return blocks;

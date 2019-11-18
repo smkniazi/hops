@@ -259,24 +259,37 @@ public class BlockInfoContiguous extends Block {
       // check that the datanode is alive
       DatanodeDescriptor dns = dnMgm.getDatanodeBySid(loc.getStorageID());
       if (dns.isAlive && !dns.isStale(dnMgm.getStaleInterval())) {
-        LOG.debug("HopsFS-Cloud. The block ID: " + getBlockId() + " is cached on DN: " + dns.toString());
+        if(LOG.isDebugEnabled()){
+          LOG.debug("HopsFS-Cloud. The block ID: " + getBlockId() + " is cached on DN: " + dns.toString());
+        }
         DatanodeStorageInfo storageInfo = dnMgm.getStorage(loc.getStorageID());
         ret.add(storageInfo);
       }
     }
 
-    if (ret.isEmpty()) {
-      ret.addAll(getNonStaleRandomCloudStorage(1, dnMgm));
+    if(ret.isEmpty()){
+      ret.addAll(getNonStaleRandomCloudStorage(1, dnMgm, null));
+    }
+
+    if(LOG.isDebugEnabled()){
+      LOG.debug("HopsFS-Cloud. Block ID: "+getBlockId()+" Returning Storages "+Arrays.toString(ret.toArray()));
     }
 
     return Iterables.toArray(ret, DatanodeStorageInfo.class);
+
+
   }
 
-  private List<DatanodeStorageInfo> getNonStaleRandomCloudStorage(int count,
-                                                                  DatanodeManager dnMgm) {
+  public List<DatanodeStorageInfo> getNonStaleRandomCloudStorage(int count, DatanodeManager dnMgm
+          , DatanodeInfo ignoreDN) {
     List<DatanodeStorageInfo> ret = new ArrayList();
     List<DatanodeDescriptor> dnDescs = dnMgm.getRandomDN(dnMgm.getNumLiveDataNodes());
     for (DatanodeDescriptor dnDesc : dnDescs) {
+
+      if (ignoreDN != null && dnDesc.equals(ignoreDN)) {
+        continue;
+      }
+
       //A data node may have multiple CLOUD volumes. Return a random
       //CLOUD Volume on the datanode.
       List<DatanodeStorageInfo> storages = Arrays.asList(dnDesc.getStorageInfos());

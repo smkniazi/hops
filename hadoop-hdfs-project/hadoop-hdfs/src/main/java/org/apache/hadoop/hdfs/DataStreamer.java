@@ -293,6 +293,8 @@ class DataStreamer extends Daemon {
   // on the NameNodes.
   private boolean syncOrFlushCalled = false;
 
+  private final LinkedList<DFSPacket> backupPackets = new LinkedList<>();
+
   private static BlockStoragePolicySuite policySuite = BlockStoragePolicySuite.createDefaultSuite();
 
   private DataStreamer(HdfsFileStatus stat, DFSClient dfsClient, String src,
@@ -418,6 +420,10 @@ class DataStreamer extends Daemon {
     closeStream();
     setPipeline(null, null, null);
     stage = BlockConstructionStage.PIPELINE_SETUP_CREATE;
+
+    synchronized (dataQueue){
+      releaseBuffer(backupPackets, byteArrayManager);
+    }
   }
 
   /*
@@ -444,7 +450,10 @@ class DataStreamer extends Daemon {
       try {
         // process datanode IO errors if any
         boolean doSleep = false;
-        if (hasError && (errorIndex >= 0 || restartingNodeIndex.get() >= 0)) {
+        boolean processError = hasError && (errorIndex >= 0 || restartingNodeIndex.get() >= 0);
+        if(processError && block != null && block.isProvidedBlock()){
+          doSleep = processDatanodeErrorForProvidedBlk();
+        } else if (processError) {
           doSleep = processDatanodeError();
         }
 
@@ -1012,7 +1021,17 @@ class DataStreamer extends Daemon {
             ackQueue.removeFirst();
             dataQueue.notifyAll();
 
-            one.releaseBuffer(byteArrayManager);
+            boolean relaseMem = true;
+            if(block.isProvidedBlock()){
+              if(!one.isHeartbeatPacket()) {
+                backupPackets.addLast(one);
+                relaseMem = false;
+              }
+            }
+
+            if(relaseMem){
+              one.releaseBuffer(byteArrayManager);
+            }
           }
         } catch (Exception e) {
           if (!responderClosed) {
@@ -2071,5 +2090,60 @@ class DataStreamer extends Daemon {
   
   public void setFileStoredInDB(boolean isThisFileStoredInDB){
     this.isThisFileStoredInDB = isThisFileStoredInDB;
+  }
+
+  private boolean processDatanodeErrorForProvidedBlk() throws IOException {
+    if (response != null) {
+      LOG.info("Error Recovery for " + block +
+              " waiting for responder to exit. ");
+      return true;
+    }
+    closeStream();
+
+    // move packets from ack queue to front of the data queue
+    synchronized (dataQueue) {
+      dataQueue.addAll(0, ackQueue);
+      dataQueue.addAll(0, backupPackets);
+      backupPackets.clear();
+      ackQueue.clear();
+    }
+
+    // Record the new pipeline failure recovery.
+    if (lastAckedSeqnoBeforeFailure != lastAckedSeqno) {
+      lastAckedSeqnoBeforeFailure = lastAckedSeqno;
+      pipelineRecoveryCount = 1;
+    } else {
+      // If we had to recover the pipeline five times in a row for the
+      // same packet, this client likely has corrupt data or corrupting
+      // during transmission.
+      if (++pipelineRecoveryCount > 5) {
+        LOG.warn("Error recovering pipeline for writing " +
+                block + ". Already retried 5 times for the same packet.");
+        lastException.set(new IOException("Failing write. Tried pipeline " +
+                "recovery 5 times without success."));
+        streamerClosed = true;
+        return false;
+      }
+    }
+
+
+    //abandon block
+    dfsClient.namenode.abandonBlock(block, stat.getFileId(), src, dfsClient.clientName);
+    block = null;
+    excludedNodes.put(nodes[errorIndex], nodes[errorIndex]);
+
+    //end current blk;
+    hasError = false;
+    lastException.clear();
+
+    synchronized (dataQueue) {
+      lastQueuedSeqno = dataQueue.getLast().getSeqno();
+      lastAckedSeqno = dataQueue.get(0).getSeqno() - 1;
+      lastAckedSeqnoBeforeFailure = lastAckedSeqno;
+    }
+
+    endBlock();
+
+    return false;
   }
 }

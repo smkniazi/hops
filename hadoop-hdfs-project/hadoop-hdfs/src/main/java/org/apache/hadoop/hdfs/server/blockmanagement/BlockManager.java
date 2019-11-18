@@ -336,6 +336,7 @@ public class BlockManager {
 
   private boolean isCloudEnabled = false;
   private ProvidedBlocksChecker providedBlocksChecker;
+  private int cloudMaxPhantomBlkForRead = 1;
 
   public BlockManager(final Namesystem namesystem, final Configuration conf)
     throws IOException {
@@ -446,6 +447,16 @@ public class BlockManager {
     this.isCloudEnabled = conf.getBoolean(
             DFSConfigKeys.DFS_ENABLE_CLOUD_PERSISTENCE,
             DFSConfigKeys.DFS_ENABLE_CLOUD_PERSISTENCE_DEFAULT);
+
+    this.cloudMaxPhantomBlkForRead = conf.getInt(
+            DFSConfigKeys.DFS_CLOUD_MAX_PHANTOM_BLOCKS_FOR_READ_KEY,
+            DFSConfigKeys.DFS_CLOUD_MAX_PAHNTOM_BLOCKS_FOR_READ_DEFAULT);
+
+    if (!(cloudMaxPhantomBlkForRead >= 1)) {
+      throw new IllegalArgumentException("Wrong value for "+
+              DFSConfigKeys.DFS_CLOUD_MAX_PHANTOM_BLOCKS_FOR_READ_KEY +
+              "Supported values >= 1");
+    }
 
     LOG.info("defaultReplication         = " + defaultReplication);
     LOG.info("maxReplication             = " + maxReplication);
@@ -5084,7 +5095,17 @@ public class BlockManager {
     removeFromExcessReplicateMap(getBlockInfo(block));
     // If block is removed from blocksMap remove it from corruptReplicasMap
     corruptReplicas.removeFromCorruptReplicasMap(getBlockInfo(block));
+
+    if(block.isProvidedBlock()){
+      //for provided blocks also remove the under-construction replicas.
+      //for non-provided block is this is handled by the block reporting.
+      if(getBlockInfo(block) instanceof BlockInfoContiguousUnderConstruction){
+        ((BlockInfoContiguousUnderConstruction)getBlockInfo(block)).removeFromUCReplicas();
+      }
+    }
+
     blocksMap.removeBlock(block);
+
   }
 
   /**
@@ -5773,4 +5794,69 @@ public class BlockManager {
     return providedBlocksChecker;
   }
 
+  public LocatedBlocks addProvideStorageBlocksForHA(LocatedBlocks existingBlks) {
+
+    if (cloudMaxPhantomBlkForRead == 1) {
+      return existingBlks;
+    }
+
+    List<LocatedBlock> extendedLBlks = new ArrayList<>(existingBlks.getLocatedBlocks().size());
+
+
+    LocatedBlock lastlb = existingBlks.getLastLocatedBlock();
+    if (existingBlks.getLocatedBlocks().size() > 0) {
+      int end = existingBlks.getLocatedBlocks().size();
+
+      if (lastlb != null && !existingBlks.isLastBlockComplete()) {
+        end = end - 1;
+      }
+
+      for (int i = 0; i < end; i++) {
+        LocatedBlock lblk = existingBlks.getLocatedBlocks().get(i);
+        extendedLBlks.add(addMoreProvidedStorages(lblk));
+      }
+    }
+
+    if (lastlb != null && existingBlks.isLastBlockComplete() &&
+            lastlb.getLocations().length <= 1) {
+      //for under construction blocks we do not want to add
+      //additional datanodes to read the block, because
+      //the block has not bee yet uploaded to the cloud.
+      lastlb = addMoreProvidedStorages(lastlb);
+    }
+
+    return new LocatedBlocks(existingBlks.getFileLength(), existingBlks.isUnderConstruction(),
+            extendedLBlks, lastlb,
+            existingBlks.isLastBlockComplete(), existingBlks.getFileEncryptionInfo());
+  }
+
+  private LocatedBlock addMoreProvidedStorages(LocatedBlock lblk) {
+    assert lblk.getLocations().length <= 1; // at most one replica is expected
+
+    int existingCount = lblk.getLocations().length;
+    DatanodeInfo existingDNInfo = null;
+    if (existingCount == 1) {
+      existingDNInfo = lblk.getLocations()[0];
+    }
+
+    int additionalNodes = cloudMaxPhantomBlkForRead - existingCount;
+
+    BlockInfoContiguous blk = (BlockInfoContiguous) lblk.getBlock().getLocalBlock();
+    List<DatanodeStorageInfo> locations = blk.getNonStaleRandomCloudStorage(
+            additionalNodes, datanodeManager, existingDNInfo);
+
+    DatanodeStorageInfo[] storages = new DatanodeStorageInfo[locations.size() + existingCount];
+
+    int j = 0;
+    if (existingCount == 1) {
+      storages[j] = datanodeManager.getStorage(datanodeManager.getSid(lblk.getStorageIDs()[j]));
+      j++;
+    }
+
+    for (final DatanodeStorageInfo storage : locations) {
+      storages[j++] = storage;
+    }
+
+    return newLocatedBlock(lblk.getBlock(), storages, lblk.getStartOffset(), lblk.isCorrupt());
+  }
 }

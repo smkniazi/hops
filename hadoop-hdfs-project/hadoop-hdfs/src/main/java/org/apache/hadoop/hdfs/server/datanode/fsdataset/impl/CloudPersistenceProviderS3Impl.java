@@ -32,7 +32,8 @@ import java.util.concurrent.atomic.AtomicInteger;
 
 public class CloudPersistenceProviderS3Impl implements CloudPersistenceProvider {
 
-  static final Log LOG = LogFactory.getLog(CloudPersistenceProviderS3Impl.class);
+  @VisibleForTesting
+  public static final Log LOG = LogFactory.getLog(CloudPersistenceProviderS3Impl.class);
 
   private final Configuration conf;
   private final AmazonS3 s3Client;
