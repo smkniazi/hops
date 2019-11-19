@@ -1,6 +1,7 @@
 package org.apache.hadoop.hdfs.server.datanode.fsdataset.impl;
 
 import com.amazonaws.AmazonServiceException;
+import com.amazonaws.ClientConfiguration;
 import com.amazonaws.SdkClientException;
 import com.amazonaws.regions.Regions;
 import com.amazonaws.services.s3.AmazonS3;
@@ -65,6 +66,12 @@ public class CloudPersistenceProviderS3Impl implements CloudPersistenceProvider 
 
   private AmazonS3 connect() {
     LOG.info("HopsFS-Cloud. Connecting to S3. Region " + region);
+    ClientConfiguration s3conf =  new ClientConfiguration();
+    int retryCount = conf.getInt(DFSConfigKeys.DFS_CLOUD_FAILED_OPS_RETRY_COUNT_KEY,
+            DFSConfigKeys.DFS_CLOUD_FAILED_OPS_RETRY_COUNT_DEFAULT);
+    s3conf.withThrottledRetries(true);
+    s3conf.setMaxErrorRetry(retryCount);
+    LOG.info("Max retry "+s3conf.getMaxErrorRetry());
     AmazonS3 s3client = AmazonS3ClientBuilder.standard()
             .withRegion(region)
             .build();

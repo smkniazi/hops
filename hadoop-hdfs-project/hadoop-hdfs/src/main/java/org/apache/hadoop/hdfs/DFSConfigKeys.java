@@ -172,6 +172,10 @@ public class DFSConfigKeys extends CommonConfigurationKeys {
           "dfs.cloud.max.br.threads";
   public static final int DFS_CLOUD_MAX_BR_THREADS_DEFAULT = 10;
 
+  public static final String DFS_CLOUD_FAILED_OPS_RETRY_COUNT_KEY =
+          "dfs.cloud.failed.ops.retry.count";
+  public static final int DFS_CLOUD_FAILED_OPS_RETRY_COUNT_DEFAULT = 5;
+
   /*for client failover api*/
   // format {ip:port, ip:port, ip:port} comma separated
   public static final String DFS_NAMENODES_RPC_ADDRESS_KEY = "dfs.namenodes.rpc.addresses";

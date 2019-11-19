@@ -2213,4 +2213,14 @@
     <description>
     </description>
   </property>
+
+  <property>
+    <name>dfs.cloud.failed.ops.retry.count</name>
+    <value>5</value>
+    <description>
+        Number of times an operation by S3 client is retried
+        before throwing an exception.
+    </description>
+  </property>
+
 </configuration>
