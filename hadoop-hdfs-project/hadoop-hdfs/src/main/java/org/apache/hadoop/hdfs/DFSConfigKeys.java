@@ -180,6 +180,10 @@ public class DFSConfigKeys extends CommonConfigurationKeys {
           "dfs.cloud.max.phantom.blocks.for.read";
   public static final int DFS_CLOUD_MAX_PAHNTOM_BLOCKS_FOR_READ_DEFAULT = 3;
 
+  public static final String DFS_CLOUD_STORE_SMALL_FILES_IN_DB_KEY =
+          "dfs.cloud.store.small.files.in.db";
+  public static final boolean DFS_CLOUD_STORE_SMALL_FILES_IN_DB_KEY_DEFAUlT = true;
+
   /*for client failover api*/
   // format {ip:port, ip:port, ip:port} comma separated
   public static final String DFS_NAMENODES_RPC_ADDRESS_KEY = "dfs.namenodes.rpc.addresses";

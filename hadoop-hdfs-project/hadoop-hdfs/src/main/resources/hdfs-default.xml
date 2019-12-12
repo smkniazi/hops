@@ -2228,4 +2228,13 @@
     <value>3</value>
     <description>Number of block replicas returned to the client when reading provided blocks</description>
   </property>
+
+  <property>
+    <name>dfs.cloud.store.small.files.in.db</name>
+    <value>true</value>
+    <description>Enable/Disable storing small files in database for CLOUD storage
+      policy. Disable this if the database is running on slow disks.
+    </description>
+  </property>
+
 </configuration>

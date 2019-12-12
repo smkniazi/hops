@@ -493,6 +493,8 @@ public class FSNamesystem implements Namesystem, FSNamesystemMBean,
   // Max buckets
   private final int MAX_CLOUD_BUCKETS;
 
+  private final boolean cloudSmallFilesSupport;
+
   /**
    * Notify that loading of this FSDirectory is complete, and
    * it is imageLoaded for use
@@ -630,6 +632,8 @@ public class FSNamesystem implements Namesystem, FSNamesystemMBean,
 
       MAX_CLOUD_BUCKETS = conf.getInt(DFSConfigKeys.DFS_CLOUD_AWS_S3_NUM_BUCKETS,
               DFS_CLOUD_AWS_S3_NUM_BUCKETS_DEFAULT);
+      cloudSmallFilesSupport = conf.getBoolean(DFSConfigKeys.DFS_CLOUD_STORE_SMALL_FILES_IN_DB_KEY,
+              DFSConfigKeys.DFS_CLOUD_STORE_SMALL_FILES_IN_DB_KEY_DEFAUlT);
 
       this.datanodeStatistics =
           blockManager.getDatanodeManager().getDatanodeStatistics();
@@ -2189,7 +2193,7 @@ public class FSNamesystem implements Namesystem, FSNamesystemMBean,
     // to write the file to DB. If the file is large then the client will request
     // for a block allocation and the file will be written accoring to the parent
     // storage policy
-    if(stat.getStoragePolicy() ==  HdfsConstants.CLOUD_STORAGE_POLICY_ID){
+    if(stat.getStoragePolicy() ==  HdfsConstants.CLOUD_STORAGE_POLICY_ID && cloudSmallFilesSupport){
       LOG.debug("HopsFS-Cloud. Override Storage policy. CLOUD -> DB");
       stat = new HdfsFileStatus(
               stat.getLen(),

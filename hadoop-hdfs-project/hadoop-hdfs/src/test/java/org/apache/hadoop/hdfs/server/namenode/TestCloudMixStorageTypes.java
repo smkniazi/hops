@@ -263,6 +263,99 @@ public class TestCloudMixStorageTypes {
       }
     }
   }
+
+  // test disabling small files support for cloud storage policy
+  @Test
+  public void TestDisableSmallFiles() throws IOException {
+    CloudTestHelper.purgeS3();
+    MiniDFSCluster cluster = null;
+    try {
+      Configuration conf = new HdfsConfiguration();
+      final int NUM_DN = 5;
+      final int BLKSIZE = 128 * 1024;
+
+      conf.setBoolean(DFSConfigKeys.DFS_ENABLE_CLOUD_PERSISTENCE, true);
+      conf.set(DFSConfigKeys.DFS_CLOUD_PROVIDER, CloudProvider.AWS.name());
+      conf.setLong(DFSConfigKeys.DFS_BLOCK_SIZE_KEY, BLKSIZE);
+      conf.setLong(DFSConfigKeys.DFS_CLOUD_AWS_S3_NUM_BUCKETS, 2);
+      conf.setBoolean(DFSConfigKeys.DFS_CLOUD_STORE_SMALL_FILES_IN_DB_KEY, false);
+      CloudTestHelper.setRandomBucketPrefix(conf, testname);
+
+      cluster = new MiniDFSCluster.Builder(conf).numDataNodes(NUM_DN).
+              storageTypes(CloudTestHelper.genStorageTypes(NUM_DN)).format(true).build();
+      cluster.waitActive();
+
+      final int ONDISK_SMALL_BUCKET_SIZE = FSNamesystem.getDBOnDiskSmallBucketSize();
+      final int ONDISK_MEDIUM_BUCKET_SIZE = FSNamesystem.getDBOnDiskMediumBucketSize();
+      final int MAX_SMALL_FILE_SIZE = FSNamesystem.getMaxSmallFileSize();
+      final int INMEMORY_BUCKET_SIZE = FSNamesystem.getDBInMemBucketSize();
+
+      DistributedFileSystem dfs = cluster.getFileSystem();
+
+      dfs.mkdirs(new Path("/dir"));
+      dfs.setStoragePolicy(new Path("/dir"), "CLOUD");
+
+      final String FILE_NAME1 = "/dir/TEST-FLIE1";
+      final String FILE_NAME2 = "/dir/TEST-FLIE2";
+      final String FILE_NAME3 = "/dir/TEST-FLIE3";
+      final String FILE_NAME4 = "/dir/TEST-FLIE4";
+
+      //write small files
+      writeFile(dfs, FILE_NAME1, INMEMORY_BUCKET_SIZE);
+      verifyFile(dfs, FILE_NAME1, INMEMORY_BUCKET_SIZE);
+      writeFile(dfs, FILE_NAME2, ONDISK_SMALL_BUCKET_SIZE);
+      verifyFile(dfs, FILE_NAME2, ONDISK_SMALL_BUCKET_SIZE);
+      writeFile(dfs, FILE_NAME3, ONDISK_MEDIUM_BUCKET_SIZE);
+      verifyFile(dfs, FILE_NAME3, ONDISK_MEDIUM_BUCKET_SIZE);
+      writeFile(dfs, FILE_NAME4, MAX_SMALL_FILE_SIZE);
+      verifyFile(dfs, FILE_NAME4, MAX_SMALL_FILE_SIZE);
+
+      //validate
+      assertTrue("Expecting 0 in-memory file. Got: " + countInMemoryDBFiles(), countInMemoryDBFiles() == 0);
+      assertTrue("Expecting 0 on-disk file(s). Got:" + countAllOnDiskDBFiles(), countAllOnDiskDBFiles() == 0);
+      assertTrue("Expecting 0 on-disk file(s). Got:" + countOnDiskSmallDBFiles(), countOnDiskSmallDBFiles() == 0);
+      assertTrue("Expecting 0 on-disk file(s). Got:" + countOnDiskMediumDBFiles(), countOnDiskMediumDBFiles() == 0);
+      assertTrue("Expecting 0 on-disk file(s). Got:" + countOnDiskLargeDBFiles(), countOnDiskLargeDBFiles() == 0);
+
+      CloudTestHelper.matchMetadata(conf);
+      assert CloudTestHelper.findAllBlocks().size() == 4;
+
+      //However, the DB policy should work
+
+      dfs.mkdirs(new Path("/dir2"));
+      dfs.setStoragePolicy(new Path("/dir2"), "DB");
+
+      final String FILE_NAME5 = "/dir2/TEST-FLIE1";
+      final String FILE_NAME6 = "/dir2/TEST-FLIE2";
+      final String FILE_NAME7 = "/dir2/TEST-FLIE3";
+      final String FILE_NAME8 = "/dir2/TEST-FLIE4";
+
+      //write small files
+      writeFile(dfs, FILE_NAME5, INMEMORY_BUCKET_SIZE);
+      verifyFile(dfs, FILE_NAME5, INMEMORY_BUCKET_SIZE);
+      writeFile(dfs, FILE_NAME6, ONDISK_SMALL_BUCKET_SIZE);
+      verifyFile(dfs, FILE_NAME6, ONDISK_SMALL_BUCKET_SIZE);
+      writeFile(dfs, FILE_NAME7, ONDISK_MEDIUM_BUCKET_SIZE);
+      verifyFile(dfs, FILE_NAME7, ONDISK_MEDIUM_BUCKET_SIZE);
+      writeFile(dfs, FILE_NAME8, MAX_SMALL_FILE_SIZE);
+      verifyFile(dfs, FILE_NAME8, MAX_SMALL_FILE_SIZE);
+
+      //validate
+      assertTrue("Expecting 1 in-memory file. Got: " + countInMemoryDBFiles(), countInMemoryDBFiles() == 1);
+      assertTrue("Expecting 3 on-disk file(s). Got:" + countAllOnDiskDBFiles(), countAllOnDiskDBFiles() == 3);
+      assertTrue("Expecting 1 on-disk file(s). Got:" + countOnDiskSmallDBFiles(), countOnDiskSmallDBFiles() == 1);
+      assertTrue("Expecting 1 on-disk file(s). Got:" + countOnDiskMediumDBFiles(), countOnDiskMediumDBFiles() == 1);
+      assertTrue("Expecting 1 on-disk file(s). Got:" + countOnDiskLargeDBFiles(), countOnDiskLargeDBFiles() == 1);
+
+    } catch (Exception e) {
+      e.printStackTrace();
+      fail(e.getMessage());
+    } finally {
+      if (cluster != null) {
+        cluster.shutdown();
+      }
+    }
+  }
   @AfterClass
   public static void TestZDeleteAllBuckets() throws IOException {
     CloudTestHelper.purgeS3();
