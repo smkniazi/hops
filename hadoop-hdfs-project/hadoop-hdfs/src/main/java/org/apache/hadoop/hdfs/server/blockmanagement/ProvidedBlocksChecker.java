@@ -36,20 +36,21 @@ import io.hops.transaction.handler.HopsTransactionalRequestHandler;
 import io.hops.transaction.handler.LightWeightRequestHandler;
 import io.hops.transaction.lock.LockFactory;
 import io.hops.transaction.lock.TransactionLocks;
+import org.apache.commons.logging.Log;
+import org.apache.commons.logging.LogFactory;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.hdfs.protocol.Block;
 import org.apache.hadoop.hdfs.protocol.CloudBlock;
 import org.apache.hadoop.hdfs.server.common.CloudHelper;
+import org.apache.hadoop.hdfs.server.datanode.fsdataset.ActiveMultipartUploads;
 import org.apache.hadoop.hdfs.server.datanode.fsdataset.CloudPersistenceProvider;
 import org.apache.hadoop.hdfs.server.datanode.fsdataset.impl.CloudPersistenceProviderFactory;
-import org.apache.commons.logging.Log;
-
-import org.apache.commons.logging.LogFactory;
 import org.apache.hadoop.hdfs.server.namenode.FSNamesystem;
 import org.apache.hadoop.hdfs.server.namenode.INode;
 import org.apache.hadoop.hdfs.server.namenode.Namesystem;
 
 import java.io.IOException;
+import java.text.SimpleDateFormat;
 import java.util.*;
 import java.util.concurrent.Callable;
 import java.util.concurrent.ExecutionException;
@@ -72,6 +73,7 @@ public class ProvidedBlocksChecker extends Thread {
   private final BlockManager bm;
   private final int maxProvidedBRThreads;
   private boolean isBRInProgress = false;
+  private final long deleteAbandonedBlocksAfter;
 
   CloudPersistenceProvider cloudConnector;
 
@@ -99,6 +101,9 @@ public class ProvidedBlocksChecker extends Thread {
             DFS_CLOUD_MAX_BR_SUB_TASKS_DEFAULT);
     this.maxProvidedBRThreads = conf.getInt(DFS_CLOUD_MAX_BR_THREADS_KEY,
             DFS_CLOUD_MAX_BR_THREADS_DEFAULT);
+    this.deleteAbandonedBlocksAfter =
+            conf.getLong(DFS_CLOUD_DELETE_ABANDONED_MULTIPART_FILES_AFTER,
+            DFS_CLOUD_DELETE_ABANDONED_MULTIPART_FILES_AFTER_DEFAUlT);
 
     this.cloudConnector = CloudPersistenceProviderFactory.getCloudClient(conf);
 
@@ -126,6 +131,7 @@ public class ProvidedBlocksChecker extends Thread {
             final long END_ID = HdfsVariables.getMaxBlockID();
             List<ProvidedBlockReportTask> tasks = generateTasks(END_ID);
             addNewBlockReportTasks(tasks);
+            checkAbandonedBlocks();
           }
         }
 
@@ -550,7 +556,10 @@ public class ProvidedBlocksChecker extends Thread {
                         Variable.Finder.providedBlocksCheckStartTime,
                         startTime
                 ));
-        LOG.debug("HopsFS-Cloud. BR set start time to : " + startTime);
+        if(LOG.isDebugEnabled()){
+          LOG.debug("HopsFS-Cloud. BR set start time to : " +
+                  new SimpleDateFormat("yyyy-MM-dd HH:mm:ss").format(new Date(startTime)));
+        }
 
         long counter = (long) Variables.getVariable(
                 Variable.Finder.providedBlockReportsCount).getValue();
@@ -609,7 +618,12 @@ public class ProvidedBlocksChecker extends Thread {
         EntityManager.preventStorageCall(false);
         long time = (long) Variables.getVariable(
                 Variable.Finder.providedBlocksCheckStartTime).getValue();
-        LOG.debug("HopsFS-Cloud. BR get start time : " + time);
+
+        if(LOG.isDebugEnabled()) {
+          LOG.trace("HopsFS-Cloud. BR get start time: " +
+                  new SimpleDateFormat("yyyy-MM-dd HH:mm:ss").format(new Date(time)));
+        }
+
         return time;
       }
     };
@@ -667,6 +681,16 @@ public class ProvidedBlocksChecker extends Thread {
     };
     handler.handle();
   }
+
+  void checkAbandonedBlocks() throws IOException {
+    for (ActiveMultipartUploads upload : cloudConnector.listMultipartUploads()) {
+      long elapsedTime = System.currentTimeMillis() - upload.getStartTime();
+      if (elapsedTime > deleteAbandonedBlocksAfter) {
+        cloudConnector.abortMultipartUpload(upload.getBucketID(), upload.getObjectID(), upload.getUploadID());
+      }
+    }
+  }
+
   public boolean isBRInProgress() {
     return isBRInProgress;
   }

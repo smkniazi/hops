@@ -38,6 +38,11 @@ public class TestCloudMixStorageTypes {
   @Rule
   public TestName testname = new TestName();
 
+  @BeforeClass
+  public static void setBucketPrefix(){
+    CloudTestHelper.prependBucketPrefix("TCMST");
+  }
+
   @Before
   public void setup() {
     //Logger.getLogger(ProvidedBlocksChecker.class).setLevel(Level.DEBUG);

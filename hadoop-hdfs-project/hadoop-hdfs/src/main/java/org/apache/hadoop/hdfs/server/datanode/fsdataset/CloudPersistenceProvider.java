@@ -1,11 +1,10 @@
 package org.apache.hadoop.hdfs.server.datanode.fsdataset;
 
-import org.apache.hadoop.hdfs.protocol.Block;
+import com.amazonaws.services.s3.model.PartETag;
 import org.apache.hadoop.hdfs.protocol.CloudBlock;
 
 import java.io.File;
 import java.io.IOException;
-import java.io.InputStream;
 import java.util.List;
 import java.util.Map;
 
@@ -52,5 +51,27 @@ public interface CloudPersistenceProvider {
 
   public void renameObject(short srcBucket, short dstBucket, String srcKey,
                            String dstKey) throws IOException ;
+
+  public long getPartSize();
+
+  public int getXferThreads();
+
+  public String startMultipartUpload(short bucketID, String objectID,
+                                     Map<String, String> metadata)
+          throws IOException;
+
+  public PartETag uploadPart(short bucketID, String objectID, String uploadID,
+                             int partNo, File file, long startPos, long endPos)
+          throws IOException;
+
+  public void finalizeMultipartUpload(short bucketID, String objectID,
+                                      String uploadID, List<PartETag> partETags)
+          throws IOException;
+
+  public void abortMultipartUpload(short bucketID, String objectID, String uploadID)
+          throws IOException;
+
+  public List<ActiveMultipartUploads> listMultipartUploads() throws IOException;
+
   public void shutdown();
 }

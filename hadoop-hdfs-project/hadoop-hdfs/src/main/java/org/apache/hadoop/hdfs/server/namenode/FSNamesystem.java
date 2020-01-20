@@ -633,7 +633,7 @@ public class FSNamesystem implements Namesystem, FSNamesystemMBean,
       MAX_CLOUD_BUCKETS = conf.getInt(DFSConfigKeys.DFS_CLOUD_AWS_S3_NUM_BUCKETS,
               DFS_CLOUD_AWS_S3_NUM_BUCKETS_DEFAULT);
       cloudSmallFilesSupport = conf.getBoolean(DFSConfigKeys.DFS_CLOUD_STORE_SMALL_FILES_IN_DB_KEY,
-              DFSConfigKeys.DFS_CLOUD_STORE_SMALL_FILES_IN_DB_KEY_DEFAUlT);
+              DFSConfigKeys.DFS_CLOUD_STORE_SMALL_FILES_IN_DB_DEFAUlT);
 
       this.datanodeStatistics =
           blockManager.getDatanodeManager().getDatanodeStatistics();
@@ -3328,7 +3328,7 @@ public class FSNamesystem implements Namesystem, FSNamesystemMBean,
             locks.add(lf.getLeaseLockAllPaths(LockType.READ))
                     .add(lf.getLeasePathLock(LockType.READ_COMMITTED, src))
                     .add(lf.getBlockLock())
-                    .add(lf.getBlockRelated(BLK.RE, BLK.CR, BLK.UC, BLK.UR, BLK.ER));
+                    .add(lf.getBlockRelated(BLK.RE, BLK.CR, BLK.UC, BLK.UR, BLK.ER, BLK.IV));
             locks.add(lf.getAllUsedHashBucketsLock());
           }
 
@@ -4434,7 +4434,7 @@ public class FSNamesystem implements Namesystem, FSNamesystemMBean,
           final DatanodeID[] newTargets, final String[] newTargetStorages)
           throws IOException {
     String src;
-    LOG.debug("HopsFS-Cloud. Commit Block Synchronization for provided block");
+    LOG.info("HopsFS-Cloud. Commit Block Synchronization. Block: "+oldBlock);
 
     Preconditions.checkArgument(deleteBlock == false);
     Preconditions.checkArgument(closeFile == true);

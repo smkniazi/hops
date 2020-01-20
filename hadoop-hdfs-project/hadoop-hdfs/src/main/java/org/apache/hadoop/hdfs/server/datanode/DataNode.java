@@ -2983,6 +2983,28 @@ public class DataNode extends ReconfigurableBase
           "), syncList=" + syncList);
     }
 
+    if (syncList.isEmpty() && rBlock.getBlock().isProvidedBlock()) {
+      //The namenode schedules block replica recovery on one of the
+      //datanodes that holds the block replica.
+      //the datanode receives the request and contacts all other the datanodes
+      //where replicas for the block are stored. A 'syncList' is created with
+      //datanodes which have outdated replicas for the block. Recovery command is
+      //send to these datanodes to update the replicas. Finally the namenode is
+      //informed about the status of the operation. If the namenode does not hear
+      //form the datanode then it will reschedule the recovery of the block
+      //
+      //In case of provided blocks there is only one replica. The datanode will
+      //start the recovery of the replica. The recovery may take some time as the
+      //block might be downloaded form the cloud and then re-uploaded. For a large
+      //block the namenode might reschedule the recovery if it does not receive
+      //any response in time. For the second recovery request the 'syncList' might
+      //be empty becuase the datanode might have applied the request changes.
+      //in this case the request can be ignored.
+      LOG.info("HopsFS-Cloud. Ignoring the syncBlock request for Block: " + rBlock
+              + " syncList is Empty. Recovery may alreay be in progress");
+      return;
+    }
+
     // syncList.isEmpty() means that all data-nodes do not have the block
     // or their replicas have 0 length.
     // The block can be deleted.

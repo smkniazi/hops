@@ -81,7 +81,7 @@ public class ProvidedBlocksCacheCleaner extends Thread {
           LOG.info("HopsFS-Cloud. Disk utilization is " + (long) percentage + ". " +
                   "Freeing up space to make room for new blocks");
           freeUpSpace();
-          Thread.sleep(100);
+          Thread.sleep(1000);
           continue;
         } else {
           LOG.debug("HopsFS-Cloud. Provided bocks cache. No need to free up disk space. " +

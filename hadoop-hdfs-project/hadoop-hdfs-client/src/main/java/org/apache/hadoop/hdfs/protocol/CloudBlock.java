@@ -51,4 +51,9 @@ public class CloudBlock {
   public boolean isPartiallyListed() {
     return !metaObjectFound || !blockObjectFound;
   }
+
+  @Override
+  public String toString(){
+    return block.toString();
+  }
 }

@@ -49,6 +49,11 @@ public class TestCloudFileCreation {
   @Rule
   public TestName testname = new TestName();
 
+  @BeforeClass
+  public static void setBucketPrefix(){
+    CloudTestHelper.prependBucketPrefix("TCFC");
+  }
+
 
   /**
    * Simple read and write test

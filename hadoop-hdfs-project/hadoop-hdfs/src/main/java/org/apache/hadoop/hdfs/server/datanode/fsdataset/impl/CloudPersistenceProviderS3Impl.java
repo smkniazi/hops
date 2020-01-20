@@ -3,31 +3,34 @@ package org.apache.hadoop.hdfs.server.datanode.fsdataset.impl;
 import com.amazonaws.AmazonServiceException;
 import com.amazonaws.ClientConfiguration;
 import com.amazonaws.SdkClientException;
+import com.amazonaws.client.builder.ExecutorFactory;
 import com.amazonaws.regions.Regions;
 import com.amazonaws.services.s3.AmazonS3;
 import com.amazonaws.services.s3.AmazonS3ClientBuilder;
 import com.amazonaws.services.s3.model.*;
 import com.amazonaws.services.s3.transfer.Download;
 import com.amazonaws.services.s3.transfer.TransferManager;
-import com.amazonaws.services.s3.transfer.TransferManagerConfiguration;
+import com.amazonaws.services.s3.transfer.TransferManagerBuilder;
 import com.amazonaws.services.s3.transfer.Upload;
 import com.google.common.annotations.VisibleForTesting;
-import com.google.common.base.Preconditions;
 import com.google.common.collect.Sets;
+import org.apache.commons.logging.Log;
+import org.apache.commons.logging.LogFactory;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.hdfs.DFSConfigKeys;
 import org.apache.hadoop.hdfs.protocol.Block;
 import org.apache.hadoop.hdfs.protocol.CloudBlock;
 import org.apache.hadoop.hdfs.server.common.CloudHelper;
+import org.apache.hadoop.hdfs.server.datanode.fsdataset.ActiveMultipartUploads;
 import org.apache.hadoop.hdfs.server.datanode.fsdataset.CloudPersistenceProvider;
-import org.apache.commons.logging.Log;
-import org.apache.commons.logging.LogFactory;
 
 import java.io.File;
 import java.io.IOException;
 import java.io.InterruptedIOException;
 import java.util.*;
-import java.util.concurrent.*;
+import java.util.concurrent.Callable;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
 import java.util.concurrent.atomic.AtomicInteger;
 
 public class CloudPersistenceProviderS3Impl implements CloudPersistenceProvider {
@@ -43,8 +46,10 @@ public class CloudPersistenceProviderS3Impl implements CloudPersistenceProvider 
   private final int numBuckets;
   private final int prefixSize;
   private TransferManager transfers;
-  private ExecutorService threadPoolExecutor;
   private final int bucketDeletionThreads;
+  private long partSize;
+  private int maxThreads;
+  private long multiPartThreshold;
 
   CloudPersistenceProviderS3Impl(Configuration conf) {
     this.conf = conf;
@@ -59,29 +64,7 @@ public class CloudPersistenceProviderS3Impl implements CloudPersistenceProvider 
                     DFSConfigKeys.DFS_NN_MAX_THREADS_FOR_FORMATTING_CLOUD_BUCKETS_DEFAULT);
     this.prefixSize = conf.getInt(DFSConfigKeys.DFS_CLOUD_PREFIX_SIZE_KEY,
             DFSConfigKeys.DFS_CLOUD_PREFIX_SIZE_DEFAULT);
-
-    this.s3Client = connect();
-
-    initTransferManager();
-  }
-
-  private AmazonS3 connect() {
-    LOG.info("HopsFS-Cloud. Connecting to S3. Region " + region);
-    ClientConfiguration s3conf =  new ClientConfiguration();
-    int retryCount = conf.getInt(DFSConfigKeys.DFS_CLOUD_FAILED_OPS_RETRY_COUNT_KEY,
-            DFSConfigKeys.DFS_CLOUD_FAILED_OPS_RETRY_COUNT_DEFAULT);
-    s3conf.withThrottledRetries(true);
-    s3conf.setMaxErrorRetry(retryCount);
-    LOG.info("Max retry "+s3conf.getMaxErrorRetry());
-    AmazonS3 s3client = AmazonS3ClientBuilder.standard()
-            .withRegion(region)
-            .build();
-
-    return s3client;
-  }
-
-  private void initTransferManager() {
-    int maxThreads = conf.getInt(DFSConfigKeys.DFS_DN_CLOUD_MAX_TRANSFER_THREADS,
+    maxThreads = conf.getInt(DFSConfigKeys.DFS_DN_CLOUD_MAX_TRANSFER_THREADS,
             DFSConfigKeys.DFS_DN_CLOUD_MAX_TRANSFER_THREADS_DEFAULT);
     if (maxThreads < 2) {
       LOG.warn(DFSConfigKeys.DFS_DN_CLOUD_MAX_TRANSFER_THREADS +
@@ -89,17 +72,28 @@ public class CloudPersistenceProviderS3Impl implements CloudPersistenceProvider 
       maxThreads = 2;
     }
 
-    long keepAliveTime = conf.getLong(DFSConfigKeys.DFS_CLOUD_KEEPALIVE_TIME,
-            DFSConfigKeys.DFS_CLOUD_KEEPALIVE_TIME_DEFAULT);
+    this.s3Client = connect();
+    initTransferManager();
+  }
 
-    threadPoolExecutor = new ThreadPoolExecutor(
-            maxThreads, Integer.MAX_VALUE,
-            keepAliveTime, TimeUnit.SECONDS,
-            new LinkedBlockingQueue<Runnable>(),
-            BlockingThreadPoolExecutorService.newDaemonThreadFactory(
-                    "hopsfs-cloud-transfers-unbounded"));
+  private AmazonS3 connect() {
+    LOG.info("HopsFS-Cloud. Connecting to S3. Region " + region);
+    ClientConfiguration s3conf = new ClientConfiguration();
+    int retryCount = conf.getInt(DFSConfigKeys.DFS_CLOUD_FAILED_OPS_RETRY_COUNT_KEY,
+            DFSConfigKeys.DFS_CLOUD_FAILED_OPS_RETRY_COUNT_DEFAULT);
+    s3conf.withThrottledRetries(true);
+    s3conf.setMaxErrorRetry(retryCount);
+    s3conf.setMaxConnections(maxThreads);
+    LOG.info("Max retry " + s3conf.getMaxErrorRetry());
+    AmazonS3 s3client = AmazonS3ClientBuilder.standard()
+            .withRegion(region)
+            .build();
 
-    long partSize = conf.getLong(DFSConfigKeys.DFS_CLOUD_MULTIPART_SIZE,
+    return s3client;
+  }
+
+  public void initTransferManager() {
+    partSize = conf.getLong(DFSConfigKeys.DFS_CLOUD_MULTIPART_SIZE,
             DFSConfigKeys.DFS_CLOUD_MULTIPART_SIZE_DEFAULT);
 
     if (partSize < 5 * 1024 * 1024) {
@@ -107,32 +101,25 @@ public class CloudPersistenceProviderS3Impl implements CloudPersistenceProvider 
       partSize = 5 * 1024 * 1024;
     }
 
-    long multiPartThreshold = conf.getLong(DFSConfigKeys.DFS_CLOUD_MIN_MULTIPART_THRESHOLD,
+    multiPartThreshold = conf.getLong(DFSConfigKeys.DFS_CLOUD_MIN_MULTIPART_THRESHOLD,
             DFSConfigKeys.DFS_CLOUD_MIN_MULTIPART_THRESHOLD_DEFAULT);
     if (multiPartThreshold < 5 * 1024 * 1024) {
       LOG.error(DFSConfigKeys.DFS_CLOUD_MIN_MULTIPART_THRESHOLD + " must be at least 5 MB");
       multiPartThreshold = 5 * 1024 * 1024;
     }
 
-    TransferManagerConfiguration transferConfiguration = new TransferManagerConfiguration();
-    transferConfiguration.setMinimumUploadPartSize(partSize);
-    transferConfiguration.setMultipartUploadThreshold(multiPartThreshold);
-    transferConfiguration.setMultipartCopyPartSize(partSize);
-    transferConfiguration.setMultipartCopyThreshold(multiPartThreshold);
-
-    transfers = new TransferManager(s3Client, threadPoolExecutor);
-    transfers.setConfiguration(transferConfiguration);
-  }
-
-  static long longOption(Configuration conf,
-                         String key,
-                         long defVal,
-                         long min) {
-    long v = conf.getLong(key, defVal);
-    Preconditions.checkArgument(v >= min,
-            String.format("Value of %s: %d is below the minimum value %d",
-                    key, v, min));
-    return v;
+    transfers =
+            TransferManagerBuilder.standard().withS3Client(s3Client).
+                    withExecutorFactory(new ExecutorFactory() {
+                      @Override
+                      public ExecutorService newExecutor() {
+                        return Executors.newFixedThreadPool(maxThreads);
+                      }
+                    }).
+                    withMultipartUploadThreshold(multiPartThreshold).
+                    withMinimumUploadPartSize(partSize).
+                    withMultipartCopyThreshold(multiPartThreshold).
+                    withMultipartCopyPartSize(partSize).build();
   }
 
   private void createS3Bucket(String bucketName) {
@@ -155,10 +142,11 @@ public class CloudPersistenceProviderS3Impl implements CloudPersistenceProvider 
     ExecutorService tPool = Executors.newFixedThreadPool(bucketDeletionThreads);
     try {
       List<Bucket> buckets = s3Client.listBuckets();
-      LOG.info("HopsFS-Cloud. Deleting all of the buckets for this user. Number of deletion " +
-              "threads " + bucketDeletionThreads);
+      LOG.info("HopsFS-Cloud. Deleting all of the buckets with prefix \""+prefix+
+              "\" for this user. Number of deletion threads " + bucketDeletionThreads);
       for (Bucket b : buckets) {
-        if (b.getName().startsWith(prefix)) {
+
+        if (b.getName().startsWith(prefix.toLowerCase())) {
           emptyAndDeleteS3Bucket(b.getName(), tPool);
         }
       }
@@ -428,7 +416,10 @@ public class CloudPersistenceProviderS3Impl implements CloudPersistenceProvider 
   @Override
   public void deleteObject(short bucketID, String objectID) throws IOException {
     try {
+      long startTime = System.currentTimeMillis();
       s3Client.deleteObject(getBucketDNSID(bucketID), objectID);
+      LOG.info("HopsFS-Cloud. Delete object. Bucket ID: " + bucketID + " Object ID: " + objectID
+              + " Time (ms): " + (System.currentTimeMillis() - startTime));
     } catch (AmazonServiceException up) {
       throw new IOException(up);
     } catch (SdkClientException up) {
@@ -566,10 +557,15 @@ public class CloudPersistenceProviderS3Impl implements CloudPersistenceProvider 
   public void renameObject(short srcBucket, short dstBucket, String srcKey,
                            String dstKey) throws IOException {
     try {
+      long startTime = System.currentTimeMillis();
       CopyObjectRequest req = new CopyObjectRequest(getBucketDNSID(srcBucket), srcKey,
               getBucketDNSID(dstBucket), dstKey);
       CopyObjectResult res = s3Client.copyObject(req);
-
+      LOG.info("HopsFS-Cloud. Rename object. Src Bucket ID: " + srcBucket +
+              " Dst Bucket ID: " + dstBucket +
+              " Src Object ID: " + srcKey +
+              " Dst Object ID: " + dstKey +
+              " Time (ms): " + (System.currentTimeMillis() - startTime));
       //delete the src
       deleteObject(srcBucket, srcKey);
     } catch (AmazonServiceException up) {
@@ -581,4 +577,138 @@ public class CloudPersistenceProviderS3Impl implements CloudPersistenceProvider 
 
   }
 
+  @Override
+  public long getPartSize() {
+    return partSize;
+  }
+
+  @Override
+  public int getXferThreads(){
+    return maxThreads;
+  }
+
+  @Override
+  public String startMultipartUpload(short bucketID, String objectID, Map<String, String> metadata) throws IOException {
+    try {
+      long startTime = System.currentTimeMillis();
+      String bucket = getBucketDNSID(bucketID);
+      InitiateMultipartUploadRequest initRequest = new InitiateMultipartUploadRequest(bucket, objectID);
+
+      ObjectMetadata objMetadata = new ObjectMetadata();
+      objMetadata.setContentType("plain/text");
+      //objMetadata.addUserMetadata(entry.getKey(), entry.getValue());
+      objMetadata.setUserMetadata(metadata);
+      initRequest.setObjectMetadata(objMetadata);
+
+      InitiateMultipartUploadResult initResponse = s3Client.initiateMultipartUpload(initRequest);
+
+      LOG.info("HopsFS-Cloud. Start multipart upload. Bucket ID: " + bucketID + " Object ID: " + objectID
+              + " Time (ms): " + (System.currentTimeMillis() - startTime));
+      return initResponse.getUploadId();
+    } catch (AmazonServiceException up) {
+      throw new IOException(up);
+    } catch (SdkClientException up) {
+      throw new IOException(up);
+    }
+  }
+
+  @Override
+  public PartETag uploadPart(short bucketID, String objectID, String uploadID, int partNo,
+                             File file, long startPos, long endPos) throws IOException {
+    try {
+      long startTime = System.currentTimeMillis();
+      String bucket = getBucketDNSID(bucketID);
+      UploadPartRequest uploadRequest = new UploadPartRequest()
+              .withBucketName(bucket)
+              .withKey(objectID)
+              .withUploadId(uploadID)
+              .withPartNumber(partNo)
+              .withFileOffset(startPos)
+              .withFile(file)
+              .withPartSize(endPos - startPos);
+
+      UploadPartResult uploadResult = s3Client.uploadPart(uploadRequest);
+      LOG.info("HopsFS-Cloud. Upload part. Bucket ID: " + bucketID + " Object ID: " + objectID + " " +
+              "PartNo: " + partNo + " Time (ms): " + (System.currentTimeMillis() - startTime));
+      return uploadResult.getPartETag();
+    } catch (AmazonServiceException up) {
+      throw new IOException(up);
+    } catch (SdkClientException up) {
+      throw new IOException(up);
+    }
+  }
+
+  @Override
+  public void finalizeMultipartUpload(short bucketID, String objectID, String uploadID,
+                                      List<PartETag> partETags) throws IOException {
+    try {
+      long startTime = System.currentTimeMillis();
+      String bucket = getBucketDNSID(bucketID);
+      CompleteMultipartUploadRequest compRequest = new CompleteMultipartUploadRequest(bucket, objectID,
+              uploadID, partETags);
+      s3Client.completeMultipartUpload(compRequest);
+      LOG.info("HopsFS-Cloud. Finalize multipart upload. Bucket ID: " + bucketID +
+              " Object ID: " + objectID + " " + "Total Parts: " + partETags.size() +
+              " Time (ms): " + (System.currentTimeMillis() - startTime));
+    } catch (AmazonServiceException up) {
+      throw new IOException(up);
+    } catch (SdkClientException up) {
+      throw new IOException(up);
+    }
+  }
+
+  @Override
+  public void abortMultipartUpload(short bucketID, String objectID, String uploadID)
+          throws IOException {
+    try {
+      long startTime = System.currentTimeMillis();
+      String bucket = getBucketDNSID(bucketID);
+
+      AbortMultipartUploadRequest req = new AbortMultipartUploadRequest(bucket, objectID, uploadID);
+      s3Client.abortMultipartUpload(req);
+      LOG.info("HopsFS-Cloud. Aborted multipart upload. Bucket ID: " + bucketID +
+              " Object ID: " + objectID + " Time (ms): " + (System.currentTimeMillis() - startTime));
+    } catch (AmazonServiceException up) {
+      throw new IOException(up);
+    } catch (SdkClientException up) {
+      throw new IOException(up);
+    }
+  }
+
+  @Override
+  public List<ActiveMultipartUploads> listMultipartUploads() throws IOException {
+    List<ActiveMultipartUploads> uploads = new ArrayList();
+    long startTime = System.currentTimeMillis();
+    for (short i = 0; i < numBuckets; i++) {
+      uploads.addAll(listMultipartUploadsForBucket(i));
+    }
+    LOG.info("HopsFS-Cloud. List multipart. Active Uploads " + uploads.size() +
+            " Time (ms): " + (System.currentTimeMillis() - startTime));
+    return uploads;
+  }
+
+  private List<ActiveMultipartUploads> listMultipartUploadsForBucket(short bucket)
+          throws IOException {
+    List<ActiveMultipartUploads> uploads = new ArrayList();
+    String bucketID = getBucketDNSID(bucket);
+    try {
+      MultipartUploadListing uploadListing =
+              s3Client.listMultipartUploads(new ListMultipartUploadsRequest(bucketID));
+      do {
+        for (MultipartUpload upload : uploadListing.getMultipartUploads()) {
+          uploads.add(new ActiveMultipartUploads(bucket, upload.getKey(),
+                  upload.getInitiated().getTime(), upload.getUploadId()));
+        }
+        ListMultipartUploadsRequest request = new ListMultipartUploadsRequest(bucketID)
+                .withUploadIdMarker(uploadListing.getNextUploadIdMarker())
+                .withKeyMarker(uploadListing.getNextKeyMarker());
+        uploadListing = s3Client.listMultipartUploads(request);
+      } while (uploadListing.isTruncated());
+    } catch (AmazonServiceException up) {
+      throw new IOException(up);
+    } catch (SdkClientException up) {
+      throw new IOException(up);
+    }
+    return uploads;
+  }
 }

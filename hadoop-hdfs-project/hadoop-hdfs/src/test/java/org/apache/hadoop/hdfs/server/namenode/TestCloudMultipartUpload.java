@@ -18,92 +18,96 @@ package org.apache.hadoop.hdfs.server.namenode;
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
 import org.apache.hadoop.conf.Configuration;
-import org.apache.hadoop.fs.CloudProvider;
-import org.apache.hadoop.fs.Path;
+import org.apache.hadoop.fs.*;
 import org.apache.hadoop.hdfs.*;
-import org.apache.hadoop.hdfs.server.blockmanagement.ProvidedBlocksChecker;
-import org.apache.log4j.Level;
-import org.apache.log4j.Logger;
-import org.junit.*;
+import org.apache.hadoop.hdfs.server.datanode.fsdataset.CloudPersistenceProvider;
+import org.apache.hadoop.hdfs.server.datanode.fsdataset.impl.CloudPersistenceProviderFactory;
+import org.junit.AfterClass;
+import org.junit.BeforeClass;
+import org.junit.Rule;
+import org.junit.Test;
 import org.junit.rules.TestName;
-import org.junit.runners.MethodSorters;
 
 import java.io.IOException;
 
-import static junit.framework.TestCase.assertTrue;
 import static org.apache.hadoop.hdfs.HopsFilesTestHelper.*;
+import static org.junit.Assert.assertTrue;
 import static org.junit.Assert.fail;
 
-public class TestCloudRestart {
+public class TestCloudMultipartUpload {
 
-  static final Log LOG = LogFactory.getLog(TestCloudRestart.class);
+  static final Log LOG = LogFactory.getLog(TestCloudMultipartUpload.class);
   @Rule
   public TestName testname = new TestName();
 
   @BeforeClass
   public static void setBucketPrefix(){
-    CloudTestHelper.prependBucketPrefix("TCR");
-  }
-
-  @Before
-  public void setup() {
-    Logger.getLogger(ProvidedBlocksChecker.class).setLevel(Level.DEBUG);
+    CloudTestHelper.prependBucketPrefix("TCMU");
   }
 
   @Test
-  public void TestSimpleRestart() throws IOException {
+  public void TestSimpleConcurrentReadAndWrite() throws IOException {
+    testConcurrentWrit(true);
+  }
+
+  @Test
+  public void TestSimpleReadAndWrite() throws IOException {
+    testConcurrentWrit(false);
+  }
+
+  public void testConcurrentWrit(boolean multipart) throws IOException {
     CloudTestHelper.purgeS3();
     MiniDFSCluster cluster = null;
     try {
 
-      final int BLKSIZE = 128 * 1024;
+      final int BLKSIZE = 32 * 1024 * 1024;
+      final int FILESIZE = 2 * BLKSIZE;
+
+      final String FILE_NAME1 = "/dir/TEST-FLIE1";
       final int NUM_DN = 3;
 
       Configuration conf = new HdfsConfiguration();
       conf.setBoolean(DFSConfigKeys.DFS_ENABLE_CLOUD_PERSISTENCE, true);
       conf.set(DFSConfigKeys.DFS_CLOUD_PROVIDER, CloudProvider.AWS.name());
       conf.setLong(DFSConfigKeys.DFS_BLOCK_SIZE_KEY, BLKSIZE);
-
-      conf.setLong(DFSConfigKeys.DFS_CLOUD_BLOCK_REPORT_THREAD_SLEEP_INTERVAL_KEY, 1000);
-      conf.setLong(DFSConfigKeys.DFS_CLOUD_PREFIX_SIZE_KEY, 10);
-      conf.setInt(DFSConfigKeys.DFS_CLOUD_AWS_S3_NUM_BUCKETS, 2);
-      conf.setLong(DFSConfigKeys.DFS_CLOUD_BLOCK_REPORT_DELAY_KEY,
-              DFSConfigKeys.DFS_CLOUD_BLOCK_REPORT_DELAY_DEFAULT);
-      conf.setLong(DFSConfigKeys.DFS_NAMENODE_BLOCKID_BATCH_SIZE, 10);
-
-      CloudTestHelper.setRandomBucketPrefix(conf, testname);
+      conf.setLong(DFSConfigKeys.DFS_CLOUD_AWS_S3_NUM_BUCKETS, 2);
+      conf.setLong(DFSConfigKeys.DFS_CLOUD_MULTIPART_SIZE, 5*1024*1024);
+      conf.setLong(DFSConfigKeys.DFS_CLOUD_MIN_MULTIPART_THRESHOLD, 5*1024*1024);
+      conf.setBoolean(DFSConfigKeys.DFS_CLOUD_CONCURRENT_UPLOAD, multipart);
+      CloudTestHelper.setRandomBucketPrefix(conf,testname);
 
       cluster = new MiniDFSCluster.Builder(conf).numDataNodes(NUM_DN)
               .storageTypes(CloudTestHelper.genStorageTypes(NUM_DN)).format(true).build();
       cluster.waitActive();
 
       DistributedFileSystem dfs = cluster.getFileSystem();
-
-      ProvidedBlocksChecker pbc =
-              cluster.getNamesystem().getBlockManager().getProvidedBlocksChecker();
-
-      long ret = CloudBlockReportTestHelper.waitForBRCompletion(pbc, 1);
-      assertTrue("Exptected 1. Got: " + ret, 1 == ret);
+      CloudPersistenceProvider cloud = CloudPersistenceProviderFactory.getCloudClient(conf);
 
       dfs.mkdirs(new Path("/dir"));
       dfs.setStoragePolicy(new Path("/dir"), "CLOUD");
 
-      for (int i = 0; i < 10; i++) {
-        writeFile(dfs, "/dir/file" + i, BLKSIZE * 2);
+      int numFiles = 5;
+      int fileSize = BLKSIZE - (1024 * 1024);
+      FSDataOutputStream out[] = new FSDataOutputStream[numFiles];
+      byte[] data = new byte[fileSize];
+      for (int i = 0; i < numFiles; i++) {
+        out[i] = dfs.create(new Path("/dir/file" + i), (short) 1);
+        out[i].write(data);
       }
+
+      if(multipart) {
+        assert cloud.listMultipartUploads().size() == numFiles;
+      } else {
+        assert cloud.listMultipartUploads().size() == 0;
+      }
+
+      for (int i = 0; i < numFiles; i++) {
+        out[i].close();
+      }
+
+      assert cloud.listMultipartUploads().size() == 0;
+
       CloudTestHelper.matchMetadata(conf);
-
-      cluster.restartNameNodes();
-      cluster.waitActive();
-
-      for (int i = 0; i < 10; i++) {
-        verifyFile(dfs, "/dir/file" + i, BLKSIZE * 2);
-      }
-
-      for (int i = 0; i < 10; i++) {
-        writeFile(dfs, "/dir/file-afterrestart" + i, BLKSIZE * 2);
-        verifyFile(dfs, "/dir/file-afterrestart" + i, BLKSIZE * 2);
-      }
 
     } catch (Exception e) {
       e.printStackTrace();
@@ -119,5 +123,4 @@ public class TestCloudRestart {
   public static void TestZDeleteAllBuckets() throws IOException {
     CloudTestHelper.purgeS3();
   }
-
 }

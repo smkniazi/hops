@@ -46,4 +46,8 @@ public class ReplicaHandler implements Closeable {
   public ReplicaInPipelineInterface getReplica() {
     return replica;
   }
+
+  public FsVolumeReference getVolumeReference() {
+    return volumeReference;
+  }
 }

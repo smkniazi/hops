@@ -25,6 +25,7 @@ import org.apache.commons.logging.Log;
 import org.apache.hadoop.fs.ChecksumException;
 import org.apache.hadoop.fs.FSOutputSummer;
 import org.apache.hadoop.fs.StorageType;
+import org.apache.hadoop.hdfs.DFSConfigKeys;
 import org.apache.hadoop.hdfs.protocol.DatanodeInfo;
 import org.apache.hadoop.hdfs.protocol.ExtendedBlock;
 import org.apache.hadoop.hdfs.protocol.HdfsConstants;
@@ -36,6 +37,7 @@ import org.apache.hadoop.hdfs.protocol.proto.DataTransferProtos.BlockOpResponseP
 import org.apache.hadoop.hdfs.protocol.proto.DataTransferProtos.Status;
 import org.apache.hadoop.hdfs.server.datanode.fsdataset.ReplicaInputStreams;
 import org.apache.hadoop.hdfs.server.datanode.fsdataset.ReplicaOutputStreams;
+import org.apache.hadoop.hdfs.server.datanode.fsdataset.impl.CloudFsDatasetImpl;
 import org.apache.hadoop.hdfs.server.protocol.DatanodeRegistration;
 import org.apache.hadoop.hdfs.util.DataTransferThrottler;
 import org.apache.hadoop.io.IOUtils;
@@ -145,6 +147,8 @@ class BlockReceiver implements Closeable {
   
   private boolean pinning;
 
+  private final boolean concurrentCloudUpload;
+
   BlockReceiver(final ExtendedBlock block, final StorageType storageType,
       final DataInputStream in,
       final String inAddr, final String myAddr,
@@ -176,6 +180,10 @@ class BlockReceiver implements Closeable {
       this.stage = stage;
       this.isTransfer = stage == BlockConstructionStage.TRANSFER_RBW ||
           stage == BlockConstructionStage.TRANSFER_FINALIZED;
+
+      this.concurrentCloudUpload = datanode.getConf().getBoolean(
+              DFSConfigKeys.DFS_CLOUD_CONCURRENT_UPLOAD,
+              DFSConfigKeys.DFS_CLOUD_CONCURRENT_UPLOAD_DEFAUlT);
 
       this.pinning = pinning;
       if (LOG.isDebugEnabled()) {
@@ -783,7 +791,20 @@ class BlockReceiver implements Closeable {
         responder.start(); // start thread to processes responses
       }
 
-      while (receivePacket() >= 0) { /* Receive until the last packet */ }
+      while (receivePacket() >= 0) {
+        /* Receive until the last packet */
+        if(concurrentCloudUpload && block.isProvidedBlock()){
+          if(((ProvidedReplicaBeingWritten)replicaInfo).isPartAvailable()){
+            ((CloudFsDatasetImpl)datanode.data).uploadPart(block);
+          }
+        }
+      }
+
+      if(concurrentCloudUpload && block.isProvidedBlock() &&
+              ((ProvidedReplicaBeingWritten)replicaInfo).isMultipart() ) {
+        //upload reset of the data and complete multipart upload
+        ((CloudFsDatasetImpl)datanode.data).finalizeMultipartUpload(block);
+      }
 
       // wait for all outstanding packet responses. And then
       // indicate responder to gracefully shutdown.

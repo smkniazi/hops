@@ -86,22 +86,27 @@ public class ProvidedBlocksCacheHelper {
       public Object performTask() throws IOException {
         ProvidedBlockCacheLocDataAccess da = (ProvidedBlockCacheLocDataAccess) HdfsStorageFactory
                 .getDataAccess(ProvidedBlockCacheLocDataAccess.class);
-
-        long blkIDs[] = new long[deletedBlocks.size()];
-        for(int i = 0; i < deletedBlocks.size(); i++){
-          blkIDs[i] = deletedBlocks.get(i).getBlockId();
-        }
-        Map<Long, ProvidedBlockCacheLoc> cacheLocMap = da.findByBlockIDs(blkIDs);
-
-        if (LOG.isDebugEnabled()) {
-          LOG.debug("HopsFS-Cloud. Deleting cache entry for block ID: " +
-                  Arrays.toString(cacheLocMap.values().toArray()));
-        }
-
-        da.delete(cacheLocMap.keySet());
+        deleteProvidedBlockCacheLocInternal(deletedBlocks, da);
         return null;
       }
     }.handle();
+  }
+
+  public static void deleteProvidedBlockCacheLocInternal(final List<Block> deletedBlocks,
+                                                      ProvidedBlockCacheLocDataAccess da)
+          throws StorageException {
+    long blkIDs[] = new long[deletedBlocks.size()];
+    for(int i = 0; i < deletedBlocks.size(); i++){
+      blkIDs[i] = deletedBlocks.get(i).getBlockId();
+    }
+    Map<Long, ProvidedBlockCacheLoc> cacheLocMap = da.findByBlockIDs(blkIDs);
+
+    if (LOG.isDebugEnabled()) {
+      LOG.debug("HopsFS-Cloud. Deleting cache entry for block ID: " +
+              Arrays.toString(cacheLocMap.values().toArray()));
+    }
+
+    da.delete(cacheLocMap.keySet());
   }
 
   public static Map<Long, ProvidedBlockCacheLoc> batchReadCacheLocs(final List<Block> blocks)

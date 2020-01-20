@@ -1381,7 +1381,7 @@ public class BlockManager {
    * Adds block to list of blocks which will be invalidated on all its
    * datanodes.
    */
-  private void addToInvalidates(Block b)
+  public void addToInvalidates(Block b)
       throws StorageException, TransactionContextException, IOException {
     if (!namesystem.isPopulatingReplQueues()) {
       return;

@@ -2108,14 +2108,14 @@
 
   <property>
     <name>dfs.cloud.multipart.size</name>
-    <value>10485760</value>
-    <description>S3 multipart default size. Default 10 MB</description>
+    <value>16777216</value>
+    <description>S3 multipart default size. Default 16 MB</description>
   </property>
 
   <property>
     <name>dfs.cloud.multipart.threshold</name>
-    <value>2147483647</value>
-    <description>Currently multipart is disabled. Default: Integer.MAX_VALUE</description>
+    <value>33554432</value>
+    <description>Currently multipart is disabled. Default: 32 MB</description>
   </property>
 
   <property>
@@ -2123,12 +2123,6 @@
     <value>20</value>
     <description>the maximum number of threads to allow in the pool used by TransferManager
     </description>
-  </property>
-
-  <property>
-    <name>dfs.cloud.threads.keepalivetime.sec</name>
-    <value>60</value>
-    <description>the time an idle thread waits before terminating</description>
   </property>
 
   <property>
@@ -2237,4 +2231,17 @@
     </description>
   </property>
 
+  <property>
+    <name>dfs.cloud.concurrent.upload</name>
+    <value>true</value>
+    <description>Upload block concurrently using S3 multipart API
+    </description>
+  </property>
+
+  <property>
+    <name>dfs.cloud.delete.abandoned.multipart.files.after</name>
+    <value>604800000</value>
+    <description>Abort multi part files that were open 7 (604800000 ms) days before
+    </description>
+  </property>
 </configuration>

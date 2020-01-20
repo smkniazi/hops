@@ -38,24 +38,11 @@ import org.apache.hadoop.hdfs.protocol.ExtendedBlock;
 import org.apache.hadoop.hdfs.protocol.HdfsBlocksMetadata;
 import org.apache.hadoop.hdfs.protocol.HdfsConstantsClient;
 import org.apache.hadoop.hdfs.protocol.RecoveryInProgressException;
+import org.apache.hadoop.hdfs.server.common.CloudHelper;
 import org.apache.hadoop.hdfs.server.common.HdfsServerConstants.ReplicaState;
 import org.apache.hadoop.hdfs.server.common.Storage;
-import org.apache.hadoop.hdfs.server.datanode.BlockMetadataHeader;
-import org.apache.hadoop.hdfs.server.datanode.DataNode;
+import org.apache.hadoop.hdfs.server.datanode.*;
 import org.apache.hadoop.hdfs.server.datanode.metrics.DataNodeMetricHelper;
-import org.apache.hadoop.hdfs.server.datanode.DataStorage;
-import org.apache.hadoop.hdfs.server.datanode.FinalizedReplica;
-import org.apache.hadoop.hdfs.server.datanode.Replica;
-import org.apache.hadoop.hdfs.server.datanode.ReplicaAlreadyExistsException;
-import org.apache.hadoop.hdfs.server.datanode.ReplicaBeingWritten;
-import org.apache.hadoop.hdfs.server.datanode.ReplicaHandler;
-import org.apache.hadoop.hdfs.server.datanode.ReplicaInPipeline;
-import org.apache.hadoop.hdfs.server.datanode.ReplicaInfo;
-import org.apache.hadoop.hdfs.server.datanode.ReplicaNotFoundException;
-import org.apache.hadoop.hdfs.server.datanode.ReplicaUnderRecovery;
-import org.apache.hadoop.hdfs.server.datanode.ReplicaWaitingToBeRecovered;
-import org.apache.hadoop.hdfs.server.datanode.StorageLocation;
-import org.apache.hadoop.hdfs.server.datanode.UnexpectedReplicaStateException;
 import org.apache.hadoop.hdfs.server.datanode.fsdataset.FsDatasetSpi;
 import org.apache.hadoop.hdfs.server.datanode.fsdataset.FsVolumeReference;
 import org.apache.hadoop.hdfs.server.datanode.fsdataset.FsVolumeSpi;
@@ -109,7 +96,6 @@ import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.Executor;
 import org.apache.hadoop.hdfs.ExtendedBlockId;
-import org.apache.hadoop.hdfs.server.datanode.DatanodeUtil;
 import org.apache.hadoop.io.IOUtils;
 import com.google.common.collect.Lists;
 import com.google.common.collect.Sets;
@@ -2229,7 +2215,13 @@ class FsDatasetImpl implements FsDatasetSpi<FsVolumeImpl> {
           "initReplicaRecovery: update recovery id for " + block + " from " +
               oldRecoveryID + " to " + recoveryId);
     } else {
-      rur = new ReplicaUnderRecovery(replica, recoveryId);
+      if (replica instanceof ProvidedReplicaBeingWritten) {
+        rur = new ProvidedReplicaUnderRecovery(replica, recoveryId,
+                ((ProvidedReplicaBeingWritten) replica).isMultipart(),
+                ((ProvidedReplicaBeingWritten) replica).getUploadID(), block);
+      } else {
+        rur = new ReplicaUnderRecovery(replica, recoveryId);
+      }
       map.add(bpid, rur);
       LOG.info("initReplicaRecovery: changing replica state for " + block +
           " from " + replica.getState() + " to " + rur.getState());
@@ -2306,7 +2298,7 @@ class FsDatasetImpl implements FsDatasetSpi<FsVolumeImpl> {
                                           long recoveryId,
                                           long newBlockId,
                                           long newlength,
-                                          short cloudBlockID) throws IOException {
+                                          short cloudBucketID) throws IOException {
     //check recovery id
     if (rur.getRecoveryID() != recoveryId) {
       throw new IOException(
@@ -2343,7 +2335,7 @@ class FsDatasetImpl implements FsDatasetSpi<FsVolumeImpl> {
         // Copying block to a new block with new blockId.
         // Not truncating original block.
         ReplicaBeingWritten newReplicaInfo = new ReplicaBeingWritten(
-            newBlockId, recoveryId, cloudBlockID, rur.getVolume(),
+            newBlockId, recoveryId, cloudBucketID, rur.getVolume(),
             blockFile.getParentFile(), newlength);
         newReplicaInfo.setNumBytesNoPersistance(newlength);
         volumeMap.add(bpid, newReplicaInfo);

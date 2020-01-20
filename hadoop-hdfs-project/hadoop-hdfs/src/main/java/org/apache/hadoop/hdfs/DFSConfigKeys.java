@@ -106,18 +106,15 @@ public class DFSConfigKeys extends CommonConfigurationKeys {
   public static final int DFS_NAMENODE_INVALIDATE_PROVIDED_BLOCKS_PER_ITERATION_DEFAULT = 10000;
 
   public static final String DFS_CLOUD_MULTIPART_SIZE = "dfs.cloud.multipart.size";
-  public static final long DFS_CLOUD_MULTIPART_SIZE_DEFAULT = 10*1024*1024; // 10 MB
+  public static final long DFS_CLOUD_MULTIPART_SIZE_DEFAULT = 16*1024*1024; // 16 MB
 
   public static final String DFS_CLOUD_MIN_MULTIPART_THRESHOLD = "dfs.cloud.multipart.threshold";
-  public static final long DFS_CLOUD_MIN_MULTIPART_THRESHOLD_DEFAULT = Integer.MAX_VALUE;
+  public static final long DFS_CLOUD_MIN_MULTIPART_THRESHOLD_DEFAULT =
+          2 * DFS_CLOUD_MULTIPART_SIZE_DEFAULT;
 
   // the maximum number of threads to allow in the pool used by TransferManager
   public static final String DFS_DN_CLOUD_MAX_TRANSFER_THREADS = "dfs.dn.cloud.max.upload.threads";
   public static final int DFS_DN_CLOUD_MAX_TRANSFER_THREADS_DEFAULT = 20;
-
-  // the time an idle thread waits before terminating
-  public static final String DFS_CLOUD_KEEPALIVE_TIME = "dfs.cloud.threads.keepalivetime.sec";
-  public static final int DFS_CLOUD_KEEPALIVE_TIME_DEFAULT = 60;
 
   // Data node provided blocks cache params
   public static final String DFS_DN_CLOUD_BYPASS_CACHE_KEY =
@@ -182,7 +179,16 @@ public class DFSConfigKeys extends CommonConfigurationKeys {
 
   public static final String DFS_CLOUD_STORE_SMALL_FILES_IN_DB_KEY =
           "dfs.cloud.store.small.files.in.db";
-  public static final boolean DFS_CLOUD_STORE_SMALL_FILES_IN_DB_KEY_DEFAUlT = true;
+  public static final boolean DFS_CLOUD_STORE_SMALL_FILES_IN_DB_DEFAUlT = true;
+
+  public static final String DFS_CLOUD_CONCURRENT_UPLOAD =
+          "dfs.cloud.concurrent.upload";
+  public static final boolean DFS_CLOUD_CONCURRENT_UPLOAD_DEFAUlT = true;
+
+  public static final String DFS_CLOUD_DELETE_ABANDONED_MULTIPART_FILES_AFTER =
+          "dfs.cloud.delete.abandoned.multipart.files.after";
+  public static final long DFS_CLOUD_DELETE_ABANDONED_MULTIPART_FILES_AFTER_DEFAUlT =
+          7 * 24 * 60 * 60 * 1000; // one week
 
   /*for client failover api*/
   // format {ip:port, ip:port, ip:port} comma separated

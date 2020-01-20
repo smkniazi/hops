@@ -29,10 +29,7 @@ import org.apache.hadoop.hdfs.server.datanode.fsdataset.impl.*;
 import org.apache.log4j.Level;
 import org.apache.log4j.Logger;
 import org.bouncycastle.cert.selector.jcajce.JcaX509CertificateHolderSelector;
-import org.junit.AfterClass;
-import org.junit.FixMethodOrder;
-import org.junit.Rule;
-import org.junit.Test;
+import org.junit.*;
 import org.junit.rules.TestName;
 import org.junit.runners.MethodSorters;
 import org.mockito.Mockito;
@@ -55,6 +52,12 @@ public class TestCloudDiskCache {
   @Rule
   public TestName testname = new TestName();
 
+  @BeforeClass
+  public static void setBucketPrefix(){
+    CloudTestHelper.prependBucketPrefix("TCDC");
+  }
+
+
   @Test
   public void TestDiskCache() throws IOException {
 
@@ -72,7 +75,7 @@ public class TestCloudDiskCache {
       conf.set(DFSConfigKeys.DFS_CLOUD_PROVIDER, CloudProvider.AWS.name());
       conf.setLong(DFSConfigKeys.DFS_BLOCK_SIZE_KEY, BLKSIZE);
       conf.setInt(DFSConfigKeys.DFS_DN_CLOUD_CACHE_DELETE_ACTIVATION_PRECENTAGE_KEY, 90);
-      conf.setInt(DFSConfigKeys.DFS_DN_CLOUD_CACHE_DELETE_BATCH_SIZE_KEY, 1);
+      conf.setInt(DFSConfigKeys.DFS_DN_CLOUD_CACHE_DELETE_BATCH_SIZE_KEY, 10);
       conf.setInt(DFSConfigKeys.DFS_DN_CLOUD_CACHE_CHECK_INTERVAL_KEY, 1000);
       conf.setInt(DFSConfigKeys.DFS_DN_CLOUD_CACHE_DELETE_WAIT_KEY, 10000);  //The cached block
       // has to be atlease 10 sec old before it can be deleted

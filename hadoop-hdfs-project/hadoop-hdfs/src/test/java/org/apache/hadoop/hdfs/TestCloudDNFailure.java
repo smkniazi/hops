@@ -32,6 +32,7 @@ import org.apache.hadoop.hdfs.server.protocol.DatanodeStorage;
 import org.apache.hadoop.io.IOUtils;
 import org.apache.log4j.Level;
 import org.apache.log4j.Logger;
+import org.junit.BeforeClass;
 import org.junit.Rule;
 import org.junit.Test;
 import org.junit.rules.TestName;
@@ -61,6 +62,11 @@ public class TestCloudDNFailure {
 
   {
     ((Log4JLogger) CloudPersistenceProviderS3Impl.LOG).getLogger().setLevel(Level.ALL);
+  }
+
+  @BeforeClass
+  public static void setBucketPrefix(){
+    CloudTestHelper.prependBucketPrefix("TCDNF");
   }
 
   /**

@@ -62,6 +62,11 @@ public class TestCloudBlockReport {
   @Rule
   public TestName testname = new TestName();
 
+  @BeforeClass
+  public static void setBucketPrefix(){
+    CloudTestHelper.prependBucketPrefix("TCBR");
+  }
+
   @Before
   public void setup() {
     Logger.getLogger(ProvidedBlocksChecker.class).setLevel(Level.DEBUG);
@@ -493,6 +498,7 @@ public class TestCloudBlockReport {
 
       final int BLKSIZE = 128 * 1024;
       final int NUM_DN = 3;
+      final long parkPartiallyListedBlksCorruptAfter = 60*1000;
 
       Configuration conf = new HdfsConfiguration();
       conf.setBoolean(DFSConfigKeys.DFS_ENABLE_CLOUD_PERSISTENCE, true);
@@ -506,7 +512,7 @@ public class TestCloudBlockReport {
               DFSConfigKeys.DFS_CLOUD_BLOCK_REPORT_DELAY_DEFAULT);
       conf.setLong(DFSConfigKeys.DFS_NAMENODE_BLOCKID_BATCH_SIZE, 10);
       conf.setLong(DFSConfigKeys.DFS_CLOUD_MARK_PARTIALLY_LISTED_BLOCKS_CORRUPT_AFTER_KEY,
-              20 * 1000);
+              parkPartiallyListedBlksCorruptAfter);
 
       CloudTestHelper.setRandomBucketPrefix(conf, testname);
 
@@ -545,7 +551,7 @@ public class TestCloudBlockReport {
       assertTrue("Exptected: " + 2 + " Got: " + count, count == 2);
 
       //partially listed blocks takes 30 sec
-      Thread.sleep(25000);
+      Thread.sleep(parkPartiallyListedBlksCorruptAfter);
 
       brCount = pbc.getProvidedBlockReportsCount();
       pbc.scheduleBlockReportNow();
@@ -828,6 +834,97 @@ public class TestCloudBlockReport {
       Thread.sleep(10000);
 
       assert cloudConnector.getAll("").size() == 0;
+
+    } catch (Exception e) {
+      e.printStackTrace();
+      fail(e.getMessage());
+    } finally {
+      if (cluster != null) {
+        cluster.shutdown();
+      }
+    }
+  }
+
+  @Test
+  // Write some large files. the datanodes will use multipart api to upload
+  // the block to the clould. This will result in abandoned multipart uploads.
+  // The block reporting system should detect this and delete the abandoned multipart
+  // upload
+  //
+  public void testFailedMultipartUploads() throws IOException {
+    CloudTestHelper.purgeS3();
+    MiniDFSCluster cluster = null;
+    try {
+
+      final int BLKSIZE = 32 * 1024 * 1024;
+      final int NUM_DN = 2;
+      final int prefixSize = 10;
+      long deleteAbandonedBlocksAfter = 2* 60 * 1000;
+
+      Configuration conf = new HdfsConfiguration();
+      conf.setBoolean(DFSConfigKeys.DFS_ENABLE_CLOUD_PERSISTENCE, true);
+      conf.set(DFSConfigKeys.DFS_CLOUD_PROVIDER, CloudProvider.AWS.name());
+      conf.setLong(DFSConfigKeys.DFS_BLOCK_SIZE_KEY, BLKSIZE);
+
+      conf.setLong(DFSConfigKeys.DFS_CLOUD_BLOCK_REPORT_THREAD_SLEEP_INTERVAL_KEY, 1000);
+      conf.setLong(DFSConfigKeys.DFS_CLOUD_PREFIX_SIZE_KEY, prefixSize);
+      conf.setInt(DFSConfigKeys.DFS_CLOUD_AWS_S3_NUM_BUCKETS, 2);
+      conf.setLong(DFSConfigKeys.DFS_CLOUD_BLOCK_REPORT_DELAY_KEY,
+              deleteAbandonedBlocksAfter);
+      conf.setLong(DFSConfigKeys.DFS_NAMENODE_BLOCKID_BATCH_SIZE, 10);
+      conf.setLong(DFSConfigKeys.DFS_CLOUD_DELETE_ABANDONED_MULTIPART_FILES_AFTER,
+              deleteAbandonedBlocksAfter); //two mins
+
+      CloudTestHelper.setRandomBucketPrefix(conf, testname);
+
+      cluster = new MiniDFSCluster.Builder(conf).numDataNodes(NUM_DN)
+              .storageTypes(CloudTestHelper.genStorageTypes(NUM_DN)).format(true).build();
+      cluster.waitActive();
+
+      DistributedFileSystem dfs = cluster.getFileSystem();
+
+      int numFiles = 10;
+      int fileSize = BLKSIZE - (1024 * 1024);
+      FSDataOutputStream out[] = new FSDataOutputStream[numFiles];
+      byte[] data = new byte[fileSize];
+      for (int i = 0; i < numFiles; i++) {
+        out[i] = dfs.create(new Path("/dir/file" + i), (short) 1);
+        out[i].write(data);
+      }
+
+      CloudPersistenceProvider cloud = CloudPersistenceProviderFactory.getCloudClient(conf);
+
+      //kill one datanode
+      //There gotta be one open block on each datanode
+      cluster.stopDataNode(0);
+
+      for (int i = 0; i < numFiles; i++) {
+        out[i].close();
+      }
+
+      long abandonStartTime = System.currentTimeMillis();
+
+      // make sure that there are open multipart blocks
+      int activeMultipartUploads = cloud.listMultipartUploads().size();
+      assertTrue("Expecting 0 multipart uploads. Got: " + activeMultipartUploads,
+              activeMultipartUploads != 0);
+
+      for (int i = 0; i < numFiles; i++) {
+        FileStatus stat = dfs.getFileStatus(new Path("/dir/file" + i));
+        assert stat.getLen() == fileSize;
+      }
+
+      CloudTestHelper.matchMetadata(conf);
+
+      while ((System.currentTimeMillis() - abandonStartTime) < 2 * deleteAbandonedBlocksAfter) {
+        if (cloud.listMultipartUploads().size() == 0) {
+          return; //pass
+        }
+        Thread.sleep(10 * 1000);
+      }
+
+      fail("Abandoned blocks were not cleaned by the block reporting system. Active multipart " +
+              "uploads: "+cloud.listMultipartUploads().size());
 
     } catch (Exception e) {
       e.printStackTrace();

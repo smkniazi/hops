@@ -5,37 +5,37 @@ import io.hops.metadata.hdfs.dal.*;
 import io.hops.metadata.hdfs.entity.*;
 import io.hops.transaction.handler.HDFSOperationType;
 import io.hops.transaction.handler.LightWeightRequestHandler;
-import org.apache.hadoop.fs.*;
-import org.apache.hadoop.hdfs.server.blockmanagement.BlockInfoContiguousUnderConstruction;
-import org.apache.hadoop.io.IOUtils;
-import org.junit.Rule;
-import org.junit.rules.TestName;
+import org.apache.commons.logging.Log;
+import org.apache.commons.logging.LogFactory;
 import org.apache.hadoop.conf.Configuration;
+import org.apache.hadoop.fs.CloudProvider;
+import org.apache.hadoop.fs.StorageType;
 import org.apache.hadoop.hdfs.protocol.Block;
 import org.apache.hadoop.hdfs.protocol.CloudBlock;
 import org.apache.hadoop.hdfs.server.blockmanagement.BlockInfoContiguous;
+import org.apache.hadoop.hdfs.server.blockmanagement.BlockInfoContiguousUnderConstruction;
+import org.apache.hadoop.hdfs.server.blockmanagement.PendingBlockInfo;
+import org.apache.hadoop.hdfs.server.blockmanagement.ReplicaUnderConstruction;
 import org.apache.hadoop.hdfs.server.common.CloudHelper;
 import org.apache.hadoop.hdfs.server.common.HdfsServerConstants;
 import org.apache.hadoop.hdfs.server.datanode.fsdataset.CloudPersistenceProvider;
 import org.apache.hadoop.hdfs.server.datanode.fsdataset.impl.CloudFsDatasetImpl;
 import org.apache.hadoop.hdfs.server.datanode.fsdataset.impl.CloudPersistenceProviderFactory;
 import org.apache.hadoop.hdfs.server.namenode.INode;
-import org.apache.hadoop.hdfs.server.blockmanagement.ReplicaUnderConstruction;
-import org.apache.hadoop.hdfs.server.blockmanagement.PendingBlockInfo;
-import org.apache.commons.logging.Log;
-import org.apache.commons.logging.LogFactory;
+import org.junit.rules.TestName;
 
 import java.io.IOException;
 import java.util.*;
-
+import static org.junit.Assert.assertTrue;
 import static org.junit.Assert.fail;
 
 public class CloudTestHelper {
   static final Log LOG = LogFactory.getLog(CloudTestHelper.class);
-  static final String testBucketPrefix = "hopsfs.unittesting.";
-  @Rule
-  public TestName name = new TestName();
+  static String testBucketPrefix = "hopsfs.testing.";
 
+  public static void prependBucketPrefix(String prefix){
+    testBucketPrefix += prefix;
+  }
 
   private static List<INode> findAllINodes() throws IOException {
     LightWeightRequestHandler handler =
@@ -245,7 +245,9 @@ public class CloudTestHelper {
 
       //block cache mapping
       Map<Long, ProvidedBlockCacheLoc> cacheLoc = findCacheLocations();
-      assert cacheLoc.size() == dbView.size();
+      assertTrue("Expecting size of the blocks and cache location locations to be same."+
+              "Blocks: " +dbView.size()+" Cache: "+cacheLoc.size(),
+              cacheLoc.size() == dbView.size());
 
       for (Block blk : dbView.values()) {
         if (blk instanceof BlockInfoContiguousUnderConstruction && expectingUCB) {
@@ -262,11 +264,12 @@ public class CloudTestHelper {
         assert cloud.getObjectSize(bucketID, blockKey) == blk.getNumBytes();
 
         Map<String, String> metadata = cloud.getUserMetaData(bucketID, blockKey);
-        assert Long.parseLong(metadata.get(CloudFsDatasetImpl.OBJECT_SIZE)) == blk.getNumBytes();
-        assert Long.parseLong(metadata.get(CloudFsDatasetImpl.GEN_STAMP)) == blk.getGenerationStamp();
+        assertTrue("No metadata expected. Got "+metadata.size(), metadata.size() == 0);
 
         metadata = cloud.getUserMetaData(bucketID, metaKey);
-        assert metadata.size() == 0;
+        assert metadata.size() == 2;
+        assert Long.parseLong(metadata.get(CloudFsDatasetImpl.OBJECT_SIZE)) == blk.getNumBytes();
+        assert Long.parseLong(metadata.get(CloudFsDatasetImpl.GEN_STAMP)) == blk.getGenerationStamp();
         assert cacheLoc.get(blk.getBlockId()) != null;
       }
 
@@ -319,7 +322,7 @@ public class CloudTestHelper {
 
   public static void setRandomBucketPrefix(Configuration conf, TestName name) {
     Date date = new Date();
-    String prefix = testBucketPrefix + name.getMethodName() +
+    String prefix = testBucketPrefix + "." + name.getMethodName() +
             "." + date.getHours() + date.getMinutes() + date.getSeconds();
     conf.set(DFSConfigKeys.S3_BUCKET_PREFIX, prefix.toLowerCase());
   }

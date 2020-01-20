@@ -21,26 +21,18 @@ import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.CloudProvider;
 import org.apache.hadoop.fs.FSDataOutputStream;
 import org.apache.hadoop.fs.Path;
-import org.apache.hadoop.fs.StorageType;
-import org.apache.hadoop.hdfs.*;
+import org.apache.hadoop.hdfs.CloudTestHelper;
+import org.apache.hadoop.hdfs.DFSConfigKeys;
+import org.apache.hadoop.hdfs.DistributedFileSystem;
+import org.apache.hadoop.hdfs.MiniDFSCluster;
 import org.apache.hadoop.hdfs.client.HdfsClientConfigKeys;
-import org.apache.hadoop.hdfs.protocol.CloudBlock;
 import org.apache.hadoop.hdfs.server.blockmanagement.ProvidedBlocksChecker;
-import org.apache.hadoop.hdfs.server.datanode.DataNode;
-import org.apache.hadoop.hdfs.server.datanode.fsdataset.CloudPersistenceProvider;
-import org.apache.hadoop.hdfs.server.datanode.fsdataset.impl.CloudPersistenceProviderFactory;
-import org.apache.hadoop.hdfs.server.protocol.BlockReport;
-import org.apache.hadoop.hdfs.server.protocol.DatanodeStorage;
-import org.apache.hadoop.io.IOUtils;
-import org.apache.hadoop.util.ExitUtil;
 import org.apache.log4j.Level;
 import org.apache.log4j.Logger;
 import org.junit.*;
 import org.junit.rules.TestName;
-import org.junit.runners.MethodSorters;
 
 import java.io.IOException;
-import java.util.Map;
 
 import static junit.framework.TestCase.assertTrue;
 import static org.junit.Assert.fail;
@@ -52,10 +44,15 @@ public class TestCloudFailures {
   @Rule
   public TestName testname = new TestName();
 
+  @BeforeClass
+  public static void setBucketPrefix(){
+    CloudTestHelper.prependBucketPrefix("TCF");
+  }
+
   @Before
   public void setup() {
-//    Logger.getRootLogger().setLevel(Level.DEBUG);
-    Logger.getLogger(ProvidedBlocksChecker.class).setLevel(Level.DEBUG);
+    Logger.getRootLogger().setLevel(Level.INFO);
+    Logger.getLogger(ProvidedBlocksChecker.class).setLevel(Level.INFO);
     Logger.getLogger(CloudTestHelper.class).setLevel(Level.DEBUG);
   }
 
@@ -82,7 +79,7 @@ public class TestCloudFailures {
     MiniDFSCluster cluster = null;
     try {
 
-      final int BLKSIZE = 128 * 1024;
+      final int BLKSIZE = 128 * 1024 * 1024;
       final int NUM_DN = 3;
 
       Configuration conf = getConf();
@@ -115,16 +112,27 @@ public class TestCloudFailures {
       dfs.mkdirs(new Path("/dir"));
       dfs.setStoragePolicy(new Path("/dir"), "CLOUD");
 
-      FSDataOutputStream out = (FSDataOutputStream) dfs.create(new Path("/dir/file"), (short) 1);
-      byte[] data = new byte[BLKSIZE]; //write more than 64 KB to allocate a block
+      FSDataOutputStream out = dfs.create(new Path("/dir/file"), (short) 1);
+      byte[] data = new byte[BLKSIZE];
       out.write(data);
 
       Thread.sleep(6000);
       dfs.getClient().getLeaseRenewer().interruptAndJoin();
       dfs.getClient().abort();
-
       LOG.info("HopsFS-Cloud. Aborted the client");
-      Thread.sleep(10000);
+
+      long startTime = System.currentTimeMillis();
+      while (true) {
+        if ((System.currentTimeMillis() - startTime) < 60 * 1000) {
+          if (cluster.getNamesystem().getLeaseManager().countLease() == 0) {
+            break;
+          }
+        }
+        Thread.sleep(1000);
+      }
+
+      assertTrue("The NN should have recoverd the lease for the file ",
+              cluster.getNamesystem().getLeaseManager().countLease() == 0 );
 
       //this will check that the number of blocks in the cloud and DB are same
       CloudTestHelper.matchMetadata(conf);
@@ -143,5 +151,4 @@ public class TestCloudFailures {
   public static void TestZDeleteAllBuckets() throws IOException {
     CloudTestHelper.purgeS3();
   }
-
 }
