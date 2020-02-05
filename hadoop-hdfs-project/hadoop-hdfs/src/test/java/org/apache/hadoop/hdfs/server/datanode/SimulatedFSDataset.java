@@ -22,6 +22,7 @@ import java.util.Set;
 
 
 import org.apache.commons.lang3.ArrayUtils;
+import io.hops.metadata.hdfs.entity.CloudBucket;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.StorageType;
 import org.apache.hadoop.hdfs.DFSConfigKeys;
@@ -738,7 +739,7 @@ public class SimulatedFSDataset implements FsDatasetSpi<FsVolumeSpi> {
       if (binfo == null) {
         return null;
       }
-      return new Block(blkid, binfo.getGenerationStamp(), binfo.getNumBytes(), Block.NON_EXISTING_BUCKET_ID);
+      return new Block(blkid, binfo.getGenerationStamp(), binfo.getNumBytes(), CloudBucket.NON_EXISTENT_BUCKET_NAME);
     }
     return null;
   }
@@ -1177,7 +1178,7 @@ public class SimulatedFSDataset implements FsDatasetSpi<FsVolumeSpi> {
     }
 
     return new ReplicaRecoveryInfo(binfo.getBlockId(), binfo.getBytesOnDisk(),
-        binfo.getGenerationStamp(), Block.NON_EXISTING_BUCKET_ID,
+        binfo.getGenerationStamp(), CloudBucket.NON_EXISTENT_BUCKET_NAME,
         binfo.isFinalized() ? ReplicaState.FINALIZED : ReplicaState.RBW);
   }
 

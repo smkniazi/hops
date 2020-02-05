@@ -19,6 +19,7 @@ package org.apache.hadoop.hdfs.server.namenode;
 
 import com.google.common.base.Preconditions;
 
+import io.hops.metadata.hdfs.entity.CloudBucket;
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
 import org.apache.hadoop.conf.Configuration;
@@ -1043,7 +1044,7 @@ public class NNThroughputBenchmark implements Tool {
     void formBlockReport() {
       // fill remaining slots with blocks that do not exist
       for (int idx = blocks.size()-1; idx >= nrBlocks; idx--) {
-        Block block = new Block(blocks.size() - idx, 0, 0, Block.NON_EXISTING_BUCKET_ID);
+        Block block = new Block(blocks.size() - idx, 0, 0, CloudBucket.NON_EXISTENT_BUCKET_NAME);
         blocks.set(idx, new BlockReportReplica(block));
       }
       blockReportList = BlockReport.builder(NUM_BUCKETS).build();

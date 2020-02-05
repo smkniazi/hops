@@ -2976,7 +2976,7 @@ public class DataNode extends ReconfigurableBase
     boolean isTruncateRecovery = rBlock.getNewBlock() != null;
     long blockId = (isTruncateRecovery) ?
         rBlock.getNewBlock().getBlockId() : block.getBlockId();
-    short cloudBucketID = block.getCloudBucketID();
+    String cloudBucket = block.getCloudBucket();
 
     if (LOG.isDebugEnabled()) {
       LOG.debug("block=" + block + ", (length=" + block.getNumBytes() +
@@ -3036,7 +3036,7 @@ public class DataNode extends ReconfigurableBase
     // and the new block size
     List<BlockRecord> participatingList = new ArrayList<>();
     final ExtendedBlock newBlock = new ExtendedBlock(bpid, blockId,
-        -1, recoveryId, cloudBucketID );
+        -1, recoveryId, cloudBucket);
     switch (bestState) {
       case FINALIZED:
         assert finalizedLength > 0 : "finalizedLength is not positive";

@@ -16,14 +16,14 @@
 package org.apache.hadoop.hdfs.server.datanode.fsdataset;
 
 public class ActiveMultipartUploads {
-  private final short bucketID;
+  private final String bucket;
   private final String objectID;
   private final long startTime;
   private final String uploadID;
 
-  public ActiveMultipartUploads(short bucketID, String objectID, long startTime,
+  public ActiveMultipartUploads(String bucket, String objectID, long startTime,
                                 String uploadID) {
-    this.bucketID = bucketID;
+    this.bucket = bucketID;
     this.objectID = objectID;
     this.startTime = startTime;
     this.uploadID = uploadID;
@@ -41,7 +41,7 @@ public class ActiveMultipartUploads {
     return uploadID;
   }
 
-  public short getBucketID() {
-    return bucketID;
+  public String getBucket() {
+    return bucket;
   }
 }

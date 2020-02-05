@@ -166,6 +166,7 @@ import org.apache.hadoop.hdfs.security.token.block.BlockTokenIdentifier;
 import org.apache.hadoop.hdfs.security.token.delegation.DelegationTokenIdentifier;
 import org.apache.hadoop.hdfs.security.token.delegation.DelegationTokenSecretManager;
 import org.apache.hadoop.hdfs.server.blockmanagement.*;
+import org.apache.hadoop.hdfs.server.common.CloudHelper;
 import org.apache.hadoop.hdfs.server.common.HdfsServerConstants;
 import org.apache.hadoop.hdfs.server.common.HdfsServerConstants.BlockUCState;
 import org.apache.hadoop.hdfs.server.common.HdfsServerConstants.StartupOption;
@@ -490,9 +491,6 @@ public class FSNamesystem implements Namesystem, FSNamesystemMBean,
   private TopMetrics topMetrics;
 
   // HopsFS Cloud Storage
-  // Max buckets
-  private final int MAX_CLOUD_BUCKETS;
-
   private final boolean cloudSmallFilesSupport;
 
   /**
@@ -630,8 +628,6 @@ public class FSNamesystem implements Namesystem, FSNamesystemMBean,
         throw new IllegalArgumentException("The size for the database files is not correctly set");
       }
 
-      MAX_CLOUD_BUCKETS = conf.getInt(DFSConfigKeys.DFS_CLOUD_AWS_S3_NUM_BUCKETS,
-              DFS_CLOUD_AWS_S3_NUM_BUCKETS_DEFAULT);
       cloudSmallFilesSupport = conf.getBoolean(DFSConfigKeys.DFS_CLOUD_STORE_SMALL_FILES_IN_DB_KEY,
               DFSConfigKeys.DFS_CLOUD_STORE_SMALL_FILES_IN_DB_DEFAUlT);
 
@@ -932,7 +928,7 @@ public class FSNamesystem implements Namesystem, FSNamesystemMBean,
       if(cloud){
         CloudPersistenceProvider cloudConnector =
                 CloudPersistenceProviderFactory.getCloudClient(conf);
-        cloudConnector.checkAllBuckets();
+        cloudConnector.checkAllBuckets(Lists.newArrayList(CloudHelper.getAllBuckets().keySet()));
         cloudConnector.shutdown();
       }
 
@@ -1843,7 +1839,7 @@ public class FSNamesystem implements Namesystem, FSNamesystemMBean,
     if(newBlock == null) {
       newBlock = (shouldCopyOnTruncate) ? createNewBlock(file) :
           new Block(oldBlock.getBlockId(), oldBlock.getNumBytes(), file.nextGenerationStamp(),
-                  oldBlock.getCloudBucketID());
+                  oldBlock.getCloudBucket());
     }
 
     BlockInfoContiguousUnderConstruction truncatedBlockUC;
@@ -3635,15 +3631,16 @@ public class FSNamesystem implements Namesystem, FSNamesystemMBean,
    */
   private Block createNewBlock(INodeFile pendingFile)
       throws IOException {
-    short bucketID = Block.NON_EXISTING_BUCKET_ID;
+    String bucket = CloudBucket.NON_EXISTENT_BUCKET_NAME;
     long blockID = nextBlockId();
 
     if(pendingFile.getStoragePolicyID() == HdfsConstants.CLOUD_STORAGE_POLICY_ID){
-      bucketID = Block.getCloudBucket(MAX_CLOUD_BUCKETS, blockID);
+      bucket = CloudHelper.getRandomCloudBucket();
       LOG.debug("HopsFS-Cloud. The new block ID: "+blockID+" for file: \""+pendingFile.getName()+
-                      "\" will be stored in cloud bucket: "+bucketID);
+                      "\" will be stored in cloud bucket: "+bucket);
     }
-    Block b = new Block(blockID, 0, 0, bucketID);
+
+    Block b = new Block(blockID, 0, 0, bucket);
     // Increment the generation stamp for every new block.
     b.setGenerationStampNoPersistance(pendingFile.nextGenerationStamp());
     return b;

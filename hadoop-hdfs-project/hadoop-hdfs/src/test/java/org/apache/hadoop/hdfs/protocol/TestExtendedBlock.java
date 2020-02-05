@@ -17,6 +17,7 @@
  */
 package org.apache.hadoop.hdfs.protocol;
 
+import io.hops.metadata.hdfs.entity.CloudBucket;
 import org.junit.Test;
 
 import static org.junit.Assert.assertEquals;
@@ -26,9 +27,9 @@ import static org.junit.Assert.assertFalse;
 public class TestExtendedBlock {
   static final String POOL_A = "blockpool-a";
   static final String POOL_B = "blockpool-b";
-  static final Block BLOCK_1_GS1 = new Block(1L, 100L, 1L, Block.NON_EXISTING_BUCKET_ID);
-  static final Block BLOCK_1_GS2 = new Block(1L, 100L, 2L, Block.NON_EXISTING_BUCKET_ID);
-  static final Block BLOCK_2_GS1 = new Block(2L, 100L, 1L, Block.NON_EXISTING_BUCKET_ID);
+  static final Block BLOCK_1_GS1 = new Block(1L, 100L, 1L, CloudBucket.NON_EXISTENT_BUCKET_NAME);
+  static final Block BLOCK_1_GS2 = new Block(1L, 100L, 2L, CloudBucket.NON_EXISTENT_BUCKET_NAME);
+  static final Block BLOCK_2_GS1 = new Block(2L, 100L, 1L, CloudBucket.NON_EXISTENT_BUCKET_NAME);
   
   @Test
   public void testEquals() {

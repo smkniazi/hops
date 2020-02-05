@@ -15,11 +15,13 @@
  */
 package org.apache.hadoop.hdfs.server.namenode;
 
+import com.google.common.collect.Lists;
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.*;
 import org.apache.hadoop.hdfs.*;
+import org.apache.hadoop.hdfs.server.common.CloudHelper;
 import org.apache.hadoop.hdfs.server.datanode.fsdataset.CloudPersistenceProvider;
 import org.apache.hadoop.hdfs.server.datanode.fsdataset.impl.CloudPersistenceProviderFactory;
 import org.junit.AfterClass;
@@ -70,7 +72,6 @@ public class TestCloudMultipartUpload {
       conf.setBoolean(DFSConfigKeys.DFS_ENABLE_CLOUD_PERSISTENCE, true);
       conf.set(DFSConfigKeys.DFS_CLOUD_PROVIDER, CloudProvider.AWS.name());
       conf.setLong(DFSConfigKeys.DFS_BLOCK_SIZE_KEY, BLKSIZE);
-      conf.setLong(DFSConfigKeys.DFS_CLOUD_AWS_S3_NUM_BUCKETS, 2);
       conf.setLong(DFSConfigKeys.DFS_CLOUD_MULTIPART_SIZE, 5*1024*1024);
       conf.setLong(DFSConfigKeys.DFS_CLOUD_MIN_MULTIPART_THRESHOLD, 5*1024*1024);
       conf.setBoolean(DFSConfigKeys.DFS_CLOUD_CONCURRENT_UPLOAD, multipart);
@@ -96,16 +97,19 @@ public class TestCloudMultipartUpload {
       }
 
       if(multipart) {
-        assert cloud.listMultipartUploads().size() == numFiles;
+        assert cloud.listMultipartUploads(Lists.newArrayList(CloudHelper.getAllBuckets().keySet())).size() == numFiles;
       } else {
-        assert cloud.listMultipartUploads().size() == 0;
+        assert cloud.listMultipartUploads(Lists.newArrayList(CloudHelper.getAllBuckets().keySet())).size() == 0;
       }
 
       for (int i = 0; i < numFiles; i++) {
         out[i].close();
       }
 
-      assert cloud.listMultipartUploads().size() == 0;
+      Thread.sleep(5000);
+      int count =
+              cloud.listMultipartUploads(Lists.newArrayList(CloudHelper.getAllBuckets().keySet())).size();
+      assertTrue("Expecting 0 multiplar uploads: Got: "+count,  count == 0);
 
       CloudTestHelper.matchMetadata(conf);
 

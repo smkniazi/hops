@@ -18,60 +18,58 @@ public interface CloudPersistenceProvider {
   /*
   Deletes all the buckets that are used by HopsFS
    */
-  public void format();
+  public void format(List<String> buckets);
 
   /*
   Check that all the buckets needed exist
   throws runtime exception if the buckets dont exists or not writable.
    */
-  public void checkAllBuckets();
-
-  public String getBucketDNSID(int ID);
+  public void checkAllBuckets(List<String> buckets);
 
   public int getPrefixSize();
 
-  public void uploadObject(short bucketID, String objectID, File object,
+  public void uploadObject(String bucket, String objectKey, File object,
                            Map<String, String> metadata) throws IOException;
 
-  public boolean objectExists(short bucketID, String objectID)
+  public boolean objectExists(String bucket, String objectKey)
           throws IOException;
 
-  public Map<String, String> getUserMetaData(short bucketID, String objectID)
+  public Map<String, String> getUserMetaData(String bucket, String objectKey)
           throws IOException;
 
-  public long getObjectSize(short bucketID, String objectID)
+  public long getObjectSize(String bucket, String objectKey)
           throws IOException;
 
-  public void downloadObject(short bucketID, String objectID, File path)
+  public void downloadObject(String bucket, String objectKey, File path)
           throws IOException;
 
-  public Map<Long, CloudBlock> getAll(String prefix) throws IOException;
+  public Map<Long, CloudBlock> getAll(String prefix, List<String> buckets) throws IOException;
 
-  public void deleteObject(short bucketID, String objectID) throws IOException;
+  public void deleteObject(String bucket, String objectKey) throws IOException;
 
-  public void renameObject(short srcBucket, short dstBucket, String srcKey,
+  public void renameObject(String srcBucket, String dstBucket, String srcKey,
                            String dstKey) throws IOException ;
 
   public long getPartSize();
 
   public int getXferThreads();
 
-  public String startMultipartUpload(short bucketID, String objectID,
+  public String startMultipartUpload(String bucket, String objectKey,
                                      Map<String, String> metadata)
           throws IOException;
 
-  public PartETag uploadPart(short bucketID, String objectID, String uploadID,
+  public PartETag uploadPart(String bucket, String objectKey, String uploadID,
                              int partNo, File file, long startPos, long endPos)
           throws IOException;
 
-  public void finalizeMultipartUpload(short bucketID, String objectID,
+  public void finalizeMultipartUpload(String bucket, String objectKey,
                                       String uploadID, List<PartETag> partETags)
           throws IOException;
 
-  public void abortMultipartUpload(short bucketID, String objectID, String uploadID)
+  public void abortMultipartUpload(String bucket, String objectKey, String uploadID)
           throws IOException;
 
-  public List<ActiveMultipartUploads> listMultipartUploads() throws IOException;
+  public List<ActiveMultipartUploads> listMultipartUploads(List<String> buckets) throws IOException;
 
   public void shutdown();
 }

@@ -66,7 +66,6 @@ public class TestCloudRestart {
 
       conf.setLong(DFSConfigKeys.DFS_CLOUD_BLOCK_REPORT_THREAD_SLEEP_INTERVAL_KEY, 1000);
       conf.setLong(DFSConfigKeys.DFS_CLOUD_PREFIX_SIZE_KEY, 10);
-      conf.setInt(DFSConfigKeys.DFS_CLOUD_AWS_S3_NUM_BUCKETS, 2);
       conf.setLong(DFSConfigKeys.DFS_CLOUD_BLOCK_REPORT_DELAY_KEY,
               DFSConfigKeys.DFS_CLOUD_BLOCK_REPORT_DELAY_DEFAULT);
       conf.setLong(DFSConfigKeys.DFS_NAMENODE_BLOCKID_BATCH_SIZE, 10);

@@ -20,6 +20,7 @@ package org.apache.hadoop.hdfs.server.blockmanagement;
 import io.hops.common.INodeUtil;
 import io.hops.exception.StorageException;
 import io.hops.metadata.HdfsStorageFactory;
+import io.hops.metadata.hdfs.entity.CloudBucket;
 import io.hops.metadata.hdfs.entity.INodeIdentifier;
 import io.hops.transaction.handler.HDFSOperationType;
 import io.hops.transaction.handler.HopsTransactionalRequestHandler;
@@ -71,7 +72,7 @@ public class TestCorruptReplicaInfo {
   private BlockInfoContiguous getBlock(Integer block_id) {
     if (!block_map.containsKey(block_id)) {
       block_map
-          .put(block_id, new BlockInfoContiguous(new Block(block_id, 0, 0, Block.NON_EXISTING_BUCKET_ID), block_id));
+          .put(block_id, new BlockInfoContiguous(new Block(block_id, 0, 0, CloudBucket.NON_EXISTENT_BUCKET_NAME), block_id));
     }
     
     return block_map.get(block_id);

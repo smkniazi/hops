@@ -76,7 +76,6 @@ public class TestCloudFileCreation {
       conf.setBoolean(DFSConfigKeys.DFS_ENABLE_CLOUD_PERSISTENCE, true);
       conf.set(DFSConfigKeys.DFS_CLOUD_PROVIDER, CloudProvider.AWS.name());
       conf.setLong(DFSConfigKeys.DFS_BLOCK_SIZE_KEY, BLKSIZE);
-      conf.setLong(DFSConfigKeys.DFS_CLOUD_AWS_S3_NUM_BUCKETS, 2);
       CloudTestHelper.setRandomBucketPrefix(conf,testname);
 
       cluster = new MiniDFSCluster.Builder(conf).numDataNodes(NUM_DN)
@@ -118,7 +117,6 @@ public class TestCloudFileCreation {
       conf.setBoolean(DFSConfigKeys.DFS_ENABLE_CLOUD_PERSISTENCE, true);
       conf.set(DFSConfigKeys.DFS_CLOUD_PROVIDER, CloudProvider.AWS.name());
       conf.setLong(DFSConfigKeys.DFS_BLOCK_SIZE_KEY, BLK_SIZE);
-      conf.setLong(DFSConfigKeys.DFS_CLOUD_AWS_S3_NUM_BUCKETS, 2);
       CloudTestHelper.setRandomBucketPrefix(conf, testname);
 
       cluster = new MiniDFSCluster.Builder(conf).numDataNodes(NUM_DN)
@@ -179,7 +177,6 @@ public class TestCloudFileCreation {
       conf.setBoolean(DFSConfigKeys.DFS_ENABLE_CLOUD_PERSISTENCE, true);
       conf.set(DFSConfigKeys.DFS_CLOUD_PROVIDER, CloudProvider.AWS.name());
       conf.setLong(DFSConfigKeys.DFS_BLOCK_SIZE_KEY, BLK_SIZE);
-      conf.setLong(DFSConfigKeys.DFS_CLOUD_AWS_S3_NUM_BUCKETS, 2);
       CloudTestHelper.setRandomBucketPrefix(conf, testname);
 
       cluster = new MiniDFSCluster.Builder(conf).numDataNodes(NUM_DN)
@@ -225,7 +222,6 @@ public class TestCloudFileCreation {
       conf.setBoolean(DFSConfigKeys.DFS_ENABLE_CLOUD_PERSISTENCE, true);
       conf.set(DFSConfigKeys.DFS_CLOUD_PROVIDER, CloudProvider.AWS.name());
       conf.setLong(DFSConfigKeys.DFS_BLOCK_SIZE_KEY, BLK_SIZE);
-      conf.setLong(DFSConfigKeys.DFS_CLOUD_AWS_S3_NUM_BUCKETS, 2);
       CloudTestHelper.setRandomBucketPrefix(conf, testname);
 
       cluster = new MiniDFSCluster.Builder(conf).numDataNodes(NUM_DN).
@@ -287,7 +283,6 @@ public class TestCloudFileCreation {
       conf.setBoolean(DFSConfigKeys.DFS_ENABLE_CLOUD_PERSISTENCE, true);
       conf.set(DFSConfigKeys.DFS_CLOUD_PROVIDER, CloudProvider.AWS.name());
       conf.setLong(DFSConfigKeys.DFS_BLOCK_SIZE_KEY, BLK_SIZE);
-      conf.setLong(DFSConfigKeys.DFS_CLOUD_AWS_S3_NUM_BUCKETS, 2);
       CloudTestHelper.setRandomBucketPrefix(conf, testname);
 
       cluster = new MiniDFSCluster.Builder(conf).numDataNodes(NUM_DN).
@@ -342,7 +337,6 @@ public class TestCloudFileCreation {
       conf.setBoolean(DFSConfigKeys.DFS_ENABLE_CLOUD_PERSISTENCE, true);
       conf.set(DFSConfigKeys.DFS_CLOUD_PROVIDER, CloudProvider.AWS.name());
       conf.setLong(DFSConfigKeys.DFS_BLOCK_SIZE_KEY, BLK_SIZE);
-      conf.setLong(DFSConfigKeys.DFS_CLOUD_AWS_S3_NUM_BUCKETS, 2);
       CloudTestHelper.setRandomBucketPrefix(conf, testname);
 
       cluster = new MiniDFSCluster.Builder(conf).numDataNodes(NUM_DN).
@@ -403,7 +397,6 @@ public class TestCloudFileCreation {
       conf.setBoolean(DFSConfigKeys.DFS_ENABLE_CLOUD_PERSISTENCE, true);
       conf.set(DFSConfigKeys.DFS_CLOUD_PROVIDER, CloudProvider.AWS.name());
       conf.setLong(DFSConfigKeys.DFS_BLOCK_SIZE_KEY, BLK_SIZE);
-      conf.setLong(DFSConfigKeys.DFS_CLOUD_AWS_S3_NUM_BUCKETS, 2);
       CloudTestHelper.setRandomBucketPrefix(conf, testname);
 
       cluster = new MiniDFSCluster.Builder(conf).numDataNodes(NUM_DN).
@@ -461,7 +454,6 @@ public class TestCloudFileCreation {
       conf.setBoolean(DFSConfigKeys.DFS_ENABLE_CLOUD_PERSISTENCE, true);
       conf.set(DFSConfigKeys.DFS_CLOUD_PROVIDER, CloudProvider.AWS.name());
       conf.setLong(DFSConfigKeys.DFS_BLOCK_SIZE_KEY, BLK_SIZE);
-      conf.setLong(DFSConfigKeys.DFS_CLOUD_AWS_S3_NUM_BUCKETS, 2);
       CloudTestHelper.setRandomBucketPrefix(conf, testname);
 
       cluster = new MiniDFSCluster.Builder(conf).numDataNodes(NUM_DN).
@@ -573,7 +565,6 @@ public class TestCloudFileCreation {
       conf.setBoolean(DFSConfigKeys.DFS_ENABLE_CLOUD_PERSISTENCE, true);
       conf.set(DFSConfigKeys.DFS_CLOUD_PROVIDER, CloudProvider.AWS.name());
       conf.setLong(DFSConfigKeys.DFS_BLOCK_SIZE_KEY, BLKSIZE);
-      conf.setLong(DFSConfigKeys.DFS_CLOUD_AWS_S3_NUM_BUCKETS, 2);
       CloudTestHelper.setRandomBucketPrefix(conf, testname);
 
       cluster = new MiniDFSCluster.Builder(conf).numDataNodes(NUM_DN).
@@ -641,7 +632,6 @@ public class TestCloudFileCreation {
       conf.setBoolean(DFSConfigKeys.DFS_ENABLE_CLOUD_PERSISTENCE, true);
       conf.set(DFSConfigKeys.DFS_CLOUD_PROVIDER, CloudProvider.AWS.name());
       conf.setLong(DFSConfigKeys.DFS_BLOCK_SIZE_KEY, BLKSIZE);
-      conf.setLong(DFSConfigKeys.DFS_CLOUD_AWS_S3_NUM_BUCKETS, 2);
       CloudTestHelper.setRandomBucketPrefix(conf, testname);
 
 
@@ -698,7 +688,6 @@ public class TestCloudFileCreation {
       conf.setBoolean(DFSConfigKeys.DFS_ENABLE_CLOUD_PERSISTENCE, true);
       conf.set(DFSConfigKeys.DFS_CLOUD_PROVIDER, CloudProvider.AWS.name());
       conf.setLong(DFSConfigKeys.DFS_BLOCK_SIZE_KEY, BLKSIZE);
-      conf.setLong(DFSConfigKeys.DFS_CLOUD_AWS_S3_NUM_BUCKETS, 2);
       CloudTestHelper.setRandomBucketPrefix(conf, testname);
 
       cluster = new MiniDFSCluster.Builder(conf).numDataNodes(NUM_DN).
@@ -768,7 +757,6 @@ public class TestCloudFileCreation {
       conf.setBoolean(DFSConfigKeys.DFS_ENABLE_CLOUD_PERSISTENCE, true);
       conf.set(DFSConfigKeys.DFS_CLOUD_PROVIDER, CloudProvider.AWS.name());
       conf.setLong(DFSConfigKeys.DFS_BLOCK_SIZE_KEY, BLKSIZE);
-      conf.setLong(DFSConfigKeys.DFS_CLOUD_AWS_S3_NUM_BUCKETS, 2);
       CloudTestHelper.setRandomBucketPrefix(conf, testname);
 
       cluster = new MiniDFSCluster.Builder(conf).numDataNodes(NUM_DN).
@@ -817,7 +805,6 @@ public class TestCloudFileCreation {
       conf.setBoolean(DFSConfigKeys.DFS_ENABLE_CLOUD_PERSISTENCE, true);
       conf.set(DFSConfigKeys.DFS_CLOUD_PROVIDER, CloudProvider.AWS.name());
       conf.setLong(DFSConfigKeys.DFS_BLOCK_SIZE_KEY, BLKSIZE);
-      conf.setLong(DFSConfigKeys.DFS_CLOUD_AWS_S3_NUM_BUCKETS, 2);
       CloudTestHelper.setRandomBucketPrefix(conf, testname);
 
       cluster = new MiniDFSCluster.Builder(conf).numDataNodes(NUM_DN).
@@ -864,7 +851,6 @@ public class TestCloudFileCreation {
       conf.setBoolean(DFSConfigKeys.DFS_ENABLE_CLOUD_PERSISTENCE, true);
       conf.set(DFSConfigKeys.DFS_CLOUD_PROVIDER, CloudProvider.AWS.name());
       conf.setLong(DFSConfigKeys.DFS_BLOCK_SIZE_KEY, BLKSIZE);
-      conf.setLong(DFSConfigKeys.DFS_CLOUD_AWS_S3_NUM_BUCKETS, 2);
       CloudTestHelper.setRandomBucketPrefix(conf, testname);
 
       cluster = new MiniDFSCluster.Builder(conf).numDataNodes(NUM_DN).
@@ -940,7 +926,6 @@ public class TestCloudFileCreation {
       conf.setBoolean(DFSConfigKeys.DFS_ENABLE_CLOUD_PERSISTENCE, true);
       conf.set(DFSConfigKeys.DFS_CLOUD_PROVIDER, CloudProvider.AWS.name());
       conf.setLong(DFSConfigKeys.DFS_BLOCK_SIZE_KEY, BLKSIZE);
-      conf.setLong(DFSConfigKeys.DFS_CLOUD_AWS_S3_NUM_BUCKETS, 2);
       CloudTestHelper.setRandomBucketPrefix(conf, testname);
 
       cluster = new MiniDFSCluster.Builder(conf).numDataNodes(NUM_DN)

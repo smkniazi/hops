@@ -21,6 +21,7 @@ import java.io.EOFException;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
+import io.hops.metadata.hdfs.entity.CloudBucket;
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
 import org.apache.hadoop.classification.InterfaceAudience;
@@ -162,7 +163,7 @@ class FsDatasetImpl implements FsDatasetSpi<FsVolumeImpl> {
     }
     final File metafile = FsDatasetUtil.findMetaFile(blockfile);
     final long gs = FsDatasetUtil.parseGenerationStamp(blockfile, metafile);
-    return new Block(blkid, blockfile.length(), gs, Block.NON_EXISTING_BUCKET_ID);
+    return new Block(blkid, blockfile.length(), gs, CloudBucket.NON_EXISTENT_BUCKET_NAME);
   }
 
   /**
@@ -879,7 +880,7 @@ class FsDatasetImpl implements FsDatasetSpi<FsVolumeImpl> {
 
       ReplicaInfo newReplicaInfo = new ReplicaInPipeline(
           replicaInfo.getBlockId(), replicaInfo.getGenerationStamp(),
-          replicaInfo.getCloudBucketID(), targetVolume,
+          replicaInfo.getCloudBucket(), targetVolume,
           blockFiles[0].getParentFile(), 0);
       newReplicaInfo.setNumBytesNoPersistance(blockFiles[1].length());
       // Finalize the copied files
@@ -1019,7 +1020,7 @@ class FsDatasetImpl implements FsDatasetSpi<FsVolumeImpl> {
     File oldmeta = replicaInfo.getMetaFile();
     ReplicaBeingWritten newReplicaInfo = new ReplicaBeingWritten(
         replicaInfo.getBlockId(), replicaInfo.getNumBytes(), newGS,
-        replicaInfo.getCloudBucketID(), v, newBlkFile.getParentFile(),
+        replicaInfo.getCloudBucket(), v, newBlkFile.getParentFile(),
         Thread.currentThread(), estimateBlockLen);
     File newmeta = newReplicaInfo.getMetaFile();
 
@@ -1218,7 +1219,7 @@ class FsDatasetImpl implements FsDatasetSpi<FsVolumeImpl> {
     }
 
     ReplicaBeingWritten newReplicaInfo = new ReplicaBeingWritten(b.getBlockId(), 
-        b.getGenerationStamp(), b.getCloudBucketID(), v, f.getParentFile(), b.getNumBytes());
+        b.getGenerationStamp(), b.getCloudBucket(), v, f.getParentFile(), b.getNumBytes());
     volumeMap.add(b.getBlockPoolId(), newReplicaInfo);
     return new ReplicaHandler(newReplicaInfo, ref);
   }
@@ -1291,7 +1292,7 @@ class FsDatasetImpl implements FsDatasetSpi<FsVolumeImpl> {
     final long blockId = b.getBlockId();
     final long expectedGs = b.getGenerationStamp();
     final long visible = b.getNumBytes();
-    final short cloudBucketID = b.getCloudBucketID();
+    final String cloudBucket = b.getCloudBucket();
     LOG.info(
         "Convert " + b + " from Temporary to RBW, visible length=" + visible);
 
@@ -1339,7 +1340,7 @@ class FsDatasetImpl implements FsDatasetSpi<FsVolumeImpl> {
         bpslice.getRbwDir());
     // create RBW
     final ReplicaBeingWritten rbw = new ReplicaBeingWritten(
-        blockId, numBytes, expectedGs, cloudBucketID,
+        blockId, numBytes, expectedGs, cloudBucket,
         v, dest.getParentFile(), Thread.currentThread(), 0);
     rbw.setBytesAcked(visible);
     // overwrite the RBW in the volume map
@@ -1373,7 +1374,7 @@ class FsDatasetImpl implements FsDatasetSpi<FsVolumeImpl> {
             throw e;
           }
           ReplicaInPipeline newReplicaInfo = new ReplicaInPipeline(b.getBlockId(),
-                  b.getGenerationStamp(), b.getCloudBucketID(), v, f.getParentFile(), 0);
+                  b.getGenerationStamp(), b.getCloudBucket(), v, f.getParentFile(), 0);
           volumeMap.add(b.getBlockPoolId(), newReplicaInfo);
           return new ReplicaHandler(newReplicaInfo, ref);
         } else {
@@ -1824,7 +1825,7 @@ class FsDatasetImpl implements FsDatasetSpi<FsVolumeImpl> {
     FsVolumeImpl volume;
     String blockFileName;
     long length, genstamp;
-    short cloudBucketID;
+    String cloudBucket;
     Executor volumeExecutor;
 
     synchronized (this) {
@@ -1863,11 +1864,11 @@ class FsDatasetImpl implements FsDatasetSpi<FsVolumeImpl> {
       blockFileName = info.getBlockFile().getAbsolutePath();
       length = info.getVisibleLength();
       genstamp = info.getGenerationStamp();
-      cloudBucketID = info.getCloudBucketID();
+      cloudBucket = info.getCloudBucket();
       volumeExecutor = volume.getCacheExecutor();
     }
     cacheManager.cacheBlock(blockId, bpid, 
-        blockFileName, length, genstamp, cloudBucketID, volumeExecutor);
+        blockFileName, length, genstamp, cloudBucket, volumeExecutor);
   }
 
   @Override // FsDatasetSpi
@@ -2046,7 +2047,7 @@ class FsDatasetImpl implements FsDatasetSpi<FsVolumeImpl> {
         // Block is missing in memory - add the block to volumeMap
         ReplicaInfo diskBlockInfo =
             new FinalizedReplica(blockId, diskFile.length(), diskGS,
-                Block.NON_EXISTING_BUCKET_ID, vol, diskFile.getParentFile());
+                CloudBucket.NON_EXISTENT_BUCKET_NAME, vol, diskFile.getParentFile());
         volumeMap.add(bpid, diskBlockInfo);
         LOG.warn("Added missing block to memory " + diskBlockInfo);
         return;
@@ -2159,7 +2160,7 @@ class FsDatasetImpl implements FsDatasetSpi<FsVolumeImpl> {
             block.getBlockId(),
             block.getNumBytes(),
             block.getGenerationStamp(),
-            block.getCloudBucketID()) ;
+            block.getCloudBucket()) ;
     //calls the overridden method in case of cloud
     final ReplicaInfo replica = getReplica(exBlock) ;
     LOG.info("initReplicaRecovery: " + block + ", recoveryId=" + recoveryId +
@@ -2265,7 +2266,7 @@ class FsDatasetImpl implements FsDatasetSpi<FsVolumeImpl> {
     //update replica
     final FinalizedReplica finalized = updateReplicaUnderRecovery(oldBlock
         .getBlockPoolId(), (ReplicaUnderRecovery) replica, recoveryId,
-        newBlockId, newlength, oldBlock.getCloudBucketID());
+        newBlockId, newlength, oldBlock.getCloudBucket());
 
     boolean copyTruncate = newBlockId != oldBlock.getBlockId();
     if(!copyTruncate) {
@@ -2298,7 +2299,7 @@ class FsDatasetImpl implements FsDatasetSpi<FsVolumeImpl> {
                                           long recoveryId,
                                           long newBlockId,
                                           long newlength,
-                                          short cloudBucketID) throws IOException {
+                                          String cloudBucket) throws IOException {
     //check recovery id
     if (rur.getRecoveryID() != recoveryId) {
       throw new IOException(
@@ -2335,7 +2336,7 @@ class FsDatasetImpl implements FsDatasetSpi<FsVolumeImpl> {
         // Copying block to a new block with new blockId.
         // Not truncating original block.
         ReplicaBeingWritten newReplicaInfo = new ReplicaBeingWritten(
-            newBlockId, recoveryId, cloudBucketID, rur.getVolume(),
+            newBlockId, recoveryId, cloudBucket, rur.getVolume(),
             blockFile.getParentFile(), newlength);
         newReplicaInfo.setNumBytesNoPersistance(newlength);
         volumeMap.add(bpid, newReplicaInfo);

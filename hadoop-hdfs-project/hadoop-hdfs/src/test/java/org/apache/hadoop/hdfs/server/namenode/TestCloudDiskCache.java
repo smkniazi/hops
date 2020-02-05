@@ -28,10 +28,11 @@ import org.apache.hadoop.hdfs.server.datanode.fsdataset.CloudPersistenceProvider
 import org.apache.hadoop.hdfs.server.datanode.fsdataset.impl.*;
 import org.apache.log4j.Level;
 import org.apache.log4j.Logger;
-import org.bouncycastle.cert.selector.jcajce.JcaX509CertificateHolderSelector;
-import org.junit.*;
+import org.junit.AfterClass;
+import org.junit.BeforeClass;
+import org.junit.Rule;
+import org.junit.Test;
 import org.junit.rules.TestName;
-import org.junit.runners.MethodSorters;
 import org.mockito.Mockito;
 import org.mockito.invocation.InvocationOnMock;
 import org.mockito.stubbing.Answer;
@@ -42,9 +43,10 @@ import java.util.Arrays;
 import java.util.Collection;
 
 import static junit.framework.TestCase.assertTrue;
-import static org.apache.hadoop.hdfs.HopsFilesTestHelper.*;
+import static org.apache.hadoop.hdfs.HopsFilesTestHelper.verifyFile;
 import static org.junit.Assert.fail;
-import static org.mockito.Matchers.*;
+import static org.mockito.Matchers.anyObject;
+import static org.mockito.Matchers.anyString;
 
 public class TestCloudDiskCache {
 
@@ -199,7 +201,7 @@ public class TestCloudDiskCache {
           }
         };
 
-        Mockito.doAnswer(checker).when(cloudMock).downloadObject(anyShort(), anyString(),
+        Mockito.doAnswer(checker).when(cloudMock).downloadObject(anyString(), anyString(),
                 (File) anyObject());
       }
 

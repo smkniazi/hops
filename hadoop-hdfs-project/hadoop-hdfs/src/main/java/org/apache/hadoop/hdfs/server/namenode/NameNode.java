@@ -17,6 +17,7 @@
 package org.apache.hadoop.hdfs.server.namenode;
 
 import com.google.common.annotations.VisibleForTesting;
+import com.google.common.collect.Lists;
 import io.hops.exception.StorageException;
 import io.hops.leaderElection.HdfsLeDescriptorFactory;
 import io.hops.leaderElection.LeaderElection;
@@ -43,6 +44,7 @@ import org.apache.hadoop.hdfs.protocol.HdfsConstants;
 import org.apache.hadoop.hdfs.server.blockmanagement.BRLoadBalancingNonLeaderException;
 import org.apache.hadoop.hdfs.server.blockmanagement.BRTrackingService;
 import org.apache.hadoop.hdfs.server.blockmanagement.DatanodeDescriptor;
+import org.apache.hadoop.hdfs.server.common.CloudHelper;
 import org.apache.hadoop.hdfs.server.common.HdfsServerConstants.NamenodeRole;
 import org.apache.hadoop.hdfs.server.common.HdfsServerConstants.RollingUpgradeStartupOption;
 import org.apache.hadoop.hdfs.server.common.HdfsServerConstants.StartupOption;
@@ -985,7 +987,7 @@ public class NameNode implements NameNodeStatusMXBean {
     return false;
   }
 
-  private static void formatCloud(Configuration conf){
+  private static void formatCloud(Configuration conf) throws StorageException {
     // Wipe cloud buckets
     boolean cloud = conf.getBoolean(DFSConfigKeys.DFS_ENABLE_CLOUD_PERSISTENCE,
             DFSConfigKeys.DFS_ENABLE_CLOUD_PERSISTENCE_DEFAULT);
@@ -993,7 +995,14 @@ public class NameNode implements NameNodeStatusMXBean {
       System.out.println("Formatting Cloud Buckets");
       CloudPersistenceProvider cloudConnector =
               CloudPersistenceProviderFactory.getCloudClient(conf);
-      cloudConnector.format();
+
+      List<String> buckets =  CloudHelper.getBucketsFromConf(conf);
+
+      cloudConnector.format(buckets);
+      CloudHelper.clearCache();
+      for(String bucket : buckets){
+        CloudHelper.addBucket(bucket);
+      }
       cloudConnector.shutdown();
     }
   }

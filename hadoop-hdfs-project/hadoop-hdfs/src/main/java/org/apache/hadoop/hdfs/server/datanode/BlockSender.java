@@ -261,7 +261,7 @@ class BlockSender implements java.io.Closeable {
       if (block.getBlockId() < 0) {
         // No need to take a lock as the block is not stored on this datanode
         replica = new FinalizedReplica(block.getBlockId(), block.getNumBytes(),
-                block.getGenerationStamp(), block.getCloudBucketID(), null, null);
+                block.getGenerationStamp(), block.getCloudBucket(), null, null);
       } else if (block.isProvidedBlock()) {
         //finalized provided blocks are stored in the Cloud. Datanodes only cache these blocks.
         //However, non finalized provided blocks are stored on datanodes during modification.

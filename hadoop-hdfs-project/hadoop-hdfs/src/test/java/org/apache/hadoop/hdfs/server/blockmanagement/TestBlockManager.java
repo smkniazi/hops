@@ -26,6 +26,7 @@ import io.hops.exception.StorageException;
 import io.hops.metadata.HdfsStorageFactory;
 import io.hops.metadata.hdfs.dal.INodeDataAccess;
 import io.hops.metadata.hdfs.dal.ReplicaDataAccess;
+import io.hops.metadata.hdfs.entity.CloudBucket;
 import io.hops.metadata.hdfs.entity.INodeIdentifier;
 import io.hops.security.GroupAlreadyExistsException;
 import io.hops.security.UserAlreadyExistsException;
@@ -702,7 +703,7 @@ public class TestBlockManager {
     bm.replicationStreamsHardLimit = 1;
 
     final long blockId = 42;         // arbitrary
-    final Block aBlock = new Block(blockId, 0, 0, Block.NON_EXISTING_BUCKET_ID);
+    final Block aBlock = new Block(blockId, 0, 0, CloudBucket.NON_EXISTENT_BUCKET_NAME);
 
     final List<DatanodeDescriptor> origNodes = getNodes(0, 1);
     
@@ -774,7 +775,7 @@ public class TestBlockManager {
     bm.replicationStreamsHardLimit = 1;
 
     long blockId = 42;         // arbitrary
-    final Block aBlock = new Block(blockId, 0, 0, Block.NON_EXISTING_BUCKET_ID);
+    final Block aBlock = new Block(blockId, 0, 0, CloudBucket.NON_EXISTENT_BUCKET_NAME);
     final List<DatanodeDescriptor> origNodes = getNodes(0, 1);
     addNodes(origNodes);
     // Add the block to the first node.

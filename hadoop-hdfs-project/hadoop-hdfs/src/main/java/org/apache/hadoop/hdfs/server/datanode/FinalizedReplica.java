@@ -43,9 +43,9 @@ public class FinalizedReplica extends ReplicaInfo {
    * @param dir
    *     directory path where block and meta files are located
    */
-  public FinalizedReplica(long blockId, long len, long genStamp, short cloudBucketID,
+  public FinalizedReplica(long blockId, long len, long genStamp, String cloudBucket,
       FsVolumeSpi vol, File dir) {
-    super(blockId, len, genStamp, cloudBucketID, vol, dir);
+    super(blockId, len, genStamp, cloudBucket, vol, dir);
   }
   
   /**

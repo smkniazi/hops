@@ -20,6 +20,7 @@ package org.apache.hadoop.hdfs.server.blockmanagement;
 import io.hops.common.INodeUtil;
 import io.hops.exception.StorageException;
 import io.hops.exception.TransactionContextException;
+import io.hops.metadata.hdfs.entity.CloudBucket;
 import io.hops.metadata.hdfs.entity.INodeIdentifier;
 import io.hops.transaction.handler.HDFSOperationType;
 import io.hops.transaction.handler.HopsTransactionalRequestHandler;
@@ -101,7 +102,7 @@ public class TestComputeInvalidateWork {
       for (int i=0; i<nodes.length; i++) {
         for(int j=0; j<3*blockInvalidateLimit+1; j++) {
           Block block = new Block(i*(blockInvalidateLimit+1)+j, 0,
-              GenerationStamp.LAST_RESERVED_STAMP, Block.NON_EXISTING_BUCKET_ID);
+              GenerationStamp.LAST_RESERVED_STAMP, CloudBucket.NON_EXISTENT_BUCKET_NAME);
           addToInvalidates(bm, block, nodes[i], namesystem);
         }
       }
@@ -135,7 +136,7 @@ public class TestComputeInvalidateWork {
       dnr = new DatanodeRegistration(UUID.randomUUID().toString(), dnr);
       cluster.stopDataNode(nodes[0].getXferAddr());
 
-      Block block = new Block(0, 0, GenerationStamp.LAST_RESERVED_STAMP, Block.NON_EXISTING_BUCKET_ID);
+      Block block = new Block(0, 0, GenerationStamp.LAST_RESERVED_STAMP, CloudBucket.NON_EXISTENT_BUCKET_NAME);
       addToInvalidates(bm, block, nodes[0], namesystem);
       bm.getDatanodeManager().registerDatanode(dnr);
 

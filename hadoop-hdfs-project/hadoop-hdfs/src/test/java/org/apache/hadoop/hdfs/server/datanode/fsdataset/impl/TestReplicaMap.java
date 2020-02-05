@@ -17,6 +17,7 @@
  */
 package org.apache.hadoop.hdfs.server.datanode.fsdataset.impl;
 
+import io.hops.metadata.hdfs.entity.CloudBucket;
 import org.apache.hadoop.hdfs.protocol.Block;
 import org.apache.hadoop.hdfs.server.datanode.FinalizedReplica;
 import org.junit.Before;
@@ -32,7 +33,7 @@ import static org.junit.Assert.fail;
 public class TestReplicaMap {
   private final ReplicaMap map = new ReplicaMap(TestReplicaMap.class);
   private final String bpid = "BP-TEST";
-  private final Block block = new Block(1234, 1234, 1234, Block.NON_EXISTING_BUCKET_ID);
+  private final Block block = new Block(1234, 1234, 1234, CloudBucket.NON_EXISTENT_BUCKET_NAME);
   
   @Before
   public void setup() {

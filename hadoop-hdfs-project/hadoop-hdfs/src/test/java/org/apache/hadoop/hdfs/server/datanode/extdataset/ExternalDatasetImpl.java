@@ -21,6 +21,7 @@ package org.apache.hadoop.hdfs.server.datanode.extdataset;
 import java.io.*;
 import java.util.*;
 
+import io.hops.metadata.hdfs.entity.CloudBucket;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.StorageType;
 import org.apache.hadoop.hdfs.protocol.Block;
@@ -269,7 +270,7 @@ public class ExternalDatasetImpl implements FsDatasetSpi<ExternalVolumeImpl> {
   @Override
   public ReplicaRecoveryInfo initReplicaRecovery(RecoveringBlock rBlock)
       throws IOException {
-    return new ReplicaRecoveryInfo(0, 0, 0, Block.NON_EXISTING_BUCKET_ID, ReplicaState.FINALIZED);
+    return new ReplicaRecoveryInfo(0, 0, 0, CloudBucket.NON_EXISTENT_BUCKET_NAME, ReplicaState.FINALIZED);
   }
 
   @Override

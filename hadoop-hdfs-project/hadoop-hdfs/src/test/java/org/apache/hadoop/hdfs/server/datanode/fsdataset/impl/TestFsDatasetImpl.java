@@ -19,6 +19,7 @@ package org.apache.hadoop.hdfs.server.datanode.fsdataset.impl;
 
 import com.google.common.collect.Lists;
 
+import io.hops.metadata.hdfs.entity.CloudBucket;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.FileSystemTestHelper;
 import org.apache.hadoop.fs.Path;
@@ -364,7 +365,7 @@ public class TestFsDatasetImpl {
       ReplicaInfo info;
       List<Block> blockList = new ArrayList<Block>();
       for (int i = 1; i <= 63; i++) {
-        eb = new ExtendedBlock(BLOCKPOOL, i, 1, 1000 + i, Block.NON_EXISTING_BUCKET_ID);
+        eb = new ExtendedBlock(BLOCKPOOL, i, 1, 1000 + i, CloudBucket.NON_EXISTENT_BUCKET_NAME);
         info = new FinalizedReplica(
             eb.getLocalBlock(), vol, vol.getCurrentDir().getParentFile());
         ds.volumeMap.add(BLOCKPOOL, info);
@@ -381,7 +382,7 @@ public class TestFsDatasetImpl {
       assertTrue(ds.isDeletingBlock(BLOCKPOOL, blockList.get(0).getBlockId()));
 
       blockList.clear();
-      eb = new ExtendedBlock(BLOCKPOOL, 64, 1, 1064, Block.NON_EXISTING_BUCKET_ID);
+      eb = new ExtendedBlock(BLOCKPOOL, 64, 1, 1064, CloudBucket.NON_EXISTENT_BUCKET_NAME);
       info = new FinalizedReplica(
           eb.getLocalBlock(), vol, vol.getCurrentDir().getParentFile());
       ds.volumeMap.add(BLOCKPOOL, info);

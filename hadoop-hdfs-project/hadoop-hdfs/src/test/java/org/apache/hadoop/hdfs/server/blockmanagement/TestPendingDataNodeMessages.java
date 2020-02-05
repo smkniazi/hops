@@ -19,6 +19,8 @@ package org.apache.hadoop.hdfs.server.blockmanagement;
 
 import com.google.common.base.Joiner;
 import java.io.IOException;
+
+import io.hops.metadata.hdfs.entity.CloudBucket;
 import org.apache.hadoop.hdfs.DFSTestUtil;
 import org.apache.hadoop.hdfs.protocol.Block;
 import org.apache.hadoop.hdfs.server.blockmanagement.PendingDataNodeMessages.ReportedBlockInfo;
@@ -35,10 +37,10 @@ import static org.junit.Assert.assertNull;
 public class TestPendingDataNodeMessages {
   PendingDataNodeMessages msgs = new PendingDataNodeMessages();
   
-  private final Block block1Gs1 = new Block(1, 0, 1, Block.NON_EXISTING_BUCKET_ID);
-  private final Block block1Gs2 = new Block(1, 0, 2, Block.NON_EXISTING_BUCKET_ID);
-  private final Block block1Gs2DifferentInstance = new Block(1, 0, 2, Block.NON_EXISTING_BUCKET_ID);
-  private final Block block2Gs1 = new Block(2, 0, 1, Block.NON_EXISTING_BUCKET_ID);
+  private final Block block1Gs1 = new Block(1, 0, 1, CloudBucket.NON_EXISTENT_BUCKET_NAME);
+  private final Block block1Gs2 = new Block(1, 0, 2, CloudBucket.NON_EXISTENT_BUCKET_NAME);
+  private final Block block1Gs2DifferentInstance = new Block(1, 0, 2, CloudBucket.NON_EXISTENT_BUCKET_NAME);
+  private final Block block2Gs1 = new Block(2, 0, 1, CloudBucket.NON_EXISTENT_BUCKET_NAME);
 
   @Test
   public void testQueues() throws IOException {

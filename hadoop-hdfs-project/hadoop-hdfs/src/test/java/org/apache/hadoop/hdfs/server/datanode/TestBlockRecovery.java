@@ -21,6 +21,7 @@ package org.apache.hadoop.hdfs.server.datanode;
 import io.hops.leader_election.node.ActiveNode;
 import io.hops.leader_election.node.ActiveNodePBImpl;
 import io.hops.leader_election.node.SortedActiveNodeList;
+import io.hops.metadata.hdfs.entity.CloudBucket;
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
 import org.apache.commons.logging.impl.Log4JLogger;
@@ -106,7 +107,7 @@ public class TestBlockRecovery {
   private final static long BLOCK_LEN = 3000L;
   private final static long REPLICA_LEN1 = 6000L;
   private final static long REPLICA_LEN2 = 5000L;
-  private final static short NON_EXISTING_BUCKET_ID = Block.NON_EXISTING_BUCKET_ID;
+  private final static String NON_EXISTING_BUCKET_ID = CloudBucket.NON_EXISTENT_BUCKET_NAME;
   private final static ExtendedBlock block =
       new ExtendedBlock(POOL_ID, BLOCK_ID, BLOCK_LEN, GEN_STAMP, NON_EXISTING_BUCKET_ID);
   

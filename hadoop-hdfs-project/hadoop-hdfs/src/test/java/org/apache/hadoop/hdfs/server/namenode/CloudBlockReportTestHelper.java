@@ -1,5 +1,6 @@
 package org.apache.hadoop.hdfs.server.namenode;
 
+import com.google.common.collect.Lists;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.hdfs.DFSConfigKeys;
 import org.apache.hadoop.hdfs.protocol.Block;
@@ -59,14 +60,15 @@ public class CloudBlockReportTestHelper {
     int prefixSize = conf.getInt(DFSConfigKeys.DFS_CLOUD_PREFIX_SIZE_KEY,
             DFSConfigKeys.DFS_CLOUD_PREFIX_SIZE_DEFAULT);
     CloudPersistenceProvider cloudConnector = CloudPersistenceProviderFactory.getCloudClient(conf);
-    Map<Long, CloudBlock> objMap = cloudConnector.getAll("");
+    Map<Long, CloudBlock> objMap = cloudConnector.getAll("",
+            Lists.newArrayList(CloudHelper.getAllBuckets().keySet()));
     int corrupted = 0;
     for (CloudBlock blk : objMap.values()) {
       if (blk.isPartiallyListed()) {
         continue;
       }
-      short srcBucketID = blk.getBlock().getCloudBucketID();
-      short dstBucketID = srcBucketID;
+      String srcBucket = blk.getBlock().getCloudBucket();
+      String dstBucket = srcBucket;
 
       Block b = blk.getBlock();
       String srcBlkKey = CloudHelper.getBlockKey(prefixSize, b);
@@ -76,8 +78,8 @@ public class CloudBlockReportTestHelper {
       String dstBlkKey = CloudHelper.getBlockKey(prefixSize, b);
       String dstMetaKey = CloudHelper.getMetaFileKey(prefixSize, b);
 
-      cloudConnector.renameObject(srcBucketID, dstBucketID, srcBlkKey, dstBlkKey);
-      cloudConnector.renameObject(srcBucketID, dstBucketID, srcMetaKey, dstMetaKey);
+      cloudConnector.renameObject(srcBucket, dstBucket, srcBlkKey, dstBlkKey);
+      cloudConnector.renameObject(srcBucket, dstBucket, srcMetaKey, dstMetaKey);
 
       if (++corrupted >= count) {
         return;
@@ -90,13 +92,14 @@ public class CloudBlockReportTestHelper {
     int prefixSize = conf.getInt(DFSConfigKeys.DFS_CLOUD_PREFIX_SIZE_KEY,
             DFSConfigKeys.DFS_CLOUD_PREFIX_SIZE_DEFAULT);
     CloudPersistenceProvider cloudConnector = CloudPersistenceProviderFactory.getCloudClient(conf);
-    Map<Long, CloudBlock> objMap = cloudConnector.getAll("");
+    Map<Long, CloudBlock> objMap = cloudConnector.getAll("",
+            Lists.newArrayList(CloudHelper.getAllBuckets().keySet()));
     int corrupted = 0;
     for (CloudBlock blk : objMap.values()) {
-      short srcBucketID = blk.getBlock().getCloudBucketID();
+      String srcBucket = blk.getBlock().getCloudBucket();
       Block b = blk.getBlock();
       String srcMetaKey = CloudHelper.getMetaFileKey(prefixSize, b);
-      cloudConnector.deleteObject(srcBucketID, srcMetaKey);
+      cloudConnector.deleteObject(srcBucket, srcMetaKey);
       if (++corrupted >= count) {
         return;
       }
@@ -107,15 +110,16 @@ public class CloudBlockReportTestHelper {
     int prefixSize = conf.getInt(DFSConfigKeys.DFS_CLOUD_PREFIX_SIZE_KEY,
             DFSConfigKeys.DFS_CLOUD_PREFIX_SIZE_DEFAULT);
     CloudPersistenceProvider cloudConnector = CloudPersistenceProviderFactory.getCloudClient(conf);
-    Map<Long, CloudBlock> objMap = cloudConnector.getAll("");
+    Map<Long, CloudBlock> objMap = cloudConnector.getAll("",
+            Lists.newArrayList(CloudHelper.getAllBuckets().keySet()));
     int corrupted = 0;
     for (CloudBlock blk : objMap.values()) {
-      short srcBucketID = blk.getBlock().getCloudBucketID();
+      String srcBucket = blk.getBlock().getCloudBucket();
       Block b = blk.getBlock();
       String srcMetaKey = CloudHelper.getMetaFileKey(prefixSize, b);
       String srcBlockKey = CloudHelper.getBlockKey(prefixSize, b);
-      cloudConnector.deleteObject(srcBucketID, srcMetaKey);
-      cloudConnector.deleteObject(srcBucketID, srcBlockKey);
+      cloudConnector.deleteObject(srcBucket, srcMetaKey);
+      cloudConnector.deleteObject(srcBucket, srcBlockKey);
       if (++corrupted >= count) {
         return;
       }

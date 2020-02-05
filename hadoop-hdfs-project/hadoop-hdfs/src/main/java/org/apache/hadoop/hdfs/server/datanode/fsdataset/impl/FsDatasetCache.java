@@ -274,7 +274,7 @@ public class FsDatasetCache {
    */
   synchronized void cacheBlock(long blockId, String bpid,
       String blockFileName, long length, long genstamp,
-      short cloudBucketID, Executor volumeExecutor) {
+      String cloudBucket, Executor volumeExecutor) {
     ExtendedBlockId key = new ExtendedBlockId(blockId, bpid);
     Value prevValue = mappableBlockMap.get(key);
     if (prevValue != null) {
@@ -285,7 +285,7 @@ public class FsDatasetCache {
     }
     mappableBlockMap.put(key, new Value(null, State.CACHING));
     volumeExecutor.execute(
-        new CachingTask(key, blockFileName, length, genstamp, cloudBucketID));
+        new CachingTask(key, blockFileName, length, genstamp, cloudBucket));
     LOG.debug("Initiating caching for Block with id {}, pool {}", blockId,
       bpid);
   }
@@ -346,15 +346,15 @@ public class FsDatasetCache {
     private final String blockFileName;
     private final long length;
     private final long genstamp;
-    private final short cloudBucketID;
+    private final String cloudBucket;
 
     CachingTask(ExtendedBlockId key, String blockFileName, long length,
-                long genstamp, short cloudBucketID) {
+                long genstamp, String cloudBucket) {
       this.key = key;
       this.blockFileName = blockFileName;
       this.length = length;
       this.genstamp = genstamp;
-      this.cloudBucketID = cloudBucketID;
+      this.cloudBucket = cloudBucket;
     }
 
     @Override
@@ -364,7 +364,7 @@ public class FsDatasetCache {
       MappableBlock mappableBlock = null;
       ExtendedBlock extBlk =
           new ExtendedBlock(key.getBlockPoolId(), key.getBlockId(),
-                  length, genstamp, cloudBucketID);
+                  length, genstamp, cloudBucket);
       long newUsedBytes = usedBytesCount.reserve(length);
       boolean reservedBytes = false;
       try {

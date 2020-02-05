@@ -17,6 +17,7 @@ package org.apache.hadoop.hdfs.server.blockmanagement;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
+import com.google.common.collect.Lists;
 import io.hops.exception.StorageException;
 import io.hops.leaderElection.LeaderElection;
 import io.hops.metadata.HdfsStorageFactory;
@@ -65,7 +66,6 @@ public class ProvidedBlocksChecker extends Thread {
   private final Namesystem ns;
   private boolean run = true;
   private final int prefixSize;
-  private final int numBuckets;
   private final long blockReportDelay;
   private final long sleepInterval;
   private final long marksCorruptBlocksDelay;
@@ -74,6 +74,7 @@ public class ProvidedBlocksChecker extends Thread {
   private final int maxProvidedBRThreads;
   private boolean isBRInProgress = false;
   private final long deleteAbandonedBlocksAfter;
+  private final Configuration conf;
 
   CloudPersistenceProvider cloudConnector;
 
@@ -82,12 +83,10 @@ public class ProvidedBlocksChecker extends Thread {
   public ProvidedBlocksChecker(Configuration conf, Namesystem ns, BlockManager bm) {
     this.ns = ns;
     this.bm = bm;
+    this.conf = conf;
     this.prefixSize = conf.getInt(
             DFS_CLOUD_PREFIX_SIZE_KEY,
             DFS_CLOUD_PREFIX_SIZE_DEFAULT);
-    this.numBuckets = conf.getInt(
-            DFS_CLOUD_AWS_S3_NUM_BUCKETS,
-            DFS_CLOUD_AWS_S3_NUM_BUCKETS_DEFAULT);
     this.blockReportDelay = conf.getLong(
             DFS_CLOUD_BLOCK_REPORT_DELAY_KEY,
             DFS_CLOUD_BLOCK_REPORT_DELAY_DEFAULT);
@@ -191,7 +190,8 @@ public class ProvidedBlocksChecker extends Thread {
         long end = start + prefixSize;
         String prefix = CloudHelper.getPrefix(prefixSize, start);
         LOG.debug("HopsFS-Cloud. BR Checking prefix: " + prefix);
-        Map<Long, CloudBlock> cloudBlocksMap = cloudConnector.getAll(prefix);
+        Map<Long, CloudBlock> cloudBlocksMap = cloudConnector.getAll(prefix,
+                Lists.newArrayList(CloudHelper.getAllBuckets().keySet()));
         Map<Long, BlockInfoContiguous> dbBlocksMap = findAllBlocksRange(start, end);
         LOG.debug("HopsFS-Cloud. BR DB view size: " + dbBlocksMap.size() +
                 " Cloud view size: " + cloudBlocksMap.size());
@@ -308,7 +308,7 @@ public class ProvidedBlocksChecker extends Thread {
       } else if (cblock.getBlock().getNumBytes() != dbBlock.getNumBytes()) {
         cb = new BlockToMarkCorrupt(cblock, dbBlock, "Block size mismatch",
                 CorruptReplicasMap.Reason.SIZE_MISMATCH);
-      } else if (cblock.getBlock().getCloudBucketID() != dbBlock.getCloudBucketID()) {
+      } else if (cblock.getBlock().getCloudBucket().compareToIgnoreCase(dbBlock.getCloudBucket()) != 0) {
         cb = new BlockToMarkCorrupt(cblock, dbBlock, "Cloud bucket mismatch",
                 CorruptReplicasMap.Reason.INVALID_STATE);
       } else {
@@ -379,7 +379,7 @@ public class ProvidedBlocksChecker extends Thread {
               StorageId.CLOUD_STORAGE_ID,
               block.getBlockId(),
               block.getGenerationStamp(),
-              block.getCloudBucketID(),
+              CloudHelper.getCloudBucketID(block.getCloudBucket()),
               block.getNumBytes(),
               INode.NON_EXISTING_INODE_ID);
       invblks.add(invBlk);
@@ -683,10 +683,11 @@ public class ProvidedBlocksChecker extends Thread {
   }
 
   void checkAbandonedBlocks() throws IOException {
-    for (ActiveMultipartUploads upload : cloudConnector.listMultipartUploads()) {
+    for (ActiveMultipartUploads upload : cloudConnector.
+            listMultipartUploads(Lists.newArrayList(CloudHelper.getAllBuckets().keySet()))) {
       long elapsedTime = System.currentTimeMillis() - upload.getStartTime();
       if (elapsedTime > deleteAbandonedBlocksAfter) {
-        cloudConnector.abortMultipartUpload(upload.getBucketID(), upload.getObjectID(), upload.getUploadID());
+        cloudConnector.abortMultipartUpload(upload.getBucket(), upload.getObjectID(), upload.getUploadID());
       }
     }
   }

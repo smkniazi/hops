@@ -17,6 +17,7 @@
  */
 package org.apache.hadoop.hdfs;
 
+import io.hops.metadata.hdfs.entity.CloudBucket;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.FileSystem;
 import org.apache.hadoop.hdfs.protocol.Block;
@@ -218,7 +219,7 @@ public class DataNodeCluster {
             blocks[i] =
                 new Block(blkid++, blockSize, GenerationStamp.LAST_RESERVED_STAMP
                     //HOP                CreateEditsLog.BLOCK_GENERATION_STAMP
-                    , Block.NON_EXISTING_BUCKET_ID
+                    , CloudBucket.NON_EXISTENT_BUCKET_NAME
                 );
           }
           for (int i = 1; i <= replication; ++i) {

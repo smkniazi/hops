@@ -50,7 +50,7 @@ public class CloudFsDatasetImpl extends FsDatasetImpl {
             DFSConfigKeys.DFS_CLOUD_PREFIX_SIZE_DEFAULT);
 
     cloud = CloudPersistenceProviderFactory.getCloudClient(conf);
-    cloud.checkAllBuckets();
+    cloud.checkAllBuckets(CloudHelper.getBucketsFromConf(conf));
     threadPoolExecutor = Executors.newFixedThreadPool(cloud.getXferThreads());
   }
 
@@ -87,8 +87,8 @@ public class CloudFsDatasetImpl extends FsDatasetImpl {
         }
       }
     } else {
-      if (!cloud.objectExists(b.getCloudBucketID(), blockFileKey)) {
-        cloud.uploadObject(b.getCloudBucketID(), blockFileKey, blockFile,
+      if (!cloud.objectExists(b.getCloudBucket(), blockFileKey)) {
+        cloud.uploadObject(b.getCloudBucket(), blockFileKey, blockFile,
                 getBlockFileMetadata(b.getLocalBlock()));
       } else {
         LOG.error("HopsFS-Cloud. Block: " + b + " alreay exists.");
@@ -96,8 +96,8 @@ public class CloudFsDatasetImpl extends FsDatasetImpl {
       }
     }
 
-    if (!cloud.objectExists(b.getCloudBucketID(), metaFileKey)) {
-      cloud.uploadObject(b.getCloudBucketID(), metaFileKey, metaFile,
+    if (!cloud.objectExists(b.getCloudBucket(), metaFileKey)) {
+      cloud.uploadObject(b.getCloudBucket(), metaFileKey, metaFile,
               getMetaMetadata(b.getLocalBlock()));
     } else {
       LOG.error("HopsFS-Cloud. Block: " + b + " meta file alreay exists.");
@@ -192,7 +192,7 @@ public class CloudFsDatasetImpl extends FsDatasetImpl {
                 CloudHelper.getBlockKey(prefixSize, b.getLocalBlock()));
         String blockFileKey = CloudHelper.getBlockKey(prefixSize, b.getLocalBlock());
 
-        return getInputStreamInternal(b.getCloudBucketID(), blockFileKey,
+        return getInputStreamInternal(b.getCloudBucket(), blockFileKey,
                 localBlkCopy, b.getBlockPoolId(), seekOffset);
       }
     }
@@ -209,7 +209,7 @@ public class CloudFsDatasetImpl extends FsDatasetImpl {
       File localMetaFileCopy = new File(cloudVolume.getCacheDir(b.getBlockPoolId()),
               CloudHelper.getMetaFileKey(prefixSize, b.getLocalBlock()));
 
-      InputStream is = getInputStreamInternal(b.getCloudBucketID(), metaFileKey,
+      InputStream is = getInputStreamInternal(b.getCloudBucket(), metaFileKey,
               localMetaFileCopy, b.getBlockPoolId(), 0);
       LengthInputStream lis = new LengthInputStream(is, localMetaFileCopy.length());
 
@@ -217,7 +217,7 @@ public class CloudFsDatasetImpl extends FsDatasetImpl {
     }
   }
 
-  private InputStream getInputStreamInternal(short cloudBucketID, String objectKey,
+  private InputStream getInputStreamInternal(String cloudBucket, String objectKey,
                                              File localCopy, String bpid,
                                              long seekOffset) throws IOException {
     try {
@@ -234,7 +234,7 @@ public class CloudFsDatasetImpl extends FsDatasetImpl {
         }
       }
       if (download) {
-        cloud.downloadObject(cloudBucketID, objectKey, localCopy);
+        cloud.downloadObject(cloudBucket, objectKey, localCopy);
       }
 
       InputStream ioStream = new FileInputStream(localCopy);
@@ -268,15 +268,15 @@ public class CloudFsDatasetImpl extends FsDatasetImpl {
 
     try {
       String metaFileKey = CloudHelper.getMetaFileKey(prefixSize, b.getLocalBlock());
-      if (cloud.objectExists(b.getCloudBucketID(), metaFileKey)) {
+      if (cloud.objectExists(b.getCloudBucket(), metaFileKey)) {
 
-        Map<String, String> metadata = cloud.getUserMetaData(b.getCloudBucketID(), metaFileKey);
+        Map<String, String> metadata = cloud.getUserMetaData(b.getCloudBucket(), metaFileKey);
 
         long genStamp = Long.parseLong(metadata.get(GEN_STAMP));
         long size = Long.parseLong(metadata.get(OBJECT_SIZE));
 
         FinalizedReplica info = new FinalizedReplica(b.getBlockId(), size, genStamp,
-                b.getCloudBucketID(), null, null);
+                b.getCloudBucket(), null, null);
         return info;
       }
 
@@ -375,12 +375,12 @@ public class CloudFsDatasetImpl extends FsDatasetImpl {
           long recoveryId,
           long newBlockId,
           long newlength,
-          short cloudBucketID) throws IOException {
+          String cloudBucket) throws IOException {
     LOG.info("HopsFS-Cloud. update replica under recovery rur: "+rur);
 
     if(!rur.isProvidedBlock()){
       return super.updateReplicaUnderRecovery(bpid, rur, recoveryId, newBlockId, newlength,
-              cloudBucketID);
+              cloudBucket);
     }
 
     boolean uploadedToTheCloud = true;
@@ -400,24 +400,24 @@ public class CloudFsDatasetImpl extends FsDatasetImpl {
               ((ProvidedReplicaUnderRecovery) ri).isPartiallyUploaded()) {
         String blockFileKey = CloudHelper.getBlockKey(prefixSize,
                 ((ProvidedReplicaUnderRecovery) ri).getBlock() );
-        cloud.abortMultipartUpload( ri.getCloudBucketID(), blockFileKey,
+        cloud.abortMultipartUpload( ri.getCloudBucket(), blockFileKey,
                 ((ProvidedReplicaUnderRecovery) ri).getUploadID());
       }
 
       FinalizedReplica fr = super.updateReplicaUnderRecovery(bpid, rur, recoveryId,
-              newBlockId, newlength, cloudBucketID);
+              newBlockId, newlength, cloudBucket);
 
       uploadFinalizedBlockToCloud(bpid, fr);
       return fr;
     } else {
       return updateReplicaUnderRecoveryInternal(bpid, rur, recoveryId,
-              newBlockId, newlength, cloudBucketID);
+              newBlockId, newlength, cloudBucket);
     }
   }
 
   private void uploadFinalizedBlockToCloud(String bpid, FinalizedReplica fr) throws IOException {
     ExtendedBlock eb = new ExtendedBlock(bpid, new Block(fr.getBlockId(), fr.getVisibleLength(),
-            fr.getGenerationStamp(), fr.getCloudBucketID()));
+            fr.getGenerationStamp(), fr.getCloudBucket()));
     preFinalizeInternal(eb);
     finalizeBlockInternal(eb);
   }
@@ -428,7 +428,7 @@ public class CloudFsDatasetImpl extends FsDatasetImpl {
           long recoveryId,
           long newBlockId,
           long newlength,
-          short cloudBlockID) throws IOException {
+          String cloudBlock) throws IOException {
     //check recovery id
     if (rur.getRecoveryID() != recoveryId) {
       throw new IOException("rur.getRecoveryID() != recoveryId = " +
@@ -466,7 +466,7 @@ public class CloudFsDatasetImpl extends FsDatasetImpl {
     LOG.info("HopsFS-Cloud. Truncating a block: " + rur.getBlockId() + "_" + rur.getGenerationStamp());
 
     Block bOld = new Block(rur.getBlockId(), rur.getNumBytes(), rur.getGenerationStamp(),
-            rur.getCloudBucketID());
+            rur.getCloudBucket());
     String oldBlkKey = CloudHelper.getBlockKey(prefixSize, bOld);
     String oldBlkMetaKey = CloudHelper.getMetaFileKey(prefixSize, bOld);
 
@@ -482,13 +482,13 @@ public class CloudFsDatasetImpl extends FsDatasetImpl {
 
     if (!(blockFile.exists() && blockFile.length() == bOld.getNumBytes())) {
       blockFile.delete(); //delete old files if any
-      cloud.downloadObject(rur.getCloudBucketID(), oldBlkKey, blockFile);
+      cloud.downloadObject(rur.getCloudBucket(), oldBlkKey, blockFile);
       providedBlocksCacheUpdateTS(bpid, blockFile);
     }
 
     if (!(metaFile.exists() && metaFile.length() > 0)) {
       metaFile.delete(); //delete old files if any
-      cloud.downloadObject(rur.getCloudBucketID(), oldBlkMetaKey, metaFile);
+      cloud.downloadObject(rur.getCloudBucket(), oldBlkMetaKey, metaFile);
       providedBlocksCacheUpdateTS(bpid, metaFile);
     }
 
@@ -531,16 +531,16 @@ public class CloudFsDatasetImpl extends FsDatasetImpl {
     //update the blocks
     LOG.info("HopsFS-Cloud. Truncated on disk copy of the block: " + bOld);
 
-    Block bNew = new Block(rur.getBlockId(), newlen, newGS, rur.getCloudBucketID());
+    Block bNew = new Block(rur.getBlockId(), newlen, newGS, rur.getCloudBucket());
     String newBlkKey = CloudHelper.getBlockKey(prefixSize, bNew);
     String newBlkMetaKey = CloudHelper.getMetaFileKey(prefixSize, bNew);
 
-    if (!cloud.objectExists(rur.getCloudBucketID(), newBlkKey)
-            && !cloud.objectExists(rur.getCloudBucketID(), newBlkMetaKey)) {
+    if (!cloud.objectExists(rur.getCloudBucket(), newBlkKey)
+            && !cloud.objectExists(rur.getCloudBucket(), newBlkMetaKey)) {
       LOG.info("HopsFS-Cloud. Uploading Truncated Block: " + bNew);
-      cloud.uploadObject(rur.getCloudBucketID(), newBlkKey, blockFile,
+      cloud.uploadObject(rur.getCloudBucket(), newBlkKey, blockFile,
               getBlockFileMetadata(bNew));
-      cloud.uploadObject(rur.getCloudBucketID(), newBlkMetaKey, metaFile,
+      cloud.uploadObject(rur.getCloudBucket(), newBlkMetaKey, metaFile,
               getMetaMetadata(bNew));
     } else {
       LOG.error("HopsFS-Cloud. Block: " + b + " alreay exists.");
@@ -548,8 +548,8 @@ public class CloudFsDatasetImpl extends FsDatasetImpl {
     }
 
     LOG.info("HopsFS-Cloud. Deleting old block from cloud. Block: " + bOld);
-    cloud.deleteObject(rur.getCloudBucketID(), oldBlkKey);
-    cloud.deleteObject(rur.getCloudBucketID(), oldBlkMetaKey);
+    cloud.deleteObject(rur.getCloudBucket(), oldBlkKey);
+    cloud.deleteObject(rur.getCloudBucket(), oldBlkMetaKey);
 
     LOG.info("HopsFS-Cloud. Deleting disk tmp copy: " + bOld);
     blockFile.delete();
@@ -575,26 +575,26 @@ public class CloudFsDatasetImpl extends FsDatasetImpl {
     //check replica's file
     // make sure that the block and the meta objects exist in S3.
     Block b = new Block(r.getBlockId(), r.getNumBytes(),
-            r.getGenerationStamp(), r.getCloudBucketID());
+            r.getGenerationStamp(), r.getCloudBucket());
     String blockKey = CloudHelper.getBlockKey(prefixSize, b);
     String metaKey = CloudHelper.getMetaFileKey(prefixSize, b);
 
-    if (!cloud.objectExists(r.getCloudBucketID(), blockKey)) {
+    if (!cloud.objectExists(r.getCloudBucket(), blockKey)) {
       throw new IOException("Block: " + b + " not found in the cloud storage");
     }
 
-    long blockSize = cloud.getObjectSize(r.getCloudBucketID(), blockKey);
+    long blockSize = cloud.getObjectSize(r.getCloudBucket(), blockKey);
     if (blockSize != r.getNumBytes()) {
       throw new IOException(
               "File length mismatched. Expected: " + r.getNumBytes() + " Got: " + blockSize);
     }
 
-    if (!cloud.objectExists(r.getCloudBucketID(), metaKey)) {
+    if (!cloud.objectExists(r.getCloudBucket(), metaKey)) {
       throw new IOException("Meta Object for Block: " + b + " not found in the cloud " +
               "storage");
     }
 
-    long metaFileSize = cloud.getObjectSize(r.getCloudBucketID(), metaKey);
+    long metaFileSize = cloud.getObjectSize(r.getCloudBucket(), metaKey);
     if (metaFileSize == 0) {
       throw new IOException("Metafile is empty. Block: " + b);
     }
@@ -652,8 +652,8 @@ public class CloudFsDatasetImpl extends FsDatasetImpl {
     String blockKey = CloudHelper.getBlockKey(prefixSize, b.getLocalBlock());
     int partId = pReplicaInfo.incrementAndGetNextPart();
     if(partId == 1){
-      if (!cloud.objectExists(b.getCloudBucketID(), blockKey)){
-        String uploadID = cloud.startMultipartUpload(b.getCloudBucketID(), blockKey,
+      if (!cloud.objectExists(b.getCloudBucket(), blockKey)){
+        String uploadID = cloud.startMultipartUpload(b.getCloudBucket(), blockKey,
                 getBlockFileMetadata(b.getLocalBlock()));
         pReplicaInfo.setUploadID(uploadID);
         pReplicaInfo.setMultipart(true);
@@ -666,7 +666,7 @@ public class CloudFsDatasetImpl extends FsDatasetImpl {
     File blockFile = pReplicaInfo.getBlockFile();
     long start  = (partId - 1) * pReplicaInfo.getPartSize();
     long end  = (partId) * pReplicaInfo.getPartSize();
-    PartUploadWorker worker = new PartUploadWorker(b.getCloudBucketID(), blockKey, pReplicaInfo.getUploadID(),
+    PartUploadWorker worker = new PartUploadWorker(b.getCloudBucket(), blockKey, pReplicaInfo.getUploadID(),
             partId, blockFile, start, end);
     pReplicaInfo.addUploadTask(threadPoolExecutor.submit(worker));
   }
@@ -685,7 +685,7 @@ public class CloudFsDatasetImpl extends FsDatasetImpl {
       long start  = (currentPart) * pReplicaInfo.getPartSize();
       long end  = pReplicaInfo.getBytesOnDisk();
 
-      PartUploadWorker worker = new PartUploadWorker(b.getCloudBucketID(), blockKey,
+      PartUploadWorker worker = new PartUploadWorker(b.getCloudBucket(), blockKey,
               pReplicaInfo.getUploadID(),
               newPartID, blockFile, start, end);
       pReplicaInfo.addUploadTask(threadPoolExecutor.submit(worker));
@@ -693,7 +693,7 @@ public class CloudFsDatasetImpl extends FsDatasetImpl {
 
     waitForPartsUpload(pReplicaInfo);
 
-    cloud.finalizeMultipartUpload(b.getCloudBucketID(), blockKey, pReplicaInfo.getUploadID(),
+    cloud.finalizeMultipartUpload(b.getCloudBucket(), blockKey, pReplicaInfo.getUploadID(),
             pReplicaInfo.getPartETags());
     pReplicaInfo.setMultipartComplete(true);
 
@@ -721,7 +721,7 @@ public class CloudFsDatasetImpl extends FsDatasetImpl {
   }
 
   class PartUploadWorker implements Callable{
-    private final short bucketID;
+    private final String bucket;
     private final String key;
     private final String uploadID;
     private final int partID;
@@ -729,9 +729,9 @@ public class CloudFsDatasetImpl extends FsDatasetImpl {
     private final long startPos;
     private final long endPos;
 
-    PartUploadWorker(short bucketID, String key, String uploadID, int partID, File file,
+    PartUploadWorker(String bucket, String key, String uploadID, int partID, File file,
                      long startPos, long endPos){
-      this.bucketID = bucketID;
+      this.bucket = bucket;
       this.key = key;
       this.uploadID = uploadID;
       this.partID = partID;
@@ -742,7 +742,7 @@ public class CloudFsDatasetImpl extends FsDatasetImpl {
 
     @Override
     public Object call() throws Exception {
-      PartETag etag = cloud.uploadPart(bucketID, key, uploadID,
+      PartETag etag = cloud.uploadPart(bucket, key, uploadID,
               partID, file, startPos, endPos);
       LOG.info("HopsFS-Cloud. Part id to upload "+partID+
               " start "+startPos+" end "+endPos+ " payload size "+(endPos-startPos));

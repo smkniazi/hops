@@ -39,8 +39,8 @@ public class ReplicaBeingWritten extends ReplicaInPipeline {
    *                       the estimated maximum block length.
    */
   public ReplicaBeingWritten(long blockId, long genStamp,
-        short cloudBucketID, FsVolumeSpi vol, File dir, long bytesToReserve) {
-    super(blockId, genStamp, cloudBucketID, vol, dir, bytesToReserve);
+        String cloudBucket, FsVolumeSpi vol, File dir, long bytesToReserve) {
+    super(blockId, genStamp, cloudBucket, vol, dir, bytesToReserve);
   }
   
   /**
@@ -72,9 +72,9 @@ public class ReplicaBeingWritten extends ReplicaInPipeline {
    *                       the estimated maximum block length.
    */
   public ReplicaBeingWritten(long blockId, long len, long genStamp,
-                             short cloudBucketID, FsVolumeSpi vol, File dir,
+                             String cloudBucket, FsVolumeSpi vol, File dir,
                              Thread writer, long bytesToReserve) {
-    super(blockId, len, genStamp, cloudBucketID, vol, dir, writer, bytesToReserve);
+    super(blockId, len, genStamp, cloudBucket, vol, dir, writer, bytesToReserve);
   }
 
   /**

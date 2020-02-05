@@ -35,6 +35,7 @@ import com.logicalclocks.servicediscoverclient.resolvers.DnsResolver;
 import com.logicalclocks.servicediscoverclient.service.Service;
 import com.logicalclocks.servicediscoverclient.service.ServiceQuery;
 import io.hops.net.ServiceDiscoveryClientFactory;
+import io.hops.metadata.hdfs.entity.CloudBucket;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.BlockLocation;
 import org.apache.hadoop.fs.CommonConfigurationKeysPublic;
@@ -91,13 +92,13 @@ public class TestDFSUtil {
     ds[0] = d;
 
     // ok
-    ExtendedBlock b1 = new ExtendedBlock("bpid", 1, 1, 1, Block.NON_EXISTING_BUCKET_ID);
+    ExtendedBlock b1 = new ExtendedBlock("bpid", 1, 1, 1, CloudBucket.NON_EXISTENT_BUCKET_NAME);
     LocatedBlock l1 = new LocatedBlock(b1, ds);
     l1.setStartOffset(0);
     l1.setCorrupt(false);
 
     // corrupt
-    ExtendedBlock b2 = new ExtendedBlock("bpid", 2, 1, 1, Block.NON_EXISTING_BUCKET_ID);
+    ExtendedBlock b2 = new ExtendedBlock("bpid", 2, 1, 1, CloudBucket.NON_EXISTENT_BUCKET_NAME);
     LocatedBlock l2 = new LocatedBlock(b2, ds);
     l2.setStartOffset(0);
     l2.setCorrupt(true);
@@ -133,7 +134,7 @@ public class TestDFSUtil {
     DatanodeInfo[] ds = new DatanodeInfo[1];
     ds[0] = d;
     
-    ExtendedBlock b1 = new ExtendedBlock("bpid", 1, 1, 1, Block.NON_EXISTING_BUCKET_ID);
+    ExtendedBlock b1 = new ExtendedBlock("bpid", 1, 1, 1, CloudBucket.NON_EXISTENT_BUCKET_NAME);
     LocatedBlock l1 = new LocatedBlock(b1, ds, null, null, 0, false, null);
     final DatanodeInfo[] cachedLocs = l1.getCachedLocations();
     assertTrue(cachedLocs.length == 0);

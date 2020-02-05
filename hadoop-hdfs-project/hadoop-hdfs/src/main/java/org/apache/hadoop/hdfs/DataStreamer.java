@@ -1416,7 +1416,7 @@ class DataStreamer extends Daemon {
       // update pipeline at the namenode
       ExtendedBlock newBlock = new ExtendedBlock(
           block.getBlockPoolId(), block.getBlockId(), block.getNumBytes(),
-          newGS, block.getCloudBucketID());
+          newGS, block.getCloudBucket());
       dfsClient.namenode.updatePipeline(dfsClient.clientName, block, newBlock,
           nodes, storageIDs);
       // update client side generation stamp

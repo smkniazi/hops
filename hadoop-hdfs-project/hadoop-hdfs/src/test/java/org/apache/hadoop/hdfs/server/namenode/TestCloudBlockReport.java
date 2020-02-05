@@ -16,6 +16,7 @@
 
 package org.apache.hadoop.hdfs.server.namenode;
 
+import com.google.common.collect.Lists;
 import io.hops.metadata.HdfsStorageFactory;
 import io.hops.metadata.hdfs.dal.BlockInfoDataAccess;
 import io.hops.metadata.hdfs.dal.INodeDataAccess;
@@ -52,7 +53,6 @@ import java.util.Map;
 import static org.apache.hadoop.hdfs.HopsFilesTestHelper.*;
 
 import static junit.framework.TestCase.assertTrue;
-import static org.apache.hadoop.hdfs.TestSmallFilesCreation.*;
 import static org.junit.Assert.fail;
 
 @FixMethodOrder(MethodSorters.NAME_ASCENDING)
@@ -95,7 +95,6 @@ public class TestCloudBlockReport {
 
       conf.setLong(DFSConfigKeys.DFS_CLOUD_BLOCK_REPORT_THREAD_SLEEP_INTERVAL_KEY, 1000);
       conf.setLong(DFSConfigKeys.DFS_CLOUD_PREFIX_SIZE_KEY, 10);
-      conf.setInt(DFSConfigKeys.DFS_CLOUD_AWS_S3_NUM_BUCKETS, 2);
       conf.setLong(DFSConfigKeys.DFS_CLOUD_BLOCK_REPORT_DELAY_KEY,
               DFSConfigKeys.DFS_CLOUD_BLOCK_REPORT_DELAY_DEFAULT);
       conf.setLong(DFSConfigKeys.DFS_NAMENODE_BLOCKID_BATCH_SIZE, 10);
@@ -163,7 +162,6 @@ public class TestCloudBlockReport {
 
       conf.setLong(DFSConfigKeys.DFS_CLOUD_BLOCK_REPORT_THREAD_SLEEP_INTERVAL_KEY, 1000);
       conf.setLong(DFSConfigKeys.DFS_CLOUD_PREFIX_SIZE_KEY, 10);
-      conf.setInt(DFSConfigKeys.DFS_CLOUD_AWS_S3_NUM_BUCKETS, 2);
       conf.setLong(DFSConfigKeys.DFS_CLOUD_BLOCK_REPORT_DELAY_KEY,
               DFSConfigKeys.DFS_CLOUD_BLOCK_REPORT_DELAY_DEFAULT);
       conf.setLong(DFSConfigKeys.DFS_NAMENODE_BLOCKID_BATCH_SIZE, 10);
@@ -199,7 +197,8 @@ public class TestCloudBlockReport {
 
       CloudPersistenceProvider cloudConnector =
               CloudPersistenceProviderFactory.getCloudClient(conf);
-      Map<Long, CloudBlock> cloudBlocksMap = cloudConnector.getAll("");
+      Map<Long, CloudBlock> cloudBlocksMap = cloudConnector.getAll("",
+              Lists.newArrayList(CloudHelper.getAllBuckets().keySet()));
       Map<Long, BlockInfoContiguous> dbBlocksMap = pbc.findAllBlocksRange(0, 1000);
 
       assert cloudBlocksMap.size() == 30;
@@ -262,7 +261,6 @@ public class TestCloudBlockReport {
 
       conf.setLong(DFSConfigKeys.DFS_CLOUD_BLOCK_REPORT_THREAD_SLEEP_INTERVAL_KEY, 1000);
       conf.setLong(DFSConfigKeys.DFS_CLOUD_PREFIX_SIZE_KEY, 10);
-      conf.setInt(DFSConfigKeys.DFS_CLOUD_AWS_S3_NUM_BUCKETS, 2);
       conf.setLong(DFSConfigKeys.DFS_CLOUD_BLOCK_REPORT_DELAY_KEY,
               DFSConfigKeys.DFS_CLOUD_BLOCK_REPORT_DELAY_DEFAULT);
       conf.setLong(DFSConfigKeys.DFS_NAMENODE_BLOCKID_BATCH_SIZE, 10);
@@ -294,7 +292,8 @@ public class TestCloudBlockReport {
 
       CloudPersistenceProvider cloudConnector =
               CloudPersistenceProviderFactory.getCloudClient(conf);
-      Map<Long, CloudBlock> cloudBlocksMap = cloudConnector.getAll("");
+      Map<Long, CloudBlock> cloudBlocksMap = cloudConnector.getAll("",
+              Lists.newArrayList(CloudHelper.getAllBuckets().keySet()));
       Map<Long, BlockInfoContiguous> dbBlocksMap = pbc.findAllBlocksRange(0, 1000);
 
       assert cloudBlocksMap.size() == 10;
@@ -349,7 +348,6 @@ public class TestCloudBlockReport {
 
       conf.setLong(DFSConfigKeys.DFS_CLOUD_BLOCK_REPORT_THREAD_SLEEP_INTERVAL_KEY, 1000);
       conf.setLong(DFSConfigKeys.DFS_CLOUD_PREFIX_SIZE_KEY, 10);
-      conf.setInt(DFSConfigKeys.DFS_CLOUD_AWS_S3_NUM_BUCKETS, 2);
       conf.setLong(DFSConfigKeys.DFS_CLOUD_BLOCK_REPORT_DELAY_KEY,
               DFSConfigKeys.DFS_CLOUD_BLOCK_REPORT_DELAY_DEFAULT);
       conf.setLong(DFSConfigKeys.DFS_NAMENODE_BLOCKID_BATCH_SIZE, 10);
@@ -430,7 +428,6 @@ public class TestCloudBlockReport {
 
       conf.setLong(DFSConfigKeys.DFS_CLOUD_BLOCK_REPORT_THREAD_SLEEP_INTERVAL_KEY, 1000);
       conf.setLong(DFSConfigKeys.DFS_CLOUD_PREFIX_SIZE_KEY, 10);
-      conf.setInt(DFSConfigKeys.DFS_CLOUD_AWS_S3_NUM_BUCKETS, 2);
       conf.setLong(DFSConfigKeys.DFS_CLOUD_BLOCK_REPORT_DELAY_KEY,
               DFSConfigKeys.DFS_CLOUD_BLOCK_REPORT_DELAY_DEFAULT);
       conf.setLong(DFSConfigKeys.DFS_NAMENODE_BLOCKID_BATCH_SIZE, 10);
@@ -507,7 +504,6 @@ public class TestCloudBlockReport {
 
       conf.setLong(DFSConfigKeys.DFS_CLOUD_BLOCK_REPORT_THREAD_SLEEP_INTERVAL_KEY, 1000);
       conf.setLong(DFSConfigKeys.DFS_CLOUD_PREFIX_SIZE_KEY, 10);
-      conf.setInt(DFSConfigKeys.DFS_CLOUD_AWS_S3_NUM_BUCKETS, 2);
       conf.setLong(DFSConfigKeys.DFS_CLOUD_BLOCK_REPORT_DELAY_KEY,
               DFSConfigKeys.DFS_CLOUD_BLOCK_REPORT_DELAY_DEFAULT);
       conf.setLong(DFSConfigKeys.DFS_NAMENODE_BLOCKID_BATCH_SIZE, 10);
@@ -611,7 +607,6 @@ public class TestCloudBlockReport {
 
       conf.setLong(DFSConfigKeys.DFS_CLOUD_BLOCK_REPORT_THREAD_SLEEP_INTERVAL_KEY, 1000);
       conf.setLong(DFSConfigKeys.DFS_CLOUD_PREFIX_SIZE_KEY, 10);
-      conf.setInt(DFSConfigKeys.DFS_CLOUD_AWS_S3_NUM_BUCKETS, 2);
       conf.setLong(DFSConfigKeys.DFS_CLOUD_BLOCK_REPORT_DELAY_KEY,
               DFSConfigKeys.DFS_CLOUD_BLOCK_REPORT_DELAY_DEFAULT);
       conf.setLong(DFSConfigKeys.DFS_NAMENODE_BLOCKID_BATCH_SIZE, 10);
@@ -646,7 +641,8 @@ public class TestCloudBlockReport {
 
       CloudPersistenceProvider cloudConnector =
               CloudPersistenceProviderFactory.getCloudClient(conf);
-      Map<Long, CloudBlock> cloudBlocksMap = cloudConnector.getAll("");
+      Map<Long, CloudBlock> cloudBlocksMap = cloudConnector.getAll("",
+              Lists.newArrayList(CloudHelper.getAllBuckets().keySet()));
       Map<Long, BlockInfoContiguous> dbBlocksMap = pbc.findAllBlocksRange(0, 1000);
 
       assert cloudBlocksMap.size() == 0;
@@ -687,7 +683,6 @@ public class TestCloudBlockReport {
 
       conf.setLong(DFSConfigKeys.DFS_CLOUD_BLOCK_REPORT_THREAD_SLEEP_INTERVAL_KEY, 1000);
       conf.setLong(DFSConfigKeys.DFS_CLOUD_PREFIX_SIZE_KEY, 10);
-      conf.setInt(DFSConfigKeys.DFS_CLOUD_AWS_S3_NUM_BUCKETS, 2);
       conf.setLong(DFSConfigKeys.DFS_CLOUD_BLOCK_REPORT_DELAY_KEY,
               DFSConfigKeys.DFS_CLOUD_BLOCK_REPORT_DELAY_DEFAULT);
       conf.setLong(DFSConfigKeys.DFS_NAMENODE_BLOCKID_BATCH_SIZE, 10);
@@ -731,7 +726,8 @@ public class TestCloudBlockReport {
 
       CloudPersistenceProvider cloudConnector =
               CloudPersistenceProviderFactory.getCloudClient(conf);
-      Map<Long, CloudBlock> cloudBlocksMap = cloudConnector.getAll("");
+      Map<Long, CloudBlock> cloudBlocksMap = cloudConnector.getAll("",
+              Lists.newArrayList(CloudHelper.getAllBuckets().keySet()));
       assert cloudBlocksMap.size() == 1;
 
       cluster.getDataNodes().get(0).scheduleAllBlockReport(0);
@@ -751,7 +747,8 @@ public class TestCloudBlockReport {
         }
       }
 
-      cloudBlocksMap = cloudConnector.getAll("");
+      cloudBlocksMap = cloudConnector.getAll("",
+              Lists.newArrayList(CloudHelper.getAllBuckets().keySet()));
       assert cloudBlocksMap.size() == 2;
 
       CloudTestHelper.matchMetadata(conf);
@@ -786,7 +783,6 @@ public class TestCloudBlockReport {
 
       conf.setLong(DFSConfigKeys.DFS_CLOUD_BLOCK_REPORT_THREAD_SLEEP_INTERVAL_KEY, 1000);
       conf.setLong(DFSConfigKeys.DFS_CLOUD_PREFIX_SIZE_KEY, prefixSize);
-      conf.setInt(DFSConfigKeys.DFS_CLOUD_AWS_S3_NUM_BUCKETS, 2);
       conf.setLong(DFSConfigKeys.DFS_CLOUD_BLOCK_REPORT_DELAY_KEY,
               DFSConfigKeys.DFS_CLOUD_BLOCK_REPORT_DELAY_DEFAULT);
       conf.setLong(DFSConfigKeys.DFS_NAMENODE_BLOCKID_BATCH_SIZE, 10);
@@ -803,15 +799,16 @@ public class TestCloudBlockReport {
       FileWriter outblk = new FileWriter(file);
       outblk.close();
 
-      Block blk = new Block(1, 0, 1, (short)0);
+      String bucket = conf.get(DFSConfigKeys.S3_BUCKET_KEY, DFSConfigKeys.S3_BUCKET_DEFAULT);
+      Block blk = new Block(1, 0, 1, bucket);
       String blkKey = CloudHelper.getBlockKey( prefixSize, blk);
       String metaKey = CloudHelper.getMetaFileKey( prefixSize, blk);
 
       Map<String, String> metadata = new HashMap<>();
       CloudPersistenceProvider cloudConnector =
               CloudPersistenceProviderFactory.getCloudClient(conf);
-      cloudConnector.uploadObject((short)0, blkKey, file, metadata);
-      cloudConnector.uploadObject((short)0, metaKey, file, metadata);
+      cloudConnector.uploadObject(bucket, blkKey, file, metadata);
+      cloudConnector.uploadObject(bucket, metaKey, file, metadata);
 
 
       String bpid = cluster.getNamesystem().getBlockPoolId();
@@ -833,7 +830,7 @@ public class TestCloudBlockReport {
 
       Thread.sleep(10000);
 
-      assert cloudConnector.getAll("").size() == 0;
+      assert cloudConnector.getAll("", Lists.newArrayList(CloudHelper.getAllBuckets().keySet())).size() == 0;
 
     } catch (Exception e) {
       e.printStackTrace();
@@ -868,7 +865,6 @@ public class TestCloudBlockReport {
 
       conf.setLong(DFSConfigKeys.DFS_CLOUD_BLOCK_REPORT_THREAD_SLEEP_INTERVAL_KEY, 1000);
       conf.setLong(DFSConfigKeys.DFS_CLOUD_PREFIX_SIZE_KEY, prefixSize);
-      conf.setInt(DFSConfigKeys.DFS_CLOUD_AWS_S3_NUM_BUCKETS, 2);
       conf.setLong(DFSConfigKeys.DFS_CLOUD_BLOCK_REPORT_DELAY_KEY,
               deleteAbandonedBlocksAfter);
       conf.setLong(DFSConfigKeys.DFS_NAMENODE_BLOCKID_BATCH_SIZE, 10);
@@ -905,7 +901,7 @@ public class TestCloudBlockReport {
       long abandonStartTime = System.currentTimeMillis();
 
       // make sure that there are open multipart blocks
-      int activeMultipartUploads = cloud.listMultipartUploads().size();
+      int activeMultipartUploads = cloud.listMultipartUploads(Lists.newArrayList(CloudHelper.getAllBuckets().keySet())).size();
       assertTrue("Expecting 0 multipart uploads. Got: " + activeMultipartUploads,
               activeMultipartUploads != 0);
 
@@ -917,14 +913,14 @@ public class TestCloudBlockReport {
       CloudTestHelper.matchMetadata(conf);
 
       while ((System.currentTimeMillis() - abandonStartTime) < 2 * deleteAbandonedBlocksAfter) {
-        if (cloud.listMultipartUploads().size() == 0) {
+        if (cloud.listMultipartUploads(Lists.newArrayList(CloudHelper.getAllBuckets().keySet())).size() == 0) {
           return; //pass
         }
         Thread.sleep(10 * 1000);
       }
 
       fail("Abandoned blocks were not cleaned by the block reporting system. Active multipart " +
-              "uploads: "+cloud.listMultipartUploads().size());
+              "uploads: "+cloud.listMultipartUploads(Lists.newArrayList(CloudHelper.getAllBuckets().keySet())).size());
 
     } catch (Exception e) {
       e.printStackTrace();

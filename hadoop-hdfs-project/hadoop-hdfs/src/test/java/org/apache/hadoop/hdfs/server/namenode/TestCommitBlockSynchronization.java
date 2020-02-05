@@ -19,6 +19,7 @@
 package org.apache.hadoop.hdfs.server.namenode;
 
 import io.hops.exception.StorageException;
+import io.hops.metadata.hdfs.entity.CloudBucket;
 import io.hops.metadata.hdfs.entity.INodeIdentifier;
 import io.hops.transaction.EntityManager;
 import io.hops.transaction.context.HdfsTransactionContextMaintenanceCmds;
@@ -60,7 +61,7 @@ public class TestCommitBlockSynchronization {
   private static final long blockId = 100;
   private static final long length = 200;
   private static final long genStamp = 300;
-  private static final short NON_EXISTING_BUCKET_ID = Block.NON_EXISTING_BUCKET_ID;
+  private static final String NON_EXISTING_BUCKET_ID = CloudBucket.NON_EXISTENT_BUCKET_NAME;
 
   private MiniDFSCluster cluster;
   @Before
@@ -163,7 +164,7 @@ public class TestCommitBlockSynchronization {
   @Test
   public void testCommitBlockSynchronization() throws IOException {
     INodeFile file = mockFileUnderConstruction();
-    Block block = new Block(blockId, length, genStamp, Block.NON_EXISTING_BUCKET_ID);
+    Block block = new Block(blockId, length, genStamp, CloudBucket.NON_EXISTENT_BUCKET_NAME);
     FSNamesystem namesystemSpy = makeNameSystemSpy(block, file);
     DatanodeID[] newTargets = new DatanodeID[0];
 

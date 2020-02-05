@@ -75,7 +75,7 @@ public class BlockReport implements Iterable<BlockReportReplica> {
           public Block next() {
             BlockReportReplica next = it.next();
             return new Block(next.getBlockId(), next.getBytesOnDisk(),
-                    next.getGenerationStamp(), next.getCloudBucketID());
+                    next.getGenerationStamp(), next.getCloudBucket());
           }
         };
       }
@@ -155,13 +155,13 @@ public class BlockReport implements Iterable<BlockReportReplica> {
   
   public static byte[] hashAsFinalized(BlockReportReplica block){
     Block toHash = new Block(block.getBlockId(), block.getBytesOnDisk(),
-        block.getGenerationStamp(), block.getCloudBucketID());
+        block.getGenerationStamp(), block.getCloudBucket());
     return hashAsFinalized(toHash);
   }
 
   public static byte[] hashAsFinalized(BlockInfoContiguous block){
     Block toHash = new Block(block.getBlockId(), block.getNumBytes(),
-        block.getGenerationStamp(), block.getCloudBucketID());
+        block.getGenerationStamp(), block.getCloudBucket());
     return hashAsFinalized(toHash);
   }
 

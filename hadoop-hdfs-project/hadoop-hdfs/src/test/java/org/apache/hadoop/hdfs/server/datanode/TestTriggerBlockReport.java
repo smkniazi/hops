@@ -22,6 +22,7 @@ import static org.mockito.Matchers.anyString;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.timeout;
 
+import io.hops.metadata.hdfs.entity.CloudBucket;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.FileSystem;
 import org.apache.hadoop.fs.Path;
@@ -96,7 +97,7 @@ public final class TestTriggerBlockReport {
     String storageUuid =
         datanode.getFSDataset().getVolumes().get(0).getStorageID();
     ExtendedBlock rdbi = new ExtendedBlock(service.getBlockPoolId(), 5678, 512,
-            1000, Block.NON_EXISTING_BUCKET_ID);
+            1000, CloudBucket.NON_EXISTENT_BUCKET_NAME);
     service.notifyNamenodeDeletedBlock(rdbi, storageUuid);
 
     // Manually trigger a block report.

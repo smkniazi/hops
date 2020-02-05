@@ -39,8 +39,8 @@ import java.util.*;
 import org.apache.hadoop.classification.InterfaceAudience;
 import org.apache.hadoop.hdfs.DFSConfigKeys;
 import org.apache.hadoop.hdfs.DFSUtil;
+import org.apache.hadoop.hdfs.server.common.CloudHelper;
 import org.apache.hadoop.hdfs.server.namenode.INode;
-import org.apache.hadoop.hdfs.server.namenode.INodeFile;
 import org.apache.hadoop.util.Time;
 
 import com.google.common.annotations.VisibleForTesting;
@@ -128,7 +128,7 @@ class InvalidateBlocks {
         storage.getSid(),
         block.getBlockId(),
         block.getGenerationStamp(),
-        block.getCloudBucketID(),
+        CloudHelper.getCloudBucketID(block.getCloudBucket()),
         block.getNumBytes(),
         block.getInodeId());
 
@@ -155,7 +155,7 @@ class InvalidateBlocks {
             StorageId.CLOUD_STORAGE_ID,
             block.getBlockId(),
             block.getGenerationStamp(),
-            block.getCloudBucketID(),
+            CloudHelper.getCloudBucketID(block.getCloudBucket()),
             block.getNumBytes(),
             inodeID);
 
@@ -256,7 +256,8 @@ class InvalidateBlocks {
     for (int count = 0; count < limit && it.hasNext(); count++) {
       InvalidatedBlock invBlock = it.next();
       toInvalidate.add(new Block(invBlock.getBlockId(), invBlock.getNumBytes(),
-              invBlock.getGenerationStamp(), invBlock.getCloudBucketID()));
+              invBlock.getGenerationStamp(),
+              CloudHelper.getCloudBucketName(invBlock.getCloudBucketID())));
       toInvblks.add(invBlock);
     }
     removeInvBlocks(toInvblks);
@@ -273,7 +274,8 @@ class InvalidateBlocks {
 
       for (InvalidatedBlock invBlk : invBlocks) {
         deleteBlocks.add(new Block(invBlk.getBlockId(), invBlk.getNumBytes(),
-                invBlk.getGenerationStamp(), invBlk.getCloudBucketID()));
+                invBlk.getGenerationStamp(),
+                CloudHelper.getCloudBucketName(invBlk.getCloudBucketID())));
       }
 
       // remove invalidated blocks from the database
@@ -355,7 +357,9 @@ class InvalidateBlocks {
     List<InvalidatedBlock> invblks = new ArrayList<>();
     for (Block blk : blocks) {
       invblks.add(new InvalidatedBlock(storage.getSid(), blk.getBlockId(),
-              blk.getGenerationStamp(), blk.getCloudBucketID(), blk.getNumBytes(),
+              blk.getGenerationStamp(),
+              CloudHelper.getCloudBucketID(blk.getCloudBucket()),
+              blk.getNumBytes(),
               INode.NON_EXISTING_INODE_ID));
     }
     addAll(invblks);

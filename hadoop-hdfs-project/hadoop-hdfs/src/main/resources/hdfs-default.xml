@@ -2083,21 +2083,15 @@
   </property>
 
   <property>
-    <name>dfs.cloud.aws.s3.bucket.prefix</name>
+    <name>dfs.cloud.aws.s3.bucket</name>
     <value>hopsfs.bucket</value>
-    <description>Prefix for new s3 buckets</description>
+    <description>S3 bucket where blocks will be stored</description>
   </property>
 
   <property>
     <name>dfs.cloud.aws.s3.region</name>
     <value>eu-north-1</value>
     <description>S3 regions. Default: eu-north-1</description>
-  </property>
-
-  <property>
-    <name>dfs.cloud.aws.s3.num.buckets</name>
-    <value>1</value>
-    <description>Number of bucket.</description>
   </property>
 
   <property>

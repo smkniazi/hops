@@ -21,9 +21,11 @@ import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.CloudProvider;
 import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.hdfs.*;
+import org.apache.hadoop.hdfs.server.datanode.fsdataset.impl.CloudPersistenceProviderFactory;
+import org.apache.log4j.Level;
+import org.apache.log4j.Logger;
 import org.junit.*;
 import org.junit.rules.TestName;
-import org.junit.runners.MethodSorters;
 
 import java.io.IOException;
 
@@ -45,6 +47,7 @@ public class TestCloudMixStorageTypes {
 
   @Before
   public void setup() {
+    Logger.getRootLogger().setLevel(Level.INFO);
     //Logger.getLogger(ProvidedBlocksChecker.class).setLevel(Level.DEBUG);
     //Logger.getLogger(CloudTestHelper.class).setLevel(Level.DEBUG);
   }
@@ -176,7 +179,6 @@ public class TestCloudMixStorageTypes {
       conf.setBoolean(DFSConfigKeys.DFS_ENABLE_CLOUD_PERSISTENCE, true);
       conf.set(DFSConfigKeys.DFS_CLOUD_PROVIDER, CloudProvider.AWS.name());
       conf.setLong(DFSConfigKeys.DFS_BLOCK_SIZE_KEY, BLKSIZE);
-      conf.setLong(DFSConfigKeys.DFS_CLOUD_AWS_S3_NUM_BUCKETS, 2);
       CloudTestHelper.setRandomBucketPrefix(conf, testname);
 
       cluster = new MiniDFSCluster.Builder(conf).numDataNodes(NUM_DN).
@@ -282,7 +284,6 @@ public class TestCloudMixStorageTypes {
       conf.setBoolean(DFSConfigKeys.DFS_ENABLE_CLOUD_PERSISTENCE, true);
       conf.set(DFSConfigKeys.DFS_CLOUD_PROVIDER, CloudProvider.AWS.name());
       conf.setLong(DFSConfigKeys.DFS_BLOCK_SIZE_KEY, BLKSIZE);
-      conf.setLong(DFSConfigKeys.DFS_CLOUD_AWS_S3_NUM_BUCKETS, 2);
       conf.setBoolean(DFSConfigKeys.DFS_CLOUD_STORE_SMALL_FILES_IN_DB_KEY, false);
       CloudTestHelper.setRandomBucketPrefix(conf, testname);
 
@@ -361,6 +362,71 @@ public class TestCloudMixStorageTypes {
       }
     }
   }
+
+  // Test reading small files and other files after changing the parent storage policy
+  @Test
+  public void TestSmallFiles() throws IOException {
+    CloudTestHelper.purgeS3();
+    MiniDFSCluster cluster = null;
+    try {
+      Configuration conf = new HdfsConfiguration();
+      final int NUM_DN = 1;
+      final int BLKSIZE = 128 * 1024;
+
+      conf.setBoolean(DFSConfigKeys.DFS_ENABLE_CLOUD_PERSISTENCE, true);
+      conf.set(DFSConfigKeys.DFS_CLOUD_PROVIDER, CloudProvider.AWS.name());
+      conf.setLong(DFSConfigKeys.DFS_BLOCK_SIZE_KEY, BLKSIZE);
+      conf.setBoolean(DFSConfigKeys.DFS_CLOUD_STORE_SMALL_FILES_IN_DB_KEY, true);
+      CloudTestHelper.setRandomBucketPrefix(conf, testname);
+
+      cluster = new MiniDFSCluster.Builder(conf).numDataNodes(NUM_DN).
+              storageTypes(CloudTestHelper.genStorageTypes(NUM_DN)).format(true).build();
+      cluster.waitActive();
+
+      final int MAX_SMALL_FILE_SIZE = FSNamesystem.getMaxSmallFileSize();
+
+      DistributedFileSystem dfs = cluster.getFileSystem();
+
+      dfs.mkdirs(new Path("/tmp"));
+//      dfs.setStoragePolicy(new Path("/"), "");
+
+      final String smallFile = "/tmp/db-file";
+      final String cloudFile = "/tmp/cloud-file";
+      final String diskFile = "/tmp/disk-file";
+
+      //write small files
+      writeFile(dfs, smallFile, MAX_SMALL_FILE_SIZE);
+      writeFile(dfs, cloudFile, BLKSIZE);
+
+
+      dfs.setStoragePolicy(new Path("/"), "HOT");
+      //root is cached wait for few seconds for the root cache to invalidate
+      Thread.sleep(3000);
+      writeFile(dfs, diskFile, BLKSIZE);
+
+      assertTrue("Expecting 1 on-disk file(s). Got:" + countAllOnDiskDBFiles(), countAllOnDiskDBFiles() == 1);
+
+
+      assert CloudTestHelper.findAllBlocks().size() == 2;  // two blocks, 1 on disk & 1 in cloud
+
+      int count = CloudTestHelper.getAllCloudBlocks(CloudPersistenceProviderFactory
+              .getCloudClient(conf)).size();
+      assertTrue("Expecting 1 cloud block. Got: "+count, count == 1);
+
+      verifyFile(dfs, smallFile, MAX_SMALL_FILE_SIZE);
+      verifyFile(dfs, cloudFile, BLKSIZE);
+      verifyFile(dfs, diskFile, BLKSIZE);
+
+    } catch (Exception e) {
+      e.printStackTrace();
+      fail(e.getMessage());
+    } finally {
+      if (cluster != null) {
+        cluster.shutdown();
+      }
+    }
+  }
+
   @AfterClass
   public static void TestZDeleteAllBuckets() throws IOException {
     CloudTestHelper.purgeS3();

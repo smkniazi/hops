@@ -21,14 +21,13 @@ import io.hops.metadata.hdfs.dal.BlockInfoDataAccess;
 import io.hops.metadata.hdfs.entity.BlockInfo;
 import org.apache.hadoop.hdfs.protocol.Block;
 import org.apache.hadoop.hdfs.server.blockmanagement.BlockInfoContiguous;
+import org.apache.hadoop.hdfs.server.blockmanagement.BlockInfoContiguousUnderConstruction;
+import org.apache.hadoop.hdfs.server.common.CloudHelper;
 import org.apache.hadoop.hdfs.server.common.HdfsServerConstants;
-import org.apache.hadoop.hdfs.server.namenode.UnsupportedActionException;
-import org.apache.zookeeper.KeeperException;
 
 import java.util.Collection;
 import java.util.List;
 import java.util.Set;
-import org.apache.hadoop.hdfs.server.blockmanagement.BlockInfoContiguousUnderConstruction;
 
 public class BlockInfoDALAdaptor extends
     DalAdaptor<org.apache.hadoop.hdfs.server.blockmanagement.BlockInfoContiguous, BlockInfo>
@@ -143,12 +142,13 @@ public class BlockInfoDALAdaptor extends
   @Override
   public BlockInfo convertHDFStoDAL(
       org.apache.hadoop.hdfs.server.blockmanagement.BlockInfoContiguous hdfsClass)
-      throws StorageException {
+          throws StorageException {
     if (hdfsClass != null) {
       BlockInfo hopBlkInfo =
           new BlockInfo(hdfsClass.getBlockId(), hdfsClass.getBlockIndex(),
               hdfsClass.getInodeId(), hdfsClass.getNumBytes(),
-              hdfsClass.getGenerationStamp(), hdfsClass.getCloudBucketID(),
+              hdfsClass.getGenerationStamp(),
+              CloudHelper.getCloudBucketID(hdfsClass.getCloudBucket()) ,
               hdfsClass.getBlockUCState().ordinal(), hdfsClass.getTimestamp());
       if (hdfsClass instanceof BlockInfoContiguousUnderConstruction) {
         BlockInfoContiguousUnderConstruction ucBlock =
@@ -172,7 +172,8 @@ public class BlockInfoDALAdaptor extends
       BlockInfo dalClass) throws StorageException {
     if (dalClass != null) {
       Block b = new Block(dalClass.getBlockId(), dalClass.getNumBytes(),
-          dalClass.getGenerationStamp(), dalClass.getCloudBucketID());
+          dalClass.getGenerationStamp(),
+              CloudHelper.getCloudBucketName(dalClass.getCloudBucketID()));
       org.apache.hadoop.hdfs.server.blockmanagement.BlockInfoContiguous blockInfo = null;
 
       if (dalClass.getBlockUCState() >
@@ -189,7 +190,7 @@ public class BlockInfoDALAdaptor extends
           Block truncateBlock = new Block(dalClass.getBlockId(),
                   dalClass.getTruncateBlockNumBytes(),
                   dalClass.getTruncateBlockGenerationStamp(),
-                  dalClass.getCloudBucketID());
+                  CloudHelper.getCloudBucketName(dalClass.getCloudBucketID()));
           ((BlockInfoContiguousUnderConstruction) blockInfo).setTruncateBlock(truncateBlock);
         }
       } else if (dalClass.getBlockUCState() ==

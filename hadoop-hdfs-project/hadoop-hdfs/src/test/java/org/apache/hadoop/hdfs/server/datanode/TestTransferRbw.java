@@ -17,6 +17,7 @@
  */
 package org.apache.hadoop.hdfs.server.datanode;
 
+import io.hops.metadata.hdfs.entity.CloudBucket;
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
 import org.apache.commons.logging.impl.Log4JLogger;
@@ -134,7 +135,7 @@ public class TestTransferRbw {
         //transfer RBW
         final ExtendedBlock b =
             new ExtendedBlock(bpid, oldrbw.getBlockId(), oldrbw.getBytesAcked(),
-                oldrbw.getGenerationStamp(), Block.NON_EXISTING_BUCKET_ID);
+                oldrbw.getGenerationStamp(), CloudBucket.NON_EXISTENT_BUCKET_NAME);
         final BlockOpResponseProto s = DFSTestUtil
             .transferRbw(b, DFSClientAdapter.getDFSClient(fs), oldnodeinfo,
                 newnodeinfo);

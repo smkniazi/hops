@@ -158,7 +158,7 @@ public class JsonUtil {
     m.put("blockId", extendedblock.getBlockId());
     m.put("numBytes", extendedblock.getNumBytes());
     m.put("generationStamp", extendedblock.getGenerationStamp());
-    m.put("cloudBucketID", extendedblock.getCloudBucketID());
+    m.put("cloudBucket", extendedblock.getCloudBucket());
     return m;
   }
 

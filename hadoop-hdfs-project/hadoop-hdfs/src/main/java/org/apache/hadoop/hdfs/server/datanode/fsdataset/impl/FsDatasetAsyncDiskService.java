@@ -354,18 +354,18 @@ class FsDatasetAsyncDiskService {
       // Called in AsyncDiskService.execute for displaying error messages.
       return "HopsFS-Cloud. deletion of block " + block.getBlockPoolId() + " BlockID: " +
               block.getBlockId() + " GenStamp: " + block.getGenerationStamp() +
-              " CloudBucketID " + block.getCloudBucketID();
+              " CloudBucket " + block.getCloudBucket();
     }
 
     @Override
     public void run() {
       LOG.info("HopsFS-Cloud. Deleting block from cloud. " + block);
-      short bucketID = block.getCloudBucketID();
+      String bucket = block.getCloudBucket();
       String blockKey = CloudHelper.getBlockKey(cloud.getPrefixSize(), block.getLocalBlock());
       String metaFileKey = CloudHelper.getMetaFileKey(cloud.getPrefixSize(), block.getLocalBlock());
 
       try {
-        cloud.deleteObject(bucketID, blockKey);
+        cloud.deleteObject(bucket, blockKey);
         if (localBlockFile.delete()) {
           LOG.info("HopsFS-Cloud. Deleted cached block "+blockKey);
           ((CloudFsDatasetImpl) fsdatasetImpl).providedBlocksCacheDelete(block.getBlockPoolId(),
@@ -375,7 +375,7 @@ class FsDatasetAsyncDiskService {
                   +blockKey);
         }
 
-        cloud.deleteObject(bucketID, metaFileKey);
+        cloud.deleteObject(bucket, metaFileKey);
         //delete these blocks from local cache
         if (localMetaFile.delete()) {
           LOG.info("HopsFS-Cloud. Deleted cached block meta file: "+metaFileKey);

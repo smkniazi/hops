@@ -21,6 +21,7 @@ import com.google.common.base.Preconditions;
 import io.hops.common.INodeUtil;
 import io.hops.exception.StorageException;
 import io.hops.metadata.HdfsStorageFactory;
+import io.hops.metadata.hdfs.entity.CloudBucket;
 import io.hops.metadata.hdfs.entity.INodeIdentifier;
 import io.hops.transaction.EntityManager;
 import io.hops.transaction.handler.HDFSOperationType;
@@ -81,7 +82,7 @@ public class TestPendingReplication {
     //
     DatanodeStorageInfo[] storages = DFSTestUtil.createDatanodeStorageInfos(10);
     for (int i = 0; i < 10; i++) {
-      BlockInfoContiguous block = newBlockInfo(new Block(i, i, 0, Block.NON_EXISTING_BUCKET_ID), i);
+      BlockInfoContiguous block = newBlockInfo(new Block(i, i, 0, CloudBucket.NON_EXISTENT_BUCKET_NAME), i);
       DatanodeStorageInfo[] targets = new DatanodeStorageInfo[i];
       System.arraycopy(storages, 0, targets, 0, i);
       increment(pendingReplications, block, DatanodeStorageInfo.toDatanodeDescriptors(targets));
@@ -94,7 +95,7 @@ public class TestPendingReplication {
     //
     // remove one item and reinsert it
     //
-    BlockInfoContiguous blk = newBlockInfo(new Block(8, 8, 0, Block.NON_EXISTING_BUCKET_ID), 8);
+    BlockInfoContiguous blk = newBlockInfo(new Block(8, 8, 0, CloudBucket.NON_EXISTENT_BUCKET_NAME), 8);
     decrement(pendingReplications, blk, storages[7].getDatanodeDescriptor());             // removes one replica
     assertEquals("pendingReplications.getNumReplicas ", 7,
         getNumReplicas(pendingReplications, blk));
@@ -112,7 +113,7 @@ public class TestPendingReplication {
     // are sane.
     //
     for (int i = 0; i < 10; i++) {
-      BlockInfoContiguous block = newBlockInfo(new Block(i, i, 0, Block.NON_EXISTING_BUCKET_ID), i);
+      BlockInfoContiguous block = newBlockInfo(new Block(i, i, 0, CloudBucket.NON_EXISTENT_BUCKET_NAME), i);
       int numReplicas = getNumReplicas(pendingReplications, block);
       assertTrue(numReplicas == i);
     }
@@ -131,7 +132,7 @@ public class TestPendingReplication {
     }
 
     for (int i = 10; i < 15; i++) {
-      BlockInfoContiguous block = newBlockInfo(new Block(i, i, 0, Block.NON_EXISTING_BUCKET_ID), i);
+      BlockInfoContiguous block = newBlockInfo(new Block(i, i, 0, CloudBucket.NON_EXISTENT_BUCKET_NAME), i);
       increment(pendingReplications, block, DatanodeStorageInfo.toDatanodeDescriptors(
               DFSTestUtil.createDatanodeStorageInfos(i)));
     }

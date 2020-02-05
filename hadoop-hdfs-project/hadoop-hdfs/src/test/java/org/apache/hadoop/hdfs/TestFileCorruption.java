@@ -19,6 +19,7 @@
 package org.apache.hadoop.hdfs;
 
 
+import io.hops.metadata.hdfs.entity.CloudBucket;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.ChecksumException;
 import org.apache.hadoop.fs.FileSystem;
@@ -199,7 +200,7 @@ public class TestFileCorruption {
     File blockFile = Block.metaToBlockFile(metadataFile);
     return new ExtendedBlock(bpid, Block.getBlockId(blockFile.getName()),
         blockFile.length(), Block.getGenerationStamp(metadataFile.getName()),
-        Block.NON_EXISTING_BUCKET_ID);
+        CloudBucket.NON_EXISTENT_BUCKET_NAME);
   }
 
 }

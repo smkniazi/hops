@@ -51,7 +51,7 @@ public class HopsFilesTestHelper {
   }
 
   public static void writeFile(FileSystem fs, String name, int size) throws IOException {
-    FSDataOutputStream os = (FSDataOutputStream) fs.create(new Path(name), (short) 1);
+    FSDataOutputStream os = (FSDataOutputStream) fs.create(new Path(name), (short) 3);
     writeData(os, 0, size);
     os.close();
   }

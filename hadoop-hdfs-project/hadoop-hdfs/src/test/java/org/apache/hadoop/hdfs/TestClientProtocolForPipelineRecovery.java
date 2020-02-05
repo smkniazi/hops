@@ -69,7 +69,7 @@ public class TestClientProtocolForPipelineRecovery {
         long newBlockId = firstBlock.getBlockId() + 1;
         ExtendedBlock newBlock =
             new ExtendedBlock(firstBlock.getBlockPoolId(), newBlockId, 0,
-                firstBlock.getGenerationStamp(), firstBlock.getCloudBucketID());
+                firstBlock.getGenerationStamp(), firstBlock.getCloudBucket());
         namenode.updateBlockForPipeline(newBlock, "");
         Assert.fail("Cannot get a new GS from a non-existent block");
       } catch (IOException e) {

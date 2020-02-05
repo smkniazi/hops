@@ -25,6 +25,7 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 
+import io.hops.metadata.hdfs.entity.CloudBucket;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.StorageType;
 import org.apache.hadoop.hdfs.HdfsConfiguration;
@@ -172,12 +173,12 @@ public class TestWriteToReplica {
     
     ExtendedBlock[] blocks =
         new ExtendedBlock[]{
-            new ExtendedBlock(bpid, 1, 1, 2001, Block.NON_EXISTING_BUCKET_ID),
-            new ExtendedBlock(bpid, 2, 1, 2002, Block.NON_EXISTING_BUCKET_ID),
-            new ExtendedBlock(bpid, 3, 1, 2003, Block.NON_EXISTING_BUCKET_ID),
-            new ExtendedBlock(bpid, 4, 1, 2004, Block.NON_EXISTING_BUCKET_ID),
-            new ExtendedBlock(bpid, 5, 1, 2005, Block.NON_EXISTING_BUCKET_ID),
-            new ExtendedBlock(bpid, 6, 1, 2006, Block.NON_EXISTING_BUCKET_ID)};
+            new ExtendedBlock(bpid, 1, 1, 2001, CloudBucket.NON_EXISTENT_BUCKET_NAME),
+            new ExtendedBlock(bpid, 2, 1, 2002, CloudBucket.NON_EXISTENT_BUCKET_NAME),
+            new ExtendedBlock(bpid, 3, 1, 2003, CloudBucket.NON_EXISTENT_BUCKET_NAME),
+            new ExtendedBlock(bpid, 4, 1, 2004, CloudBucket.NON_EXISTENT_BUCKET_NAME),
+            new ExtendedBlock(bpid, 5, 1, 2005, CloudBucket.NON_EXISTENT_BUCKET_NAME),
+            new ExtendedBlock(bpid, 6, 1, 2006, CloudBucket.NON_EXISTENT_BUCKET_NAME)};
 
     ReplicaMap replicasMap = dataSet.volumeMap;
     FsVolumeImpl vol = (FsVolumeImpl) dataSet.volumes
@@ -191,7 +192,7 @@ public class TestWriteToReplica {
     replicasMap.add(bpid, new ReplicaInPipeline(
         blocks[TEMPORARY].getBlockId(),
         blocks[TEMPORARY].getGenerationStamp(),
-        blocks[TEMPORARY].getCloudBucketID(), vol,
+        blocks[TEMPORARY].getCloudBucket(), vol,
         vol.createTmpFile(bpid, blocks[TEMPORARY].getLocalBlock()).getParentFile(), 0));
     
     replicaInfo = new ReplicaBeingWritten(blocks[RBW].getLocalBlock(), vol,
@@ -656,22 +657,22 @@ public class TestWriteToReplica {
     for (String bpId: bpList) {
       for (FsVolumeImpl volume: volumes) {
         ReplicaInfo finalizedReplica = new FinalizedReplica(id, 1, id,
-           Block.NON_EXISTING_BUCKET_ID, volume,
+           CloudBucket.NON_EXISTENT_BUCKET_NAME, volume,
             DatanodeUtil.idToBlockDir(volume.getFinalizedDir(bpId), id));
         volumeMap.add(bpId, finalizedReplica);
         id++;
         
         ReplicaInfo rbwReplica = new ReplicaBeingWritten(id, 1, id,
-                Block.NON_EXISTING_BUCKET_ID, volume, volume.getRbwDir(bpId), null, 100);
+                CloudBucket.NON_EXISTENT_BUCKET_NAME, volume, volume.getRbwDir(bpId), null, 100);
         volumeMap.add(bpId, rbwReplica);
         id++;
 
         ReplicaInfo rwrReplica = new ReplicaWaitingToBeRecovered(id, 1, id,
-                Block.NON_EXISTING_BUCKET_ID, volume, volume.getRbwDir(bpId));
+                CloudBucket.NON_EXISTENT_BUCKET_NAME, volume, volume.getRbwDir(bpId));
         volumeMap.add(bpId, rwrReplica);
         id++;
         
-        ReplicaInfo ripReplica = new ReplicaInPipeline(id, id, Block.NON_EXISTING_BUCKET_ID,
+        ReplicaInfo ripReplica = new ReplicaInPipeline(id, id, CloudBucket.NON_EXISTENT_BUCKET_NAME,
                 volume, volume.getTmpDir(bpId), 0);
         volumeMap.add(bpId, ripReplica);
         id++;

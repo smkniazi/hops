@@ -36,6 +36,7 @@ import java.util.Map;
 import java.util.Random;
 import java.util.concurrent.atomic.AtomicReference;
 
+import io.hops.metadata.hdfs.entity.CloudBucket;
 import org.apache.hadoop.hdfs.DFSTestUtil;
 import org.apache.hadoop.hdfs.protocol.BlockListAsLongs.BlockReportReplica;
 import org.apache.hadoop.hdfs.protocol.proto.DatanodeProtocolProtos.BlockReportRequestProto;
@@ -64,10 +65,10 @@ import org.apache.hadoop.hdfs.protocol.proto.DatanodeProtocolProtos;
 import org.apache.hadoop.hdfs.server.protocol.BlockReport;
 
 public class TestBlockListAsLongs {
-  static Block b1 = new Block(1, 11, 111, Block.NON_EXISTING_BUCKET_ID);
-  static Block b2 = new Block(2, 22, 222, Block.NON_EXISTING_BUCKET_ID);
-  static Block b3 = new Block(3, 33, 333, Block.NON_EXISTING_BUCKET_ID);
-  static Block b4 = new Block(4, 44, 444, Block.NON_EXISTING_BUCKET_ID);
+  static Block b1 = new Block(1, 11, 111, CloudBucket.NON_EXISTENT_BUCKET_NAME);
+  static Block b2 = new Block(2, 22, 222, CloudBucket.NON_EXISTENT_BUCKET_NAME);
+  static Block b3 = new Block(3, 33, 333, CloudBucket.NON_EXISTENT_BUCKET_NAME);
+  static Block b4 = new Block(4, 44, 444, CloudBucket.NON_EXISTENT_BUCKET_NAME);
 
   @Test
   public void testEmptyReport() {
@@ -126,7 +127,7 @@ public class TestBlockListAsLongs {
     Replica[] replicas = new Replica[100000];
     Random rand = new Random(0);
     for (int i=0; i<replicas.length; i++) {
-      Block b = new Block(rand.nextLong(), i, i<<4, Block.NON_EXISTING_BUCKET_ID);
+      Block b = new Block(rand.nextLong(), i, i<<4, CloudBucket.NON_EXISTENT_BUCKET_NAME);
       switch (rand.nextInt(2)) {
         case 0:
           replicas[i] = new FinalizedReplica(b, null, null);
@@ -214,7 +215,7 @@ public class TestBlockListAsLongs {
     NamespaceInfo nsInfo = new NamespaceInfo(1, "cluster", "bp", 1);
     reg.setNamespaceInfo(nsInfo);
 
-    Replica r = new FinalizedReplica(new Block(1, 2, 3, Block.NON_EXISTING_BUCKET_ID), null, null);
+    Replica r = new FinalizedReplica(new Block(1, 2, 3, CloudBucket.NON_EXISTENT_BUCKET_NAME), null, null);
     BlockReport bbl = BlockReport.builder(1).add(r).build();
     DatanodeStorage storage = new DatanodeStorage("s1");
     StorageBlockReport[] sbr = { new StorageBlockReport(storage, bbl) };    

@@ -92,14 +92,11 @@ public class DFSConfigKeys extends CommonConfigurationKeys {
   public static final String DFS_CLOUD_PROVIDER = "dfs.cloud.provider";
   public static final String DFS_CLOUD_PROVIDER_DEFAULT = "AWS";
 
-  public static final String S3_BUCKET_PREFIX = "dfs.cloud.aws.s3.bucket.prefix";
-  public static final String S3_BUCKET_PREFIX_DEFAULT = "hopsfs.bucket";
+  public static final String S3_BUCKET_KEY = "dfs.cloud.aws.s3.bucket";
+  public static final String S3_BUCKET_DEFAULT = "hopsfs.bucket";
 
   public static final String DFS_CLOUD_AWS_S3_REGION = "dfs.cloud.aws.s3.region";
   public static final String DFS_CLOUD_AWS_S3_REGION_DEFAULT = "eu-north-1";
-
-  public static final String DFS_CLOUD_AWS_S3_NUM_BUCKETS = "dfs.cloud.aws.s3.num.buckets";
-  public static final int DFS_CLOUD_AWS_S3_NUM_BUCKETS_DEFAULT = 1;
 
   public static final String DFS_NAMENODE_INVALIDATE_PROVIDED_BLOCKS_PER_ITERATION =
           "dfs.namenode.invalidate.cloud.blocks.per.iteration";

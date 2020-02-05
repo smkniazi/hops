@@ -17,6 +17,7 @@
  */
 package org.apache.hadoop.hdfs.server.datanode;
 
+import io.hops.metadata.hdfs.entity.CloudBucket;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.StorageType;
 import org.apache.hadoop.hdfs.HdfsConfiguration;
@@ -75,7 +76,7 @@ public class TestSimulatedFSDataset {
     int bytesAdded = 0;
     for (long i = startingBlockId; i < startingBlockId+NUMBLOCKS; ++i) {
       long blkID = negativeBlkID ? i * -1 : i;
-      ExtendedBlock b = new ExtendedBlock(bpid, blkID, 0, 0, Block.NON_EXISTING_BUCKET_ID);
+      ExtendedBlock b = new ExtendedBlock(bpid, blkID, 0, 0, CloudBucket.NON_EXISTENT_BUCKET_NAME);
       // we pass expected len as zero, - fsdataset should use the sizeof actual
       // data written
       ReplicaInPipelineInterface bInfo = fsdataset.createRbw(
@@ -105,7 +106,7 @@ public class TestSimulatedFSDataset {
       boolean negativeBlkID) throws IOException {
     for (long i = FIRST_BLK_ID; i <= NUMBLOCKS; ++i) {
       long blkID = negativeBlkID ? i * -1 : i;
-      ExtendedBlock b = new ExtendedBlock(bpid, blkID, 0, 0, Block.NON_EXISTING_BUCKET_ID);
+      ExtendedBlock b = new ExtendedBlock(bpid, blkID, 0, 0, CloudBucket.NON_EXISTENT_BUCKET_NAME);
       assertTrue(fsdataset.isValidBlock(b));
       assertEquals(blockIdToLen(i), fsdataset.getLength(b));
       checkBlockDataAndSize(fsdataset, b, blockIdToLen(i));
@@ -128,7 +129,7 @@ public class TestSimulatedFSDataset {
   @Test
   public void testGetMetaData() throws IOException {
     final SimulatedFSDataset fsdataset = getSimulatedFSDataset();
-    ExtendedBlock b = new ExtendedBlock(bpid, FIRST_BLK_ID, 5, 0, Block.NON_EXISTING_BUCKET_ID);
+    ExtendedBlock b = new ExtendedBlock(bpid, FIRST_BLK_ID, 5, 0, CloudBucket.NON_EXISTENT_BUCKET_NAME);
     try {
       assertTrue(fsdataset.getMetaDataInputStream(b) == null);
       assertTrue("Expected an IO exception", false);
@@ -136,7 +137,7 @@ public class TestSimulatedFSDataset {
       // ok - as expected
     }
     addSomeBlocks(fsdataset); // Only need to add one but ....
-    b = new ExtendedBlock(bpid, FIRST_BLK_ID, 0, 0, Block.NON_EXISTING_BUCKET_ID);
+    b = new ExtendedBlock(bpid, FIRST_BLK_ID, 0, 0, CloudBucket.NON_EXISTENT_BUCKET_NAME);
     InputStream metaInput = fsdataset.getMetaDataInputStream(b);
     DataInputStream metaDataInput = new DataInputStream(metaInput);
     short version = metaDataInput.readShort();
@@ -306,12 +307,12 @@ public class TestSimulatedFSDataset {
   @Test
   public void testInValidBlocks() throws IOException {
     final SimulatedFSDataset fsdataset = getSimulatedFSDataset();
-    ExtendedBlock b = new ExtendedBlock(bpid, FIRST_BLK_ID, 5, 0, Block.NON_EXISTING_BUCKET_ID);
+    ExtendedBlock b = new ExtendedBlock(bpid, FIRST_BLK_ID, 5, 0, CloudBucket.NON_EXISTENT_BUCKET_NAME);
     checkInvalidBlock(b);
     
     // Now check invlaid after adding some blocks
     addSomeBlocks(fsdataset);
-    b = new ExtendedBlock(bpid, NUMBLOCKS + 99, 5, 0, Block.NON_EXISTING_BUCKET_ID);
+    b = new ExtendedBlock(bpid, NUMBLOCKS + 99, 5, 0, CloudBucket.NON_EXISTENT_BUCKET_NAME);
     checkInvalidBlock(b);
   }
 
@@ -320,8 +321,8 @@ public class TestSimulatedFSDataset {
     final SimulatedFSDataset fsdataset = getSimulatedFSDataset();
     int bytesAdded = addSomeBlocks(fsdataset);
     Block[] deleteBlocks = new Block[2];
-    deleteBlocks[0] = new Block(1, 0, 0, Block.NON_EXISTING_BUCKET_ID);
-    deleteBlocks[1] = new Block(2, 0, 0, Block.NON_EXISTING_BUCKET_ID);
+    deleteBlocks[0] = new Block(1, 0, 0, CloudBucket.NON_EXISTENT_BUCKET_NAME);
+    deleteBlocks[1] = new Block(2, 0, 0, CloudBucket.NON_EXISTENT_BUCKET_NAME);
     fsdataset.invalidate(bpid, deleteBlocks);
     checkInvalidBlock(new ExtendedBlock(bpid, deleteBlocks[0]));
     checkInvalidBlock(new ExtendedBlock(bpid, deleteBlocks[1]));
@@ -332,7 +333,7 @@ public class TestSimulatedFSDataset {
     
     // Now make sure the rest of the blocks are valid
     for (int i = 3; i <= NUMBLOCKS; ++i) {
-      Block b = new Block(i, 0, 0, Block.NON_EXISTING_BUCKET_ID);
+      Block b = new Block(i, 0, 0, CloudBucket.NON_EXISTENT_BUCKET_NAME);
       assertTrue(fsdataset.isValidBlock(new ExtendedBlock(bpid, b)));
     }
   }

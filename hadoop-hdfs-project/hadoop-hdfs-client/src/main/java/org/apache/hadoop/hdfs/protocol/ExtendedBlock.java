@@ -17,6 +17,7 @@
  */
 package org.apache.hadoop.hdfs.protocol;
 
+import io.hops.metadata.hdfs.entity.CloudBucket;
 import org.apache.hadoop.classification.InterfaceAudience;
 import org.apache.hadoop.classification.InterfaceStability;
 
@@ -30,7 +31,7 @@ public class ExtendedBlock {
   private Block block;
 
   public ExtendedBlock() {
-    this(null, 0, 0, 0, Block.NON_EXISTING_BUCKET_ID);
+    this(null, 0, 0, 0, CloudBucket.NON_EXISTENT_BUCKET_NAME);
   }
 
   public ExtendedBlock(final ExtendedBlock b) {
@@ -38,7 +39,7 @@ public class ExtendedBlock {
   }
 
   public ExtendedBlock(final String poolId, final long blockId) {
-    this(poolId, blockId, 0, 0, Block.NON_EXISTING_BUCKET_ID);
+    this(poolId, blockId, 0, 0, CloudBucket.NON_EXISTENT_BUCKET_NAME);
   }
 
   public ExtendedBlock(String poolId, Block b) {
@@ -47,7 +48,7 @@ public class ExtendedBlock {
   }
 
   public ExtendedBlock(final String poolId, final long blkid, final long len,
-      final long genstamp, short cloudBucketID) {
+      final long genstamp, String cloudBucketID) {
     this.poolId = poolId;
     block = new Block(blkid, len, genstamp, cloudBucketID);
   }
@@ -100,12 +101,12 @@ public class ExtendedBlock {
     return block;
   }
 
-  public short getCloudBucketID(){
-    return block.getCloudBucketID();
+  public String getCloudBucket(){
+    return block.getCloudBucket();
   }
 
-  public void setCloudBucketID(short cloudBucketID){
-    block.setCloudBucketIDNoPersistance(cloudBucketID);
+  public void setCloudBucket(String cloudBucket){
+    block.setCloudBucketNoPersistance(cloudBucket);
   }
 
   public boolean isProvidedBlock() {

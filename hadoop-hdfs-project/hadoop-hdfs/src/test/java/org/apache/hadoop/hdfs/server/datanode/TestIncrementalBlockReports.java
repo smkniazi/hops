@@ -25,6 +25,7 @@ import static org.mockito.Mockito.times;
 
 import java.io.IOException;
 
+import io.hops.metadata.hdfs.entity.CloudBucket;
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
 import org.apache.hadoop.conf.Configuration;
@@ -52,7 +53,7 @@ public class TestIncrementalBlockReports {
   private static final long DUMMY_BLOCK_ID = 5678;
   private static final long DUMMY_BLOCK_LENGTH = 1024 * 1024;
   private static final long DUMMY_BLOCK_GENSTAMP = 1000;
-  private static final short NON_EXISTING_BUCKET_ID  = Block.NON_EXISTING_BUCKET_ID;
+  private static final String NON_EXISTING_BUCKET_ID  = CloudBucket.NON_EXISTENT_BUCKET_NAME;
 
   private MiniDFSCluster cluster = null;
   private DistributedFileSystem fs;

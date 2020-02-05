@@ -1,5 +1,6 @@
 package org.apache.hadoop.hdfs;
 
+import com.google.common.collect.Lists;
 import io.hops.metadata.HdfsStorageFactory;
 import io.hops.metadata.hdfs.dal.*;
 import io.hops.metadata.hdfs.entity.*;
@@ -202,7 +203,7 @@ public class CloudTestHelper {
 
       assert cloudBlock != null && dbBlock != null;
 
-      assert cloudBlock.getBlock().getCloudBucketID() == dbBlock.getCloudBucketID();
+      assert cloudBlock.getBlock().getCloudBucket().compareToIgnoreCase(dbBlock.getCloudBucket()) == 0;
       assert cloudBlock.getBlock().getGenerationStamp() == dbBlock.getGenerationStamp();
       assert cloudBlock.getBlock().getNumBytes() == dbBlock.getNumBytes();
 
@@ -255,18 +256,18 @@ public class CloudTestHelper {
         }
 
         LOG.info("HopsFS-Cloud. Checking Block: " + blk);
-        short bucketID = blk.getCloudBucketID();
+        String bucket = blk.getCloudBucket();
         String blockKey = CloudHelper.getBlockKey(prefixSize, blk);
         String metaKey = CloudHelper.getMetaFileKey(prefixSize, blk);
 
-        assert cloud.objectExists(bucketID, blockKey) == true;
-        assert cloud.objectExists(bucketID, metaKey) == true;
-        assert cloud.getObjectSize(bucketID, blockKey) == blk.getNumBytes();
+        assert cloud.objectExists(bucket, blockKey) == true;
+        assert cloud.objectExists(bucket, metaKey) == true;
+        assert cloud.getObjectSize(bucket, blockKey) == blk.getNumBytes();
 
-        Map<String, String> metadata = cloud.getUserMetaData(bucketID, blockKey);
+        Map<String, String> metadata = cloud.getUserMetaData(bucket, blockKey);
         assertTrue("No metadata expected. Got "+metadata.size(), metadata.size() == 0);
 
-        metadata = cloud.getUserMetaData(bucketID, metaKey);
+        metadata = cloud.getUserMetaData(bucket, metaKey);
         assert metadata.size() == 2;
         assert Long.parseLong(metadata.get(CloudFsDatasetImpl.OBJECT_SIZE)) == blk.getNumBytes();
         assert Long.parseLong(metadata.get(CloudFsDatasetImpl.GEN_STAMP)) == blk.getGenerationStamp();
@@ -292,7 +293,7 @@ public class CloudTestHelper {
 
   public static Map<Long, CloudBlock> getAllCloudBlocks(CloudPersistenceProvider cloud)
           throws IOException {
-    return cloud.getAll("");
+    return cloud.getAll("", Lists.newArrayList(CloudHelper.getAllBuckets().keySet()));
   }
 
   public static StorageType[][] genStorageTypes(int numDataNodes) {
@@ -324,6 +325,7 @@ public class CloudTestHelper {
     Date date = new Date();
     String prefix = testBucketPrefix + "." + name.getMethodName() +
             "." + date.getHours() + date.getMinutes() + date.getSeconds();
-    conf.set(DFSConfigKeys.S3_BUCKET_PREFIX, prefix.toLowerCase());
+    conf.set(DFSConfigKeys.S3_BUCKET_KEY, prefix.toLowerCase());
+    LOG.info("Test bucket is "+prefix);
   }
 }

@@ -22,6 +22,9 @@ import static org.junit.Assert.assertTrue;
 
 import java.util.concurrent.TimeUnit;
 
+import io.hops.metadata.hdfs.entity.CloudBucket;
+import org.apache.commons.logging.Log;
+import org.apache.commons.logging.LogFactory;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.FSDataOutputStream;
 import org.apache.hadoop.fs.Path;
@@ -233,7 +236,7 @@ public abstract class BlockReportTestBase  {
         LOG.debug("Setting new length");
       }
       tempLen = rand.nextInt(BLOCK_SIZE);
-      b.setNoPersistance(b.getBlockId(), tempLen, b.getGenerationStamp(), b.getCloudBucketID());
+      b.setNoPersistance(b.getBlockId(), tempLen, b.getGenerationStamp(), b.getCloudBucket());
       if (LOG.isDebugEnabled()) {
         LOG.debug("Block " + b.getBlockName() + " after\t " + "Size " +
             b.getNumBytes());
@@ -401,7 +404,7 @@ public abstract class BlockReportTestBase  {
 
     // Create a bogus new block which will not be present on the namenode.
     ExtendedBlock b = new ExtendedBlock(
-        poolId, rand.nextLong(), 1024L, rand.nextLong(), Block.NON_EXISTING_BUCKET_ID );
+        poolId, rand.nextLong(), 1024L, rand.nextLong(), CloudBucket.NON_EXISTENT_BUCKET_NAME);
     dn.getFSDataset().createRbw(StorageType.DEFAULT, b);
 
     DatanodeRegistration dnR = dn.getDNRegistrationForBP(poolId);

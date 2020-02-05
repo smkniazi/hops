@@ -27,6 +27,7 @@ import java.io.IOException;
 import java.net.InetSocketAddress;
 import java.util.UUID;
 
+import io.hops.metadata.hdfs.entity.CloudBucket;
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
 import org.apache.hadoop.conf.Configuration;
@@ -219,7 +220,7 @@ public class TestIncrementalBrVariations {
   }
 
   private static Block getDummyBlock() {
-    return new Block(0L, 100L, 1048576L, Block.NON_EXISTING_BUCKET_ID);
+    return new Block(0L, 100L, 1048576L, CloudBucket.NON_EXISTENT_BUCKET_NAME);
   }
 
   private static StorageReceivedDeletedBlocks[] makeReportForReceivedBlock(

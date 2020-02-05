@@ -22,6 +22,8 @@ import com.google.common.io.Files;
 import java.io.FileOutputStream;
 import java.io.OutputStreamWriter;
 import java.io.Writer;
+
+import io.hops.metadata.hdfs.entity.CloudBucket;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.DU;
 import org.apache.hadoop.fs.FileUtil;
@@ -374,10 +376,10 @@ public class BlockPoolSlice {
     ReplicaInfo newReplica = null;
     long blockId = block.getBlockId();
     long genStamp = block.getGenerationStamp();
-    short cloudBucketID = block.getCloudBucketID();
+    String cloudBucket = block.getCloudBucket();
     if (isFinalized) {
       newReplica = new FinalizedReplica(blockId, 
-          block.getNumBytes(), genStamp, block.getCloudBucketID(), volume,
+          block.getNumBytes(), genStamp, block.getCloudBucket(), volume,
           DatanodeUtil.idToBlockDir(finalizedDir, blockId));
     } else {
       File file = new File(rbwDir, block.getBlockName());
@@ -394,7 +396,7 @@ public class BlockPoolSlice {
           // and don't reserve any more space for writes.
           newReplica = new ReplicaBeingWritten(blockId,
               validateIntegrityAndSetLength(file, genStamp), 
-              genStamp, cloudBucketID, volume, file.getParentFile(), null, 0);
+              genStamp, cloudBucket, volume, file.getParentFile(), null, 0);
           loadRwr = false;
         }
         sc.close();
@@ -413,7 +415,7 @@ public class BlockPoolSlice {
       if (loadRwr) {
         newReplica = new ReplicaWaitingToBeRecovered(blockId,
             validateIntegrityAndSetLength(file, genStamp),
-            genStamp, cloudBucketID, volume, file.getParentFile());
+            genStamp, cloudBucket, volume, file.getParentFile());
       }
     }
 
@@ -459,7 +461,7 @@ public class BlockPoolSlice {
       long genStamp = FsDatasetUtil.getGenerationStampFromFile(
           files, file);
       long blockId = Block.filename2id(file.getName());
-      Block block = new Block(blockId, file.length(), genStamp, Block.NON_EXISTING_BUCKET_ID );
+      Block block = new Block(blockId, file.length(), genStamp, CloudBucket.NON_EXISTENT_BUCKET_NAME);
       addReplicaToReplicasMap(block, volumeMap, 
           isFinalized);
     }

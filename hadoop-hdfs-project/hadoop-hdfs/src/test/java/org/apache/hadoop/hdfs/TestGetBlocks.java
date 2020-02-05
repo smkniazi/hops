@@ -17,6 +17,7 @@
  */
 package org.apache.hadoop.hdfs;
 
+import io.hops.metadata.hdfs.entity.CloudBucket;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.CommonConfigurationKeys;
 import org.apache.hadoop.fs.FSDataOutputStream;
@@ -292,13 +293,13 @@ public class TestGetBlocks {
     long[] blkids = new long[10];
     for (int i = 0; i < blkids.length; i++) {
       blkids[i] = 1000L + RAN.nextInt(100000);
-      map.put(new Block(blkids[i], 0, blkids[i], Block.NON_EXISTING_BUCKET_ID), blkids[i]);
+      map.put(new Block(blkids[i], 0, blkids[i], CloudBucket.NON_EXISTENT_BUCKET_NAME), blkids[i]);
     }
     System.out.println("map=" + map.toString().replace(",", "\n  "));
 
     for (int i = 0; i < blkids.length; i++) {
       Block b = new Block(blkids[i], 0,
-          HdfsConstantsClient.GRANDFATHER_GENERATION_STAMP, Block.NON_EXISTING_BUCKET_ID);
+          HdfsConstantsClient.GRANDFATHER_GENERATION_STAMP, CloudBucket.NON_EXISTENT_BUCKET_NAME);
 
       Long v = map.get(b);
       System.out.println(b + " => " + v);

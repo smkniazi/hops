@@ -346,12 +346,12 @@ public class PBHelper {
     return BlockProto.newBuilder().setBlockId(b.getBlockId())
         .setGenStamp(b.getGenerationStamp())
         .setNumBytes(b.getNumBytes())
-        .setCloudBucketID(b.getCloudBucketID())
+        .setCloudBucket(b.getCloudBucket())
         .build();
   }
 
   public static Block convert(BlockProto b) {
-    return new Block(b.getBlockId(), b.getNumBytes(), b.getGenStamp(), (short) b.getCloudBucketID());
+    return new Block(b.getBlockId(), b.getNumBytes(), b.getGenStamp(), b.getCloudBucket());
   }
 
   public static BlockWithLocationsProto convert(BlockWithLocations blk) {
@@ -458,7 +458,7 @@ public class PBHelper {
       return null;
     }
     return new ExtendedBlock(eb.getPoolId(), eb.getBlockId(), eb.getNumBytes(),
-        eb.getGenerationStamp(), (short)eb.getCloudBucketID());
+        eb.getGenerationStamp(), eb.getCloudBucket());
   }
 
   public static ExtendedBlockProto convert(final ExtendedBlock b) {
@@ -470,7 +470,7 @@ public class PBHelper {
         setBlockId(b.getBlockId()).
         setNumBytes(b.getNumBytes()).
         setGenerationStamp(b.getGenerationStamp()).
-        setCloudBucketID(b.getCloudBucketID()).
+        setCloudBucket(b.getCloudBucket()).
         build();
   }
 

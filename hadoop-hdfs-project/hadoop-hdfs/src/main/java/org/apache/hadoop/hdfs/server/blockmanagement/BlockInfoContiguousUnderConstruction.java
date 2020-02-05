@@ -206,7 +206,7 @@ public class BlockInfoContiguousUnderConstruction extends BlockInfoContiguous {
     }
     blockUCState = BlockUCState.COMMITTED;
     this.set(getBlockId(), block.getNumBytes(),
-            block.getGenerationStamp(), block.getCloudBucketID());
+            block.getGenerationStamp(), block.getCloudBucket());
     // Sort out invalid replicas.
     setGenerationStampAndVerifyReplicas(block.getGenerationStamp(), datanodeMgr);
   }

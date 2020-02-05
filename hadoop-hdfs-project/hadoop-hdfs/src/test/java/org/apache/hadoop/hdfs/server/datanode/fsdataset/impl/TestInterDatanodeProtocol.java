@@ -17,6 +17,7 @@
  */
 package org.apache.hadoop.hdfs.server.datanode.fsdataset.impl;
 
+import io.hops.metadata.hdfs.entity.CloudBucket;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.hdfs.DFSClientAdapter;
@@ -206,14 +207,14 @@ public class TestInterDatanodeProtocol {
       //verify updateBlock
       ExtendedBlock newblock = new ExtendedBlock(b.getBlockPoolId(),
           b.getBlockId(), b.getNumBytes()/2, b.getGenerationStamp()+1,
-          Block.NON_EXISTING_BUCKET_ID);
+          CloudBucket.NON_EXISTENT_BUCKET_NAME);
       idp.updateReplicaUnderRecovery(b, recoveryId, b.getBlockId(),
           newblock.getNumBytes());
       checkMetaInfo(newblock, datanode);
       
       // Verify correct null response trying to init recovery for a missing block
       ExtendedBlock badBlock =
-          new ExtendedBlock("fake-pool", b.getBlockId(), 0, 0, Block.NON_EXISTING_BUCKET_ID);
+          new ExtendedBlock("fake-pool", b.getBlockId(), 0, 0, CloudBucket.NON_EXISTENT_BUCKET_NAME);
       assertNull(idp.initReplicaRecovery(
           new RecoveringBlock(badBlock, locatedblock.getLocations(),
               recoveryId)));
@@ -261,7 +262,7 @@ public class TestInterDatanodeProtocol {
       FsDatasetImpl data = (FsDatasetImpl)cluster.getDataNodes().get(0).getFSDataset();
       ReplicaMap map = data.getVolumeMap();
       for (int i = 0; i < blocks.length; i++) {
-        blocks[i] = new Block(firstblockid + i, length, gs, Block.NON_EXISTING_BUCKET_ID );
+        blocks[i] = new Block(firstblockid + i, length, gs, CloudBucket.NON_EXISTENT_BUCKET_NAME);
         map.add(bpid, createReplicaInfo(blocks[i]));
       }
 
@@ -304,7 +305,7 @@ public class TestInterDatanodeProtocol {
 
       { // BlockRecoveryFI_01: replica not found
         final long recoveryid = gs + 1;
-        final Block b = new Block(firstblockid - 1, length, gs, Block.NON_EXISTING_BUCKET_ID);
+        final Block b = new Block(firstblockid - 1, length, gs, CloudBucket.NON_EXISTENT_BUCKET_NAME);
         ReplicaRecoveryInfo r = data.initReplicaRecovery(bpid, map, b, recoveryid,
                 DFSConfigKeys.DFS_DATANODE_XCEIVER_STOP_TIMEOUT_MILLIS_DEFAULT);
         Assert.assertNull("Data-node should not have this replica.", r);
@@ -313,7 +314,7 @@ public class TestInterDatanodeProtocol {
 
       { // BlockRecoveryFI_02: "THIS IS NOT SUPPOSED TO HAPPEN" with recovery id < gs
         final long recoveryid = gs - 1;
-        final Block b = new Block(firstblockid + 1, length, gs, Block.NON_EXISTING_BUCKET_ID);
+        final Block b = new Block(firstblockid + 1, length, gs, CloudBucket.NON_EXISTENT_BUCKET_NAME);
         try {
           data.initReplicaRecovery(bpid, map, b, recoveryid,
                   DFSConfigKeys.DFS_DATANODE_XCEIVER_STOP_TIMEOUT_MILLIS_DEFAULT);
@@ -327,7 +328,7 @@ public class TestInterDatanodeProtocol {
     // BlockRecoveryFI_03: Replica's gs is less than the block's gs
       {
         final long recoveryid = gs + 1;
-        final Block b = new Block(firstblockid, length, gs + 1, Block.NON_EXISTING_BUCKET_ID);
+        final Block b = new Block(firstblockid, length, gs + 1, CloudBucket.NON_EXISTENT_BUCKET_NAME);
         try {
           data.initReplicaRecovery(bpid, map, b, recoveryid,
                   DFSConfigKeys.DFS_DATANODE_XCEIVER_STOP_TIMEOUT_MILLIS_DEFAULT);
@@ -403,7 +404,7 @@ public class TestInterDatanodeProtocol {
         //create a block with same id and gs but different length.
         final ExtendedBlock tmp =
             new ExtendedBlock(b.getBlockPoolId(), rri.getBlockId(),
-                rri.getNumBytes() - 1, rri.getGenerationStamp(), Block.NON_EXISTING_BUCKET_ID);
+                rri.getNumBytes() - 1, rri.getGenerationStamp(), CloudBucket.NON_EXISTENT_BUCKET_NAME);
         try {
           //update should fail
           fsdataset.updateReplicaUnderRecovery(tmp, recoveryid,

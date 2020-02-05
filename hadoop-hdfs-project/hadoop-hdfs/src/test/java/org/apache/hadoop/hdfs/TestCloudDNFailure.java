@@ -15,36 +15,32 @@
  */
 package org.apache.hadoop.hdfs;
 
-import io.hops.transaction.context.EntityContext;
-import org.apache.commons.lang.ArrayUtils;
-import org.apache.commons.logging.impl.Log4JLogger;
-import org.apache.hadoop.hdfs.server.datanode.DataNode;
-import org.apache.hadoop.hdfs.server.datanode.fsdataset.impl.CloudPersistenceProviderS3Impl;
 import org.apache.commons.logging.Log;
+import org.apache.commons.logging.impl.Log4JLogger;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.CloudProvider;
 import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.fs.StorageType;
+import org.apache.hadoop.hdfs.MiniDFSCluster.DataNodeProperties;
 import org.apache.hadoop.hdfs.client.HdfsDataInputStream;
 import org.apache.hadoop.hdfs.client.HdfsDataOutputStream;
+import org.apache.hadoop.hdfs.server.datanode.DataNode;
+import org.apache.hadoop.hdfs.server.datanode.fsdataset.impl.CloudPersistenceProviderS3Impl;
 import org.apache.hadoop.hdfs.server.protocol.BlockReport;
 import org.apache.hadoop.hdfs.server.protocol.DatanodeStorage;
 import org.apache.hadoop.io.IOUtils;
 import org.apache.log4j.Level;
-import org.apache.log4j.Logger;
+import org.junit.AfterClass;
 import org.junit.BeforeClass;
 import org.junit.Rule;
 import org.junit.Test;
 import org.junit.rules.TestName;
-import org.apache.hadoop.hdfs.MiniDFSCluster.DataNodeProperties;
 
 import java.io.IOException;
-import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.*;
 
-import static junit.framework.TestCase.assertEquals;
 import static junit.framework.TestCase.assertTrue;
 import static org.junit.Assert.fail;
 
@@ -106,7 +102,6 @@ public class TestCloudDNFailure {
       CloudTestHelper.purgeS3();
       conf.setBoolean(DFSConfigKeys.DFS_ENABLE_CLOUD_PERSISTENCE, true);
       conf.set(DFSConfigKeys.DFS_CLOUD_PROVIDER, CloudProvider.AWS.name());
-      conf.setLong(DFSConfigKeys.DFS_CLOUD_AWS_S3_NUM_BUCKETS, 2);
       conf.setInt(DFSConfigKeys.DFS_CLOUD_MAX_PHANTOM_BLOCKS_FOR_READ_KEY, phantomReplication);
       CloudTestHelper.setRandomBucketPrefix(conf, testname);
     }
@@ -208,7 +203,6 @@ public class TestCloudDNFailure {
       CloudTestHelper.purgeS3();
       conf.setBoolean(DFSConfigKeys.DFS_ENABLE_CLOUD_PERSISTENCE, true);
       conf.set(DFSConfigKeys.DFS_CLOUD_PROVIDER, CloudProvider.AWS.name());
-      conf.setLong(DFSConfigKeys.DFS_CLOUD_AWS_S3_NUM_BUCKETS, 2);
       CloudTestHelper.setRandomBucketPrefix(conf, testname);
     }
     conf.setLong(DFSConfigKeys.DFS_BLOCK_SIZE_KEY, BLK_SIZE);
@@ -293,6 +287,7 @@ public class TestCloudDNFailure {
       assert cluster.getNamesystem().getNumLiveDataNodes() == 1;
       cluster.stopDataNode(0);
 
+      LOG.info("HopsFS-Cloud. starting all the datanodes");
       //now start all datanodes. make sure that after the
       //block reporting is done no garbage "rbw" files are
       //left on the DNs
@@ -486,4 +481,8 @@ public class TestCloudDNFailure {
     cluster.waitActive();
   }
 
+  @AfterClass
+  public static void TestZDeleteAllBuckets() throws IOException {
+    CloudTestHelper.purgeS3();
+  }
 }

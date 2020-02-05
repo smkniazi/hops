@@ -646,9 +646,9 @@ public class BlockInfoContiguous extends Block {
     save();
   }
 
-  public void set(long blkid, long len, long genStamp, short cloudBucketID)
+  public void set(long blkid, long len, long genStamp, String cloudBucket)
       throws StorageException, TransactionContextException {
-    setNoPersistance(blkid, len, genStamp, cloudBucketID);
+    setNoPersistance(blkid, len, genStamp, cloudBucket);
     save();
   }
 

@@ -963,7 +963,7 @@ public class BlockManager {
     }
 
     LocatedBlock locatedBlock = new LocatedBlock(eb,
-            dnInfos.toArray(new DatanodeInfo[file.getBlockReplication()]), 0, false);
+            dnInfos.toArray(new DatanodeInfo[dnInfos.size()]), 0, false);
     locatedBlock.setData(data);
     results.add(locatedBlock);
     return results;
@@ -2879,7 +2879,7 @@ public class BlockManager {
         for (BlockListAsLongs.BlockReportReplica brb : reportedBlocks) {
           Block block = new Block();
           block.setNoPersistance(brb.getBlockId(), brb.getBytesOnDisk(),
-                  brb.getGenerationStamp(), brb.getCloudBucketID());
+                  brb.getGenerationStamp(), brb.getCloudBucket());
           BlockInfoContiguous storedBlock =
                   processReportedBlock(storage,
                           block, brb.getState(),

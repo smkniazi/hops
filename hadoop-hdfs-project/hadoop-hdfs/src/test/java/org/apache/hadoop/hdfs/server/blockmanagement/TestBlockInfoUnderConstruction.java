@@ -18,6 +18,7 @@
 package org.apache.hadoop.hdfs.server.blockmanagement;
 
 import io.hops.exception.StorageException;
+import io.hops.metadata.hdfs.entity.CloudBucket;
 import io.hops.metadata.hdfs.entity.INodeIdentifier;
 import io.hops.transaction.EntityManager;
 import io.hops.transaction.handler.HDFSOperationType;
@@ -141,7 +142,7 @@ public class TestBlockInfoUnderConstruction {
 
       @Override
       public Object performTask() throws IOException {
-        Block block = new Block(10, 0, GenerationStamp.LAST_RESERVED_STAMP, Block.NON_EXISTING_BUCKET_ID);
+        Block block = new Block(10, 0, GenerationStamp.LAST_RESERVED_STAMP, CloudBucket.NON_EXISTENT_BUCKET_NAME);
         EntityManager.add(new BlockInfoContiguous(block,
             inodeIdentifier != null ? inodeIdentifier.getInodeId() : BlockInfoContiguous.NON_EXISTING_ID));
         BlockInfoContiguousUnderConstruction blockInfo = new BlockInfoContiguousUnderConstruction(
