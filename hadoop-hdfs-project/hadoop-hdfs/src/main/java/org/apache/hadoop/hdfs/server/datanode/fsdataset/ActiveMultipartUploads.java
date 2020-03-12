@@ -23,7 +23,7 @@ public class ActiveMultipartUploads {
 
   public ActiveMultipartUploads(String bucket, String objectID, long startTime,
                                 String uploadID) {
-    this.bucket = bucketID;
+    this.bucket = bucket;
     this.objectID = objectID;
     this.startTime = startTime;
     this.uploadID = uploadID;
