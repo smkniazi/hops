@@ -268,18 +268,14 @@ public class CloudFsDatasetImpl extends FsDatasetImpl {
 
     try {
       String metaFileKey = CloudHelper.getMetaFileKey(prefixSize, b.getLocalBlock());
-      if (cloud.objectExists(b.getCloudBucket(), metaFileKey)) {
+      Map<String, String> metadata = cloud.getUserMetaData(b.getCloudBucket(), metaFileKey);
 
-        Map<String, String> metadata = cloud.getUserMetaData(b.getCloudBucket(), metaFileKey);
+      long genStamp = Long.parseLong(metadata.get(GEN_STAMP));
+      long size = Long.parseLong(metadata.get(OBJECT_SIZE));
 
-        long genStamp = Long.parseLong(metadata.get(GEN_STAMP));
-        long size = Long.parseLong(metadata.get(OBJECT_SIZE));
-
-        FinalizedReplica info = new FinalizedReplica(b.getBlockId(), size, genStamp,
-                b.getCloudBucket(), null, null);
-        return info;
-      }
-
+      FinalizedReplica info = new FinalizedReplica(b.getBlockId(), size, genStamp,
+              b.getCloudBucket(), null, null);
+      return info;
     } catch (IOException up) {
       LOG.info(up, up);
     }
