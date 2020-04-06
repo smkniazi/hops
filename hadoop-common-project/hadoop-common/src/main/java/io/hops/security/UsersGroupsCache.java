@@ -88,6 +88,7 @@ class UsersGroupsCache {
       for (Group group : groups) {
         groupNames.add(group.getName());
         updateGroupCache(group.getId(), group.getName());
+        //add user to userToGroupsCache FIXME maybe
       }
       return groupNames;
     }
