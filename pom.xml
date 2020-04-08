@@ -38,22 +38,14 @@ xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xs
 
   <repositories>
     <repository>
-      <id>hops-release</id>
+      <id>HopsEE</id>
       <name>Hops Release Repository</name>
-      <url>https://archiva.hops.works/repository/Hops/</url>
-      <snapshots>
-        <enabled>false</enabled>
-        <updatePolicy>never</updatePolicy>
-      </snapshots>
-    </repository>
-    <repository>
-      <id>hops-snapshot-repository</id>
-      <name>Hops Snapshot Repository</name>
-      <url>https://archiva.hops.works/repository/Hops/</url>
+      <url>https://archive.logicalclocks.com/repository/hops-artifacts</url>
       <releases>
         <enabled>true</enabled>
       </releases>
       <snapshots>
+        <enabled>true</enabled>
         <updatePolicy>always</updatePolicy>
       </snapshots>
     </repository>
@@ -87,12 +79,12 @@ xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xs
     <!-- required as child projects with different version can't use ${project.version} -->
     <hadoop.version>3.2.0.0-SNAPSHOT</hadoop.version>
 
-    <distMgmtSnapshotsId>Hops</distMgmtSnapshotsId>
-    <distMgmtSnapshotsName>Hops Repo</distMgmtSnapshotsName>
-    <distMgmtSnapshotsUrl>https://bbc1.sics.se/archiva/repository/Hops/</distMgmtSnapshotsUrl>
-    <distMgmtStagingId>Hops</distMgmtStagingId>
-    <distMgmtStagingName>Hops Repo</distMgmtStagingName>
-    <distMgmtStagingUrl>https://archiva.hops.works/repository/Hops/</distMgmtStagingUrl>
+    <distMgmtSnapshotsId>HopsEE</distMgmtSnapshotsId>
+    <distMgmtSnapshotsName>Hops Enterprise Repo</distMgmtSnapshotsName>
+    <distMgmtSnapshotsUrl>https://archive.logicalclocks.com/repository/hops-artifacts</distMgmtSnapshotsUrl>
+    <distMgmtStagingId>HopsEE</distMgmtStagingId>
+    <distMgmtStagingName>Hops Enterprise Repo</distMgmtStagingName>
+    <distMgmtStagingUrl>https://archive.logicalclocks.com/repository/hops-artifacts</distMgmtStagingUrl>
 
     
     <!-- platform encoding override -->
