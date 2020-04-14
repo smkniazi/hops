@@ -77,7 +77,7 @@ class UsersGroupsCache {
           = new CacheLoader<String, List<String>>() {
     @Override
     public List<String> load(String userName) throws Exception {
-      LOG.debug("Get groups from DB for user: " + userName);
+      LOG.info("Get groups from DB for user: " + userName);
       List<Group> groups = getUserGroupsFromDB(userName, getUserId(userName));
       if (groups == null || groups.isEmpty()) {
         throw new GroupsNotFoundForUserException("No groups found for user (" + userName + ")");
@@ -88,7 +88,6 @@ class UsersGroupsCache {
       for (Group group : groups) {
         groupNames.add(group.getName());
         updateGroupCache(group.getId(), group.getName());
-        //add user to userToGroupsCache FIXME maybe
       }
       return groupNames;
     }
@@ -98,7 +97,7 @@ class UsersGroupsCache {
           = new RemovalListener<String, List<String>>() {
     @Override
     public void onRemoval(RemovalNotification<String, List<String>> rn) {
-      LOG.debug("User's groups removal notification for " + rn.toString()
+      LOG.info("User's groups removal notification for " + rn.toString()
               + "(" + rn.getCause() + ")");
     }
   };
@@ -106,7 +105,7 @@ class UsersGroupsCache {
   private CacheLoader<Integer, String> idToUserLoader = new CacheLoader<Integer, String>() {
     @Override
     public String load(Integer userId) throws Exception {
-      LOG.debug("Get user from DB by ID. UserID: " + userId);
+      LOG.info("Get user from DB by ID. UserID: " + userId);
       User user = getUserFromDB(null, userId);
       if (user != null) {
         userToIdCache.put(user.getName(), userId);
@@ -121,7 +120,7 @@ class UsersGroupsCache {
           = new RemovalListener<Integer, String>() {
     @Override
     public void onRemoval(RemovalNotification<Integer, String> rn) {
-      LOG.debug("User removal notification for " + rn.toString()
+      LOG.info("User removal notification for " + rn.toString()
               + "(" + rn.getCause() + ")");
     }
   };
@@ -129,7 +128,7 @@ class UsersGroupsCache {
   private CacheLoader<String, Integer> userToIdLoader = new CacheLoader<String, Integer>() {
     @Override
     public Integer load(String userName) throws Exception {
-      LOG.debug("Get user from DB by name: " + userName);
+      LOG.info("Get user from DB by name: " + userName);
       User user = getUserFromDB(userName, null);
       if (user != null) {
         idToUserCache.put(user.getId(), userName);
@@ -143,14 +142,14 @@ class UsersGroupsCache {
           = new RemovalListener<String, Integer>() {
     @Override
     public void onRemoval(RemovalNotification<String, Integer> rn) {
-      LOG.debug("User removal notification for " + rn.toString() + "(" + rn.getCause() + ")");
+      LOG.info("User removal notification for " + rn.toString() + "(" + rn.getCause() + ")");
     }
   };
 
   private CacheLoader<Integer, String> idToGroupLoader = new CacheLoader<Integer, String>() {
     @Override
     public String load(Integer groupId) throws Exception {
-      LOG.debug("Get group from DB by id: " + groupId);
+      LOG.info("Get group from DB by id: " + groupId);
       Group group = getGroupFromDB(null, groupId);
       if (group != null) {
         groupToIdCache.put(group.getName(), groupId);
@@ -165,14 +164,14 @@ class UsersGroupsCache {
           = new RemovalListener<Integer, String>() {
     @Override
     public void onRemoval(RemovalNotification<Integer, String> rn) {
-      LOG.debug("Group removal notification for " + rn.toString() + "(" + rn.getCause() + ")");
+      LOG.info("Group removal notification for " + rn.toString() + "(" + rn.getCause() + ")");
     }
   };
 
   private CacheLoader<String, Integer> groupToIdsLoader = new CacheLoader<String, Integer>() {
     @Override
     public Integer load(String groupName) throws Exception {
-      LOG.debug("Get group from DB by name: " + groupName);
+      LOG.info("Get group from DB by name: " + groupName);
       Group group = getGroupFromDB(groupName, null);
       if (group != null) {
         idToGroupCache.put(group.getId(), groupName);
@@ -187,7 +186,7 @@ class UsersGroupsCache {
           = new RemovalListener<String, Integer>() {
     @Override
     public void onRemoval(RemovalNotification<String, Integer> rn) {
-      LOG.debug("Group removal notification for " + rn.toString() + "(" + rn.getCause() + ")");
+      LOG.info("Group removal notification for " + rn.toString() + "(" + rn.getCause() + ")");
     }
   };
 
@@ -273,7 +272,7 @@ class UsersGroupsCache {
     new LightWeightRequestHandler(UsersOperationsType.CREATE_LOCK_ROWS) {
       @Override
       public Object performTask() throws IOException {
-        LOG.debug("Creating UsersGroups Lock Row");
+        LOG.info("Creating UsersGroups Lock Row");
         boolean fail = false;
         User user;
         boolean localTx = !connector.isTransactionActive();
@@ -354,7 +353,7 @@ class UsersGroupsCache {
     return (User) new LightWeightRequestHandler(UsersGroupsCache.UsersOperationsType.GET_USER) {
       @Override
       public Object performTask() throws IOException {
-        LOG.debug("Get User: " + userName + " from DB.");
+        LOG.info("Get User: " + userName + " from DB.");
         boolean fail = false;
         boolean localTx = !connector.isTransactionActive();
         if (localTx) {
@@ -388,7 +387,7 @@ class UsersGroupsCache {
     return (User) new LightWeightRequestHandler(UsersGroupsCache.UsersOperationsType.ADD_USER) {
       @Override
       public Object performTask() throws IOException {
-        LOG.debug("Add User: " + userName + " to DB.");
+        LOG.info("Add User: " + userName + " to DB.");
         boolean fail = false;
         boolean localTx = !connector.isTransactionActive();
         if (localTx) {
@@ -421,7 +420,7 @@ class UsersGroupsCache {
     new LightWeightRequestHandler(UsersGroupsCache.UsersOperationsType.REMOVE_USER) {
       @Override
       public Object performTask() throws IOException {
-        LOG.debug("Remove UserID: " + userId + " from DB.");
+        LOG.info("Remove UserID: " + userId + " from DB.");
         boolean fail = false;
         boolean localTx = !connector.isTransactionActive();
         if (localTx) {
@@ -455,7 +454,7 @@ class UsersGroupsCache {
             UsersGroupsCache.UsersOperationsType.GET_GROUP) {
       @Override
       public Object performTask() throws IOException {
-        LOG.debug("Get GroupName: " + groupName + " GroupID: " + groupId + " from DB.");
+        LOG.info("Get GroupName: " + groupName + " GroupID: " + groupId + " from DB.");
         boolean fail = false;
         boolean localTx = !connector.isTransactionActive();
         if (localTx) {
@@ -489,7 +488,7 @@ class UsersGroupsCache {
     return (Group) new LightWeightRequestHandler(UsersGroupsCache.UsersOperationsType.ADD_GROUP) {
       @Override
       public Object performTask() throws IOException {
-        LOG.debug("Add Group: " + groupName + " to DB.");
+        LOG.info("Add Group: " + groupName + " to DB.");
 
         boolean fail = false;
         boolean localTx = !connector.isTransactionActive();
@@ -524,7 +523,7 @@ class UsersGroupsCache {
     new LightWeightRequestHandler(UsersGroupsCache.UsersOperationsType.REMOVE_GROUP) {
       @Override
       public Object performTask() throws IOException {
-        LOG.debug("Remove GroupID: " + groupId + " from DB.");
+        LOG.info("Remove GroupID: " + groupId + " from DB.");
 
         boolean fail = false;
         boolean localTx = !connector.isTransactionActive();
@@ -559,7 +558,7 @@ class UsersGroupsCache {
     new LightWeightRequestHandler(UsersGroupsCache.UsersOperationsType.REMOVE_USER_FROM_GROUPS) {
       @Override
       public Object performTask() throws IOException {
-        LOG.debug("Removing user from group. UserID: " + userId + " GropuID: " + groupId + ".");
+        LOG.info("Removing user from group. UserID: " + userId + " GropuID: " + groupId + ".");
 
         boolean fail = false;
         boolean localTx = !connector.isTransactionActive();
@@ -594,7 +593,7 @@ class UsersGroupsCache {
     new LightWeightRequestHandler(UsersOperationsType.ADD_USER_TO_GROUPS) {
       @Override
       public Object performTask() throws IOException {
-        LOG.debug("Add user to group. UserID: " + userId + " GroupID: " + groupId + ".");
+        LOG.info("Add user to group. UserID: " + userId + " GroupID: " + groupId + ".");
 
         boolean fail = false;
         boolean localTx = !connector.isTransactionActive();
@@ -827,7 +826,7 @@ class UsersGroupsCache {
 
     try {
       int userID = userToIdCache.get(userName);
-      LOG.debug("Remove user from DB name: " + userName);
+      LOG.info("Remove user from DB name: " + userName);
       removeUserFromDB(userID);
       invCacheUserRemoved(userID, userName);
     } catch (ExecutionException e) {
@@ -842,7 +841,7 @@ class UsersGroupsCache {
   public void removeGroup(String group) throws IOException {
     assert group != null;
 
-    LOG.debug("Remove group from DB name: " + group);
+    LOG.info("Remove group from DB name: " + group);
     try {
       int groupID = groupToIdCache.get(group);
       removeGroupFromDB(groupID);
@@ -868,7 +867,7 @@ class UsersGroupsCache {
   public void addUserToGroup(String user, String group) throws IOException {
     assert user != null && group != null;
 
-    LOG.debug("Adding user: " + user + " to Group: " + group);
+    LOG.info("Adding user: " + user + " to Group: " + group);
 
     List<String> availableGroups = Collections.EMPTY_LIST;
     try {
@@ -909,7 +908,7 @@ class UsersGroupsCache {
     if (user == null || group == null)
       return;
 
-    LOG.debug("Remove user-group from DB user: " + user + ", group: " + group);
+    LOG.info("Remove user-group from DB user: " + user + ", group: " + group);
     try {
 
       int userId = userToIdCache.get(user);
