@@ -40,7 +40,7 @@ xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xs
     <repository>
       <id>HopsEE</id>
       <name>Hops Release Repository</name>
-      <url>https://archive.logicalclocks.com/repository/hops-artifacts</url>
+      <url>https://nexus.hops.works/repository/hops-artifacts</url>
       <releases>
         <enabled>true</enabled>
       </releases>
@@ -81,10 +81,10 @@ xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xs
 
     <distMgmtSnapshotsId>HopsEE</distMgmtSnapshotsId>
     <distMgmtSnapshotsName>Hops Enterprise Repo</distMgmtSnapshotsName>
-    <distMgmtSnapshotsUrl>https://archive.logicalclocks.com/repository/hops-artifacts</distMgmtSnapshotsUrl>
+    <distMgmtSnapshotsUrl>https://nexus.hops.works/repository/hops-artifacts</distMgmtSnapshotsUrl>
     <distMgmtStagingId>HopsEE</distMgmtStagingId>
     <distMgmtStagingName>Hops Enterprise Repo</distMgmtStagingName>
-    <distMgmtStagingUrl>https://archive.logicalclocks.com/repository/hops-artifacts</distMgmtStagingUrl>
+    <distMgmtStagingUrl>https://nexus.hops.works/repository/hops-artifacts</distMgmtStagingUrl>
 
     
     <!-- platform encoding override -->
