@@ -355,6 +355,14 @@ public class Mover {
         return true;
       }
 
+      if(db.getBlock().isProvidedBlock() || targetTypes.get(0) == StorageType.CLOUD ){
+        LOG.warn("YYY not supported Src: "+db.getBlock()+" stoagetype "+targetTypes.get(0));
+        return false;
+
+      } else {
+        LOG.warn("YYY schedling on remove node");
+      }
+
       if (dispatcher.getCluster().isNodeGroupAware()) {
         if (chooseTarget(db, source, targetTypes, Matcher.SAME_NODE_GROUP)) {
           return true;

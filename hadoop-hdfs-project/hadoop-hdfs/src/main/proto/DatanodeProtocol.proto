@@ -306,6 +306,7 @@ message ReceivedDeletedBlockInfoProto {
     RECEIVED = 4;
     UPDATE_RECOVERED = 5;
     DELETED = 6;
+    MOVED_TO_CLOUD = 7;
   }
 
   required BlockProto block = 1;

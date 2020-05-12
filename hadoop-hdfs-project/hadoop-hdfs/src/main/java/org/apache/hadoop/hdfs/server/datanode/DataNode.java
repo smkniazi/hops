@@ -1014,6 +1014,18 @@ public class DataNode extends ReconfigurableBase
               block.getBlockPoolId());
     }
   }
+
+  public void notifyNamenodeBlockMovedToCloud(ExtendedBlock block,
+                                          String delHint, String storageUuid) {
+    BPOfferService bpos = blockPoolManager.get(block.getBlockPoolId());
+    if (bpos != null) {
+      bpos.notifyNamenodeBlockMovedToCoud(block, delHint, storageUuid);
+    } else {
+      LOG.error(
+              "Cannot find BPOfferService for reporting block received for bpid=" +
+                      block.getBlockPoolId());
+    }
+  }
   
   void notifyNamenodeCreatingBlock(ExtendedBlock block, String storageUuid){
     BPOfferService bpos = blockPoolManager.get(block.getBlockPoolId());

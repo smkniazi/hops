@@ -21,7 +21,6 @@ import io.hops.metadata.hdfs.entity.HashBucket;
 import io.hops.metadata.hdfs.entity.Replica;
 import io.hops.transaction.EntityManager;
 import org.apache.hadoop.hdfs.protocol.Block;
-import org.apache.hadoop.hdfs.server.blockmanagement.HashBuckets;
 import org.apache.hadoop.hdfs.server.namenode.INodeFile;
 
 import java.io.IOException;
@@ -29,35 +28,29 @@ import java.util.Collections;
 import java.util.Comparator;
 import java.util.List;
 
-public class LastBlockReplicasHashBucketLock extends Lock {
-  
+public class BlockReplicasHashBucketLock extends Lock {
+
   @Override
   protected void acquire(TransactionLocks locks) throws IOException {
-    BlockLock blockLock = (BlockLock) locks.getLock(Type.Block);
-    for (INodeFile iNodeFile : blockLock.getFiles()) {
-      Block lastBlock = iNodeFile.getLastBlock();
-      if (iNodeFile.getLastBlock() != null) {
-        List<Replica> replicas = (List<Replica>) EntityManager
+    IndividualBlockLock blockLock = (IndividualBlockLock) locks.getLock(Type.Block);
+    List<Replica> replicas = (List<Replica>) EntityManager
             .findList(Replica.Finder.ByBlockIdAndINodeId,
-                lastBlock.getBlockId(),
-                iNodeFile.getId());
-        if (replicas != null) {
-          Collections.sort(replicas, new Comparator<Replica>() {
-            @Override
-            public int compare(Replica o1, Replica o2) {
-              return new Integer(o1.getBucketId()).compareTo(o2.getBucketId());
-            }
-          });
-
-          for (Replica replica : replicas) {
-            EntityManager.find(HashBucket.Finder.ByStorageIdAndBucketId, replica
-                .getStorageId(), replica.getBucketId());
-          }
+                    blockLock.blockId, blockLock.inodeId);
+    if (replicas != null) {
+      Collections.sort(replicas, new Comparator<Replica>() {
+        @Override
+        public int compare(Replica o1, Replica o2) {
+          return new Integer(o1.getBucketId()).compareTo(o2.getBucketId());
         }
+      });
+
+      for (Replica replica : replicas) {
+        EntityManager.find(HashBucket.Finder.ByStorageIdAndBucketId, replica
+                .getStorageId(), replica.getBucketId());
       }
     }
   }
-  
+
   @Override
   protected Type getType() {
     return Type.HashBucket;

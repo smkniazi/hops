@@ -643,7 +643,17 @@ public class FSDirAttrOp {
       throw new FileNotFoundException("File/Directory does not exist: "
           + iip.getPath());
     }
+
     if (inode.isFile()) {
+      if(inode.getStoragePolicyID() == HdfsConstants.CLOUD_STORAGE_POLICY_ID){
+        throw new HadoopIllegalArgumentException("Moving files stored in the cloud is not " +
+                "yet supported");
+      }
+
+      if(inode.getStoragePolicyID() == HdfsConstants.DB_STORAGE_POLICY_ID){
+        throw new HadoopIllegalArgumentException("Moving files stored in the database is not " +
+                "yet supported");
+      }
       inode.asFile().setStoragePolicyID(policyId);
     } else if (inode.isDirectory()) {
       setDirStoragePolicy(fsd, inode.asDirectory(), policyId);

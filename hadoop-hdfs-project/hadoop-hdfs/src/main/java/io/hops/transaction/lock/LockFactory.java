@@ -319,6 +319,10 @@ public class LockFactory {
     return new LastBlockReplicasHashBucketLock();
   }
 
+  public Lock getBlockReplicasHashBucketLock(){
+    return new BlockReplicasHashBucketLock();
+  }
+
   public Lock getAllUsedHashBucketsLock() {
     return new HashBucketsLocksAllFileBlocks();
   }

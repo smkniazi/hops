@@ -46,16 +46,9 @@ import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.StorageType;
 import org.apache.hadoop.hdfs.DFSConfigKeys;
 import org.apache.hadoop.hdfs.DFSUtil;
-import org.apache.hadoop.hdfs.protocol.Block;
-import org.apache.hadoop.hdfs.protocol.BlockStoragePolicy;
-import org.apache.hadoop.hdfs.protocol.DatanodeID;
-import org.apache.hadoop.hdfs.protocol.DatanodeInfo;
-import org.apache.hadoop.hdfs.protocol.ExtendedBlock;
+import org.apache.hadoop.hdfs.protocol.*;
 import org.apache.hadoop.fs.FileEncryptionInfo;
 
-import org.apache.hadoop.hdfs.protocol.LocatedBlock;
-import org.apache.hadoop.hdfs.protocol.LocatedBlocks;
-import org.apache.hadoop.hdfs.protocol.UnregisteredNodeException;
 import org.apache.hadoop.hdfs.security.token.block.BlockTokenIdentifier;
 import org.apache.hadoop.hdfs.security.token.block.BlockTokenSecretManager;
 import org.apache.hadoop.hdfs.security.token.block.BlockTokenIdentifier.AccessMode;
@@ -4435,8 +4428,12 @@ public class BlockManager {
               locks.add(lf.getIndivdualEncodingStatusLock(LockType.WRITE,
                   inodeIdentifier.getInodeId()));
             }
-            locks.add(lf.getIndividualHashBucketLock(storage.getSid(), HashBuckets
-                .getInstance().getBucketForBlock(rdbi.getBlock())));
+            if(rdbi.getBlock().isProvidedBlock()){
+              locks.add(lf.getBlockReplicasHashBucketLock());
+            }else{
+              locks.add(lf.getIndividualHashBucketLock(storage.getSid(), HashBuckets
+                      .getInstance().getBucketForBlock(rdbi.getBlock())));
+            }
           }
 
           @Override
@@ -4488,6 +4485,9 @@ public class BlockManager {
                 removeStoredBlock(rdbi.getBlock(), storage.getDatanodeDescriptor());
                 deleted[0]++;
                 break;
+              case MOVED_TO_CLOUD:
+                throw new UnsupportedOperationException("Operation not yet supported for non " +
+                        "provided blocks");
               default:
                 String msg =
                     "Unknown block status code reported by " + storage.getStorageID() + ": " +
@@ -4561,6 +4561,10 @@ public class BlockManager {
         throw up;
         //deleted[0]++;
         //break;
+      case MOVED_TO_CLOUD:
+        movedBlockToCloud(storage, rdbi, storage.getDatanodeDescriptor());
+        received[0]++;
+        return true;
       default:
         String msg = "Unknown block status code reported by "
                 + storage.getStorageID() + ": " + rdbi;
@@ -4569,6 +4573,43 @@ public class BlockManager {
         return false;
     }
 
+  }
+
+  private void movedBlockToCloud(DatanodeStorageInfo storageInfo, ReceivedDeletedBlockInfo rdbi,
+          DatanodeDescriptor delHintNode)
+          throws IOException {
+    BlockInfoContiguous storedBlock = blocksMap.getStoredBlock(rdbi.getBlock());
+
+    BlockUCState ucState = storedBlock.getBlockUCState();
+    Preconditions.checkArgument(ucState == BlockUCState.COMPLETE);
+
+    INodeFile inode = (INodeFile) EntityManager.find(INode.Finder.ByINodeIdFTIS,
+            storedBlock.getInodeId());
+
+    assert inode.getStoragePolicyID() == HdfsConstants.CLOUD_STORAGE_POLICY_ID;
+    assert storedBlock.getCloudBucket() == CloudBucket.NON_EXISTENT_BUCKET_NAME;
+
+    //At this state the block has been moved to the cloud.
+    //1. Delete all the replicas that are stored on DISK
+    //2. Set the block bucket
+    //3. Remove any under replication entries for the block
+    for (DatanodeStorageInfo dnsi : blocksMap.getStorages(storedBlock)) {
+      invalidateBlocks.add(storedBlock, dnsi, true);
+    }
+
+    storedBlock.removeAllReplicas();
+
+    storedBlock.setCloudBucketNoPersistance(rdbi.getBlock().getCloudBucket());
+    EntityManager.update(storedBlock);
+
+    ProvidedBlocksCacheHelper.updateProvidedBlockCacheLocation(storedBlock,
+            new DatanodeStorageInfo[]{storageInfo} );
+
+    if(neededReplications.contains(storedBlock)){
+      neededReplications.remove(storedBlock);
+    }
+
+    LOG.info("HopsFS-Cloud. Moved block to the cloud");
   }
 
   private void processAndHandleReportedProvidedBlock(

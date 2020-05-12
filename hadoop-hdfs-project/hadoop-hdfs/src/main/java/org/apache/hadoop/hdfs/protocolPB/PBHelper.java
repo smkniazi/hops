@@ -1122,6 +1122,10 @@ public class PBHelper {
       case DELETED_BLOCK:
         status = ReceivedDeletedBlockInfoProto.BlockStatus.DELETED;
         break;
+      case MOVED_TO_CLOUD:
+        status = ReceivedDeletedBlockInfoProto.BlockStatus.MOVED_TO_CLOUD;
+        break;
+
       default:
         throw new IllegalArgumentException(
             "Bad status: " + receivedDeletedBlockInfo.getStatus());
@@ -1157,6 +1161,9 @@ public class PBHelper {
         break;
       case DELETED:
         status = BlockStatus.DELETED_BLOCK;
+        break;
+      case MOVED_TO_CLOUD:
+        status = BlockStatus.MOVED_TO_CLOUD;
         break;
     }
     return new ReceivedDeletedBlockInfo(PBHelper.convert(proto.getBlock()),

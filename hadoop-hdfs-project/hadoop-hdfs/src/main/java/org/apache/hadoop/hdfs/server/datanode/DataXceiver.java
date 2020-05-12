@@ -24,6 +24,7 @@ import static org.apache.hadoop.hdfs.protocol.proto.DataTransferProtos.ShortCirc
 import java.net.SocketTimeoutException;
 import static org.apache.hadoop.util.Time.monotonicNow;
 
+import io.hops.metadata.hdfs.entity.CloudBucket;
 import org.apache.commons.logging.Log;
 import org.apache.hadoop.fs.StorageType;
 import org.apache.hadoop.hdfs.protocol.DatanodeInfo;
@@ -45,6 +46,7 @@ import org.apache.hadoop.hdfs.protocol.proto.DataTransferProtos.ShortCircuitShmR
 import org.apache.hadoop.hdfs.protocol.proto.DataTransferProtos.Status;
 import org.apache.hadoop.hdfs.protocolPB.PBHelper;
 import org.apache.hadoop.hdfs.security.token.block.BlockTokenIdentifier;
+import org.apache.hadoop.hdfs.server.common.CloudHelper;
 import org.apache.hadoop.hdfs.server.common.HdfsServerConstants;
 import org.apache.hadoop.hdfs.server.datanode.fsdataset.LengthInputStream;
 import org.apache.hadoop.hdfs.server.protocol.DatanodeRegistration;
@@ -1159,6 +1161,13 @@ class DataXceiver extends Receiver implements Runnable {
         DataChecksum remoteChecksum = DataTransferProtoUtil.fromProto(
             checksumInfo.getChecksum());
         // open a block receiver and check if the block does not exist
+        boolean isProvidedBlock = storageType == StorageType.CLOUD;
+        String defaultBucket = CloudBucket.NON_EXISTENT_BUCKET_NAME;
+        if(isProvidedBlock){
+          defaultBucket = CloudHelper.getBucketsFromConf(datanode.getConf()).get(0);
+          block.setCloudBucket(defaultBucket);
+        }
+
         blockReceiver = new BlockReceiver(block, storageType,
             proxyReply, proxySock.getRemoteSocketAddress().toString(),
             proxySock.getLocalSocketAddress().toString(),
@@ -1170,9 +1179,14 @@ class DataXceiver extends Receiver implements Runnable {
             dataXceiverServer.balanceThrottler, null, true);
         
         // notify name node
-        datanode.notifyNamenodeReceivedBlock(
-            block, delHint, blockReceiver.getStorageUuid());
-        
+        if(!isProvidedBlock) {
+          datanode.notifyNamenodeReceivedBlock(
+                  block, delHint, blockReceiver.getStorageUuid());
+        } else {
+          datanode.notifyNamenodeBlockMovedToCloud(
+                  block, delHint, blockReceiver.getStorageUuid());
+        }
+
         LOG.info("Moved " + block + " from " + peer.getRemoteAddressString()
             + ", delHint=" + delHint);
       }

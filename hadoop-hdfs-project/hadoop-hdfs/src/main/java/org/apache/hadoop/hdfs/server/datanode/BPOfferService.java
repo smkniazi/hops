@@ -309,6 +309,16 @@ class BPOfferService implements Runnable {
     notifyNamenodeBlockInt(bInfo, storageUuid, true);
   }
 
+  void notifyNamenodeBlockMovedToCoud(ExtendedBlock block, String delHint,
+                                   String storageUuid) {
+    checkBlock(block);
+    ReceivedDeletedBlockInfo bInfo =
+            new ReceivedDeletedBlockInfo(block.getLocalBlock(),
+                    BlockStatus.MOVED_TO_CLOUD, delHint);
+
+    notifyNamenodeBlockInt(bInfo, storageUuid, true);
+  }
+
   private void checkBlock(ExtendedBlock block) {
     Preconditions.checkArgument(block != null, "block is null");
     Preconditions.checkArgument(block.getBlockPoolId().equals(getBlockPoolId()),

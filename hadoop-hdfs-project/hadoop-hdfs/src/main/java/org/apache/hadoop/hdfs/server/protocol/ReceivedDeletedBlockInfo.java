@@ -34,8 +34,9 @@ public class ReceivedDeletedBlockInfo {
     RECOVERING_APPEND(3),
     RECEIVED_BLOCK(4),
     UPDATE_RECOVERED(5),
-    DELETED_BLOCK(6);
-    
+    DELETED_BLOCK(6),
+    MOVED_TO_CLOUD(7);
+
     private final int code;
 
     BlockStatus(int code) {

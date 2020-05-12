@@ -2,13 +2,16 @@ package org.apache.hadoop.hdfs.server.datanode.fsdataset.impl;
 
 import com.amazonaws.services.s3.model.PartETag;
 import com.google.common.annotations.VisibleForTesting;
+import io.hops.metadata.hdfs.entity.CloudBucket;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.CloudProvider;
 import org.apache.hadoop.fs.StorageType;
 import org.apache.hadoop.hdfs.DFSConfigKeys;
+import org.apache.hadoop.hdfs.ExtendedBlockId;
 import org.apache.hadoop.hdfs.protocol.Block;
 import org.apache.hadoop.hdfs.protocol.ExtendedBlock;
 import org.apache.hadoop.hdfs.server.common.CloudHelper;
+import org.apache.hadoop.hdfs.server.common.HdfsServerConstants;
 import org.apache.hadoop.hdfs.server.datanode.*;
 import org.apache.hadoop.hdfs.server.datanode.fsdataset.CloudPersistenceProvider;
 
@@ -22,7 +25,9 @@ import org.apache.hadoop.hdfs.server.datanode.fsdataset.FsVolumeReference;
 import org.apache.hadoop.hdfs.server.datanode.fsdataset.LengthInputStream;
 import org.apache.hadoop.hdfs.server.protocol.BlockReport;
 import org.apache.hadoop.hdfs.server.protocol.DatanodeStorage;
+import org.apache.hadoop.io.IOUtils;
 import org.apache.hadoop.util.DataChecksum;
+import org.apache.hadoop.util.Time;
 
 public class CloudFsDatasetImpl extends FsDatasetImpl {
   /**
@@ -143,35 +148,11 @@ public class CloudFsDatasetImpl extends FsDatasetImpl {
       File cDir = cloudVol.getCacheDir(b.getBlockPoolId());
 
       File movedBlock = new File(cDir, CloudHelper.getBlockKey(prefixSize, b.getLocalBlock()));
-      File movedBlockParent = new File(movedBlock.getParent());
-      if (!movedBlockParent.exists()) {
-        movedBlockParent.mkdir();
-      }
-
-      if (!blockFile.renameTo(movedBlock)) {
-        LOG.warn("HopsFS-Cloud. Unable to move finalized block to cache. src: "
-                + blockFile.getAbsolutePath() + " dst: " + movedBlock.getAbsolutePath());
-        blockFile.delete();
-      } else {
-        providedBlocksCacheUpdateTS(b.getBlockPoolId(), movedBlock);
-        LOG.debug("HopsFS-Cloud. Moved " + movedBlock.getName() + " to cache. path " + movedBlock);
-      }
-
       File movedMetaFile = new File(cDir, CloudHelper.getMetaFileKey(prefixSize,
               b.getLocalBlock()));
-      File movedMetaFileParent = new File(movedMetaFile.getParent());
-      if (!movedMetaFileParent.exists()) {
-        movedMetaFileParent.mkdir();
-      }
 
-      if (!metaFile.renameTo(movedMetaFile)) {
-        LOG.warn("HopsFS-Cloud. Unable to move finalized block meta file to cache. src: "
-                + blockFile.getAbsolutePath() + " dst: " + movedBlock.getAbsolutePath());
-        metaFile.delete();
-      } else {
-        providedBlocksCacheUpdateTS(b.getBlockPoolId(), movedMetaFile);
-        LOG.debug("HopsFS-Cloud. Moved " + movedMetaFile.getName() + " to cache. path : " + movedMetaFile);
-      }
+      moveToCache(blockFile, movedBlock, b.getBlockPoolId());
+      moveToCache(metaFile, movedMetaFile, b.getBlockPoolId());
     }
   }
 
@@ -321,7 +302,8 @@ public class CloudFsDatasetImpl extends FsDatasetImpl {
     final List<String> errors = new ArrayList<String>();
 
     for (Block b : invalidBlks) {
-      if (b.isProvidedBlock() && volumeMap.get(bpid, b.getBlockId()) != null) {
+      if (!b.isProvidedBlock() ||
+              (b.isProvidedBlock() && volumeMap.get(bpid, b.getBlockId()) != null)) {
         super.invalidateBlock(bpid, b, errors);
       } else {
         invalidateProvidedBlock(bpid, b, errors);
@@ -637,6 +619,110 @@ public class CloudFsDatasetImpl extends FsDatasetImpl {
             cloud.getPartSize());
     volumeMap.add(b.getBlockPoolId(), providedReplicaBeingWritten);
     return new ReplicaHandler(providedReplicaBeingWritten, ref);
+  }
+
+  /**
+   * Move block files from one storage to another storage.
+   * @return Returns the Old replicaInfo
+   * @throws IOException
+   */
+  @Override
+  public ReplicaInfo moveBlockAcrossStorage(ExtendedBlock block,
+                                            StorageType targetStorageType) throws IOException {
+    if (block.isProvidedBlock()) {
+      throw new IOException("Moving files stored in the cloud is not supported");
+    } else if (targetStorageType != StorageType.CLOUD) { //moving between non-cloud storages
+      return super.moveBlockAcrossStorage(block, targetStorageType);
+    } else {
+      //moving data from disk to cloud
+      LOG.info("HopsFS-Cloud. Moving block: " + block + " to " + targetStorageType);
+
+      ReplicaInfo replicaInfo = getReplicaInfo(block);
+      if (replicaInfo.getState() != HdfsServerConstants.ReplicaState.FINALIZED) {
+        throw new ReplicaNotFoundException(
+                ReplicaNotFoundException.UNFINALIZED_REPLICA + block);
+      }
+
+      if (replicaInfo.getNumBytes() != block.getNumBytes()) {
+        throw new IOException("Corrupted replica " + replicaInfo
+                + " with a length of " + replicaInfo.getNumBytes()
+                + " expected length is " + block.getNumBytes());
+      }
+
+      String bucket = block.getCloudBucket();
+      //Check if already uploaded to the cloud
+      if (block.getCloudBucket().equals(CloudBucket.NON_EXISTENT_BUCKET_NAME)) {
+        //FIXME get the bucket / container name from the namenode
+        List<String> buckets = CloudHelper.getBucketsFromConf(conf);
+        if(buckets.size()>0){
+          bucket = buckets.get(0);
+          block.setCloudBucket(bucket);
+        } else{
+          String error = "HopsFS-Cloud. Moving block: " + block + ". Bucket not set";
+          LOG.error(error);
+          throw new IOException(error);
+        }
+      }
+
+      ReplicaInfo newReplicaInfo = new FinalizedReplica(replicaInfo, getCloudVolume(),
+              getCloudVolume().getCacheDir(block.getBlockPoolId()));
+      newReplicaInfo.setCloudBucketNoPersistance(bucket);
+      ExtendedBlock extendedBlock = new ExtendedBlock(block.getBlockPoolId(), newReplicaInfo);
+
+      String blockFileKey = CloudHelper.getBlockKey(prefixSize, block.getLocalBlock());
+      String metaFileKey = CloudHelper.getMetaFileKey(prefixSize, block.getLocalBlock());
+      if (cloud.objectExists(block.getCloudBucket(), blockFileKey) &&
+              cloud.objectExists(block.getCloudBucket(), metaFileKey)) {
+        LOG.info("HopsFS-Cloud. Block " + block + " has already been moved to the cloud");
+        return null;
+      } else {
+        LOG.info("HopsFS-Cloud. Moving Block: " + block + " to the cloud.");
+        FsVolumeImpl vol = getCloudVolume();
+        File cachedBlockFile = new File(vol.getCacheDir(block.getBlockPoolId()), blockFileKey);
+        File cachedMetaFile = new File(vol.getCacheDir(block.getBlockPoolId()), metaFileKey);
+
+        //copy to cloud volume
+        cloud.uploadObject(block.getCloudBucket(), blockFileKey, replicaInfo.getBlockFile(),
+                getBlockFileMetadata(block.getLocalBlock()));
+        cloud.uploadObject(block.getCloudBucket(), metaFileKey, replicaInfo.getMetaFile(),
+                getMetaMetadata(block.getLocalBlock()));
+
+        datanode.getShortCircuitRegistry().processBlockInvalidation(
+                ExtendedBlockId.fromExtendedBlock(extendedBlock));
+        datanode.notifyNamenodeBlockMovedToCloud(
+                extendedBlock, replicaInfo.getStorageUuid(), newReplicaInfo.getStorageUuid());
+
+        moveToCache(replicaInfo.getBlockFile(), cachedBlockFile, block.getBlockPoolId());
+        moveToCache(replicaInfo.getMetaFile(), cachedMetaFile, block.getBlockPoolId());
+
+        // remove from volumeMap, so we can get it from s3 instead
+        volumeMap.remove(block.getBlockPoolId(), block.getBlockId());
+
+        return replicaInfo;
+      }
+    }
+  }
+
+  private boolean moveToCache(File from, File to, String bpid) throws IOException {
+    if(bypassCache){
+      from.delete();
+      return false;
+    } else {
+      File toBlockParent = new File(to.getParent());
+      if (!toBlockParent.exists()) {
+        toBlockParent.mkdir();
+      }
+
+      if (from.renameTo(to)) {
+        LOG.debug("HopsFS-Cloud. Block file " + from + " moved to cloud cache location "+to);
+        providedBlocksCacheUpdateTS(bpid, to);
+        return true;
+      } else {
+        String error = "HopsFS-Cloud. Moving file: " + from + " to "+to+" failed";
+        LOG.error(error);
+        return false;
+      }
+    }
   }
 
   public void uploadPart(ExtendedBlock b) throws IOException {
