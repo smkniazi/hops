@@ -74,7 +74,8 @@ allowed_expr+="|^libndbclient.so"
 allowed_expr+="|^ndb-config.properties$"
 #   * some anoying bug with consul force us to have that in our jar :(
 allowed_expr+="|^android/|^android/os/|^android/os/Handler.class$"
-
+#   * the s3 client we use for the cloud import this file
+allowed_expr+="|^mime.type"
 allowed_expr+=")"
 declare -i bad_artifacts=0
 declare -a bad_contents

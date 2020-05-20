@@ -18,11 +18,11 @@
 <parent>
    <groupId>io.hops</groupId>
    <artifactId>hadoop-project</artifactId>
-   <version>3.2.0.0-SNAPSHOT</version>
+   <version>3.2.0.0-EE-SNAPSHOT</version>
    <relativePath>../../hadoop-project</relativePath>
 </parent>
   <artifactId>hadoop-client-runtime</artifactId>
-  <version>3.2.0.0-SNAPSHOT</version>
+  <version>3.2.0.0-EE-SNAPSHOT</version>
   <packaging>jar</packaging>
 
   <description>Apache Hadoop Client</description>
@@ -302,6 +302,10 @@
                         <exclude>io/sort/*</exclude>
                         <exclude>io/serializations</exclude>
                       </excludes>
+                    </relocation>
+		    <relocation>
+                      <pattern>software/</pattern>
+                      <shadedPattern>${shaded.dependency.prefix}.software.</shadedPattern>
                     </relocation>
                     <!-- JSRs that haven't made it to inclusion in J2SE -->
                     <relocation>

@@ -18,11 +18,11 @@
   <parent>
     <groupId>io.hops</groupId>
     <artifactId>hadoop-project</artifactId>
-    <version>3.2.0.0-SNAPSHOT</version>
+    <version>3.2.0.0-EE-SNAPSHOT</version>
     <relativePath>../../hadoop-project</relativePath>
   </parent>
   <artifactId>hadoop-client-minicluster</artifactId>
-  <version>3.2.0.0-SNAPSHOT</version>
+  <version>3.2.0.0-EE-SNAPSHOT</version>
   <packaging>jar</packaging>
 
   <description>Apache Hadoop Minicluster for Clients</description>
@@ -337,6 +337,10 @@
         <exclusion>
           <groupId>org.bouncycastle</groupId>
           <artifactId>bcpkix-jdk15on</artifactId>
+        </exclusion>
+	<exclusion>
+	  <groupId>com.amazonaws</groupId>
+	  <artifactId>aws-java-sdk-s3</artifactId>
         </exclusion>
       </exclusions>
     </dependency>
