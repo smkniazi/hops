@@ -258,7 +258,7 @@ public class BlockInfoContiguous extends Block {
     if (loc != null) {
       // check that the datanode is alive
       DatanodeDescriptor dns = dnMgm.getDatanodeBySid(loc.getStorageID());
-      if (dns.isAlive && !dns.isStale(dnMgm.getStaleInterval())) {
+      if (dns != null && dns.isAlive && !dns.isStale(dnMgm.getStaleInterval())) {
         if(LOG.isDebugEnabled()){
           LOG.debug("HopsFS-Cloud. The block ID: " + getBlockId() + " is cached on DN: " + dns.toString());
         }

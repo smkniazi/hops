@@ -168,7 +168,7 @@ public class CloudTestHelper {
     return (List<InvalidatedBlock>) handler.handle();
   }
 
-  private static List<UnderReplicatedBlock> findAllUnderReplicatedBlocks() throws IOException {
+  public static List<UnderReplicatedBlock> findAllUnderReplicatedBlocks() throws IOException {
     LightWeightRequestHandler handler =
             new LightWeightRequestHandler(HDFSOperationType.TEST) {
               @Override

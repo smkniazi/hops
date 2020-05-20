@@ -356,11 +356,9 @@ public class Mover {
       }
 
       if(db.getBlock().isProvidedBlock() || targetTypes.get(0) == StorageType.CLOUD ){
-        LOG.warn("YYY not supported Src: "+db.getBlock()+" stoagetype "+targetTypes.get(0));
+        LOG.warn("Moving blocks to Cloud volumes across datanodes is not supported Src: "+db.getBlock()+
+                " stoagetype "+targetTypes.get(0));
         return false;
-
-      } else {
-        LOG.warn("YYY schedling on remove node");
       }
 
       if (dispatcher.getCluster().isNodeGroupAware()) {
@@ -390,6 +388,7 @@ public class Mover {
         }
         final PendingMove pm = source.addPendingMove(db, target);
         if (pm != null) {
+          LOG.info("XXX scheduling move "+db.getBlock().getBlockName());
           dispatcher.executePendingMove(pm);
           return true;
         }
@@ -542,7 +541,7 @@ public class Mover {
     }
   }
 
-  static class Cli extends Configured implements Tool {
+  public static class Cli extends Configured implements Tool {
     private static final String USAGE = "Usage: hdfs mover "
             + "[-p <files/dirs> | -f <local file>]"
             + "\n\t-p <files/dirs>\ta space separated list of HDFS files/dirs to migrate."

@@ -50,10 +50,14 @@ public class HopsFilesTestHelper {
     os.close();
   }
 
-  public static void writeFile(FileSystem fs, String name, int size) throws IOException {
-    FSDataOutputStream os = (FSDataOutputStream) fs.create(new Path(name), (short) 3);
+  public static void writeFile(FileSystem fs, String name, int size, short replication) throws IOException {
+    FSDataOutputStream os = (FSDataOutputStream) fs.create(new Path(name), replication);
     writeData(os, 0, size);
     os.close();
+  }
+
+  public static void writeFile(FileSystem fs, String name, int size) throws IOException {
+    writeFile(fs,name, size, (short)3);
   }
 
   public static void writeData(FSDataOutputStream os, int existingSize, int size) throws IOException {

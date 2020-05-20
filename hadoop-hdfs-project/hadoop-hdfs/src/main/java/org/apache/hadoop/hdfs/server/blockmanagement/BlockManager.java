@@ -3815,7 +3815,8 @@ public class BlockManager {
     NumberReplicas num = countNodes(block);
     int numCurrentReplica = num.liveReplicas();
     // add to under-replicated queue if need to be
-    if (isNeededReplication(block, expectedReplication, numCurrentReplica)) {
+    if (!block.isProvidedBlock() && isNeededReplication(block, expectedReplication,
+            numCurrentReplica)) {
       if (neededReplications.add(block, numCurrentReplica, num
           .decommissionedAndDecommissioning(), expectedReplication)) {
         return MisReplicationResult.UNDER_REPLICATED;

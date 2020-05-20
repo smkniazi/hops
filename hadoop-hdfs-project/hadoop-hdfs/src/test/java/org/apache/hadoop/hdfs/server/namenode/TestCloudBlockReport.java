@@ -29,13 +29,16 @@ import org.apache.hadoop.fs.*;
 import org.apache.hadoop.hdfs.*;
 import org.apache.hadoop.hdfs.protocol.Block;
 import org.apache.hadoop.hdfs.protocol.CloudBlock;
+import org.apache.hadoop.hdfs.protocol.HdfsConstants;
 import org.apache.hadoop.hdfs.server.blockmanagement.BlockInfoContiguous;
 import org.apache.hadoop.hdfs.server.blockmanagement.ProvidedBlocksChecker;
 import org.apache.hadoop.hdfs.server.common.CloudHelper;
 import org.apache.hadoop.hdfs.server.datanode.fsdataset.CloudPersistenceProvider;
 import org.apache.hadoop.hdfs.server.datanode.fsdataset.impl.CloudFsDatasetImpl;
 import org.apache.hadoop.hdfs.server.datanode.fsdataset.impl.CloudPersistenceProviderFactory;
+import org.apache.hadoop.hdfs.server.mover.Mover;
 import org.apache.hadoop.hdfs.server.protocol.*;
+import org.apache.hadoop.util.ToolRunner;
 import org.apache.log4j.Level;
 import org.apache.log4j.Logger;
 import org.junit.*;
@@ -50,9 +53,8 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
-import static org.apache.hadoop.hdfs.HopsFilesTestHelper.*;
-
 import static junit.framework.TestCase.assertTrue;
+import static org.apache.hadoop.hdfs.HopsFilesTestHelper.writeFile;
 import static org.junit.Assert.fail;
 
 @FixMethodOrder(MethodSorters.NAME_ASCENDING)
@@ -69,7 +71,8 @@ public class TestCloudBlockReport {
 
   @Before
   public void setup() {
-    Logger.getLogger(ProvidedBlocksChecker.class).setLevel(Level.DEBUG);
+    Logger.getRootLogger().setLevel(Level.INFO);
+//    Logger.getLogger(ProvidedBlocksChecker.class).setLevel(Level.TRACE);
   }
 
   /**
@@ -921,6 +924,90 @@ public class TestCloudBlockReport {
 
       fail("Abandoned blocks were not cleaned by the block reporting system. Active multipart " +
               "uploads: "+cloud.listMultipartUploads(Lists.newArrayList(CloudHelper.getAllBuckets().keySet())).size());
+
+    } catch (Exception e) {
+      e.printStackTrace();
+      fail(e.getMessage());
+    } finally {
+      if (cluster != null) {
+        cluster.shutdown();
+      }
+    }
+  }
+
+  /*
+  Testing scenario encountered on hopsworks.ai
+   */
+  @Test
+  public void TestBlockReport() throws IOException {
+    CloudTestHelper.purgeS3();
+    MiniDFSCluster cluster = null;
+    try {
+
+      final int BLKSIZE = 128 * 1024;
+      final int NUM_DN = 1;
+
+      Configuration conf = new HdfsConfiguration();
+      conf.setBoolean(DFSConfigKeys.DFS_ENABLE_CLOUD_PERSISTENCE, true);
+      conf.setInt(DFSConfigKeys.DFS_REPLICATION_KEY, 1);
+      conf.set(DFSConfigKeys.DFS_CLOUD_PROVIDER, CloudProvider.AWS.name());
+      conf.setLong(DFSConfigKeys.DFS_BLOCK_SIZE_KEY, BLKSIZE);
+
+      conf.setLong(DFSConfigKeys.DFS_CLOUD_BLOCK_REPORT_THREAD_SLEEP_INTERVAL_KEY, 1000);
+      conf.setLong(DFSConfigKeys.DFS_CLOUD_PREFIX_SIZE_KEY, 10);
+      conf.setLong(DFSConfigKeys.DFS_CLOUD_BLOCK_REPORT_DELAY_KEY,
+              DFSConfigKeys.DFS_CLOUD_BLOCK_REPORT_DELAY_DEFAULT);
+      conf.setLong(DFSConfigKeys.DFS_NAMENODE_BLOCKID_BATCH_SIZE, 10);
+      conf.setInt(DFSConfigKeys.DFS_DATANODE_BALANCE_MAX_NUM_CONCURRENT_MOVES_KEY, 20);
+
+      CloudTestHelper.setRandomBucketPrefix(conf, testname);
+
+      cluster = new MiniDFSCluster.Builder(conf).numDataNodes(NUM_DN)
+              .storageTypes(CloudTestHelper.genStorageTypes(NUM_DN)).format(true).build();
+      cluster.waitActive();
+
+      DistributedFileSystem dfs = cluster.getFileSystem();
+
+      assert dfs.getStoragePolicy(new Path("/")).getId() != HdfsConstants.COLD_STORAGE_POLICY_ID;
+
+      dfs.mkdirs(new Path("/dir"));
+      dfs.setStoragePolicy(new Path("/dir"), "HOT");
+
+      //write some files
+      int numFile = 5;
+      int blocksPerFile = 2;
+      for(int i = 0; i < 5 ; i++){
+        writeFile(dfs, "/dir/file" + i, BLKSIZE * 2, (short)3);
+      }
+
+      assert CloudTestHelper.findAllUnderReplicatedBlocks().size() == numFile * blocksPerFile;
+
+      dfs.setStoragePolicy(new Path("/dir"), "CLOUD");
+      int rc = ToolRunner.run(conf, new Mover.Cli(),
+              new String[]{"-p", "/dir"});
+      Assert.assertEquals("Movement to CLOUD should be successfull", 0, rc);
+
+      assert CloudTestHelper.findAllUnderReplicatedBlocks().size() == 0;
+
+      ProvidedBlocksChecker pbc =
+              cluster.getNamesystem().getBlockManager().getProvidedBlocksChecker();
+
+      long brCount = pbc.getProvidedBlockReportsCount();
+      pbc.scheduleBlockReportNow();
+      long ret = CloudBlockReportTestHelper.waitForBRCompletion(pbc, brCount + 1);
+      assertTrue("Exptected " + brCount + 1 + " Got: " + ret, (brCount + 1) == ret);
+
+      cluster.restartNameNodes();
+      cluster.waitActive();
+
+      brCount = pbc.getProvidedBlockReportsCount();
+      pbc.scheduleBlockReportNow();
+      ret = CloudBlockReportTestHelper.waitForBRCompletion(pbc, brCount + 1);
+      assertTrue("Exptected " + brCount + 1 + " Got: " + ret, (brCount + 1) == ret);
+
+      Thread.sleep(10000);
+
+      assert CloudTestHelper.findAllUnderReplicatedBlocks().size() == 0;
 
     } catch (Exception e) {
       e.printStackTrace();
