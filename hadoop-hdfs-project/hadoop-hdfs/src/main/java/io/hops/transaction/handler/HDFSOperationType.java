@@ -162,6 +162,7 @@ public enum HDFSOperationType implements OperationType {
   LEASE_MANAGER_MONITOR,
   GET_SORTED_LEASES,
   REMOVE_ALL_LEASES,
+  CREATE_LEASE_LOCKS,
   // LeaderElection
   SELECT_ALL_NAMENODES,
   LEADER_EXIT,

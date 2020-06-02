@@ -160,6 +160,8 @@ public class TestHeartbeatHandling {
   @Test
   public void testHeartbeatBlockRecovery() throws Exception {
     final Configuration conf = new HdfsConfiguration();
+    int leaseCreationLockRows = conf.getInt(DFSConfigKeys.DFS_LEASE_CREATION_LOCKS_COUNT_KEY,
+            DFSConfigKeys.DFS_LEASE_CREATION_LOCKS_COUNT_DEFAULT);
     final MiniDFSCluster cluster = new MiniDFSCluster.Builder(conf).numDataNodes(3).build();
     try {
       cluster.waitActive();
@@ -190,7 +192,8 @@ public class TestHeartbeatHandling {
             dd1.getStorageInfos()[0],
             dd2.getStorageInfos()[0],
             dd3.getStorageInfos()[0]};
-          BlockInfoContiguousUnderConstruction blockInfo = createBlockInfoUnderConstruction(storages);
+          BlockInfoContiguousUnderConstruction blockInfo =
+                  createBlockInfoUnderConstruction(storages, leaseCreationLockRows);
           dd1.addBlockToBeRecovered(blockInfo);
           DatanodeCommand[] cmds = NameNodeAdapter.sendHeartBeat(nodeReg1, dd1, namesystem).getCommands();
           assertEquals(1, cmds.length);
@@ -214,7 +217,7 @@ public class TestHeartbeatHandling {
           // More than the default stale interval of 30 seconds.
           DFSTestUtil.resetLastUpdatesWithOffset(dd2, -40 * 1000);
           DFSTestUtil.resetLastUpdatesWithOffset(dd3, 0);
-          blockInfo = createBlockInfoUnderConstruction(storages);
+          blockInfo = createBlockInfoUnderConstruction(storages, leaseCreationLockRows);
           dd1.addBlockToBeRecovered(blockInfo);
           cmds = NameNodeAdapter.sendHeartBeat(nodeReg1, dd1, namesystem).getCommands();
           assertEquals(1, cmds.length);
@@ -238,7 +241,7 @@ public class TestHeartbeatHandling {
           // More than the default stale interval of 30 seconds.
           DFSTestUtil.resetLastUpdatesWithOffset(dd2, - 40 * 1000);
           DFSTestUtil.resetLastUpdatesWithOffset(dd3, - 80 * 1000);
-          blockInfo = createBlockInfoUnderConstruction(storages);
+          blockInfo = createBlockInfoUnderConstruction(storages, leaseCreationLockRows);
           dd1.addBlockToBeRecovered(blockInfo);
           cmds = NameNodeAdapter.sendHeartBeat(nodeReg1, dd1, namesystem).getCommands();
           assertEquals(1, cmds.length);
@@ -266,7 +269,8 @@ public class TestHeartbeatHandling {
     }
   }
   
-  private BlockInfoContiguousUnderConstruction createBlockInfoUnderConstruction(final DatanodeStorageInfo[] storages) throws
+  private BlockInfoContiguousUnderConstruction createBlockInfoUnderConstruction(final DatanodeStorageInfo[] storages,
+                                                                                int leaseCreationLockRows) throws
       IOException {
     return (BlockInfoContiguousUnderConstruction) new HopsTransactionalRequestHandler(
         HDFSOperationType.COMMIT_BLOCK_SYNCHRONIZATION) {
@@ -282,7 +286,7 @@ public class TestHeartbeatHandling {
         locks.add(
             lf.getIndividualINodeLock(TransactionLockTypes.INodeLockType.WRITE, inodeIdentifier, true))
             .add(
-                lf.getLeaseLockAllPaths(TransactionLockTypes.LockType.WRITE))
+                lf.getLeaseLockAllPaths(TransactionLockTypes.LockType.WRITE, leaseCreationLockRows))
             .add(lf.getLeasePathLock(TransactionLockTypes.LockType.READ_COMMITTED))
             .add(lf.getBlockLock(10, inodeIdentifier))
             .add(lf.getBlockRelated(LockFactory.BLK.RE, LockFactory.BLK.CR, LockFactory.BLK.ER, LockFactory.BLK.UC,

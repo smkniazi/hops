@@ -38,6 +38,7 @@ import static org.mockito.Mockito.spy;
 import java.io.IOException;
 
 import org.apache.hadoop.conf.Configuration;
+import org.apache.hadoop.hdfs.DFSConfigKeys;
 import org.apache.hadoop.hdfs.MiniDFSCluster;
 import org.apache.hadoop.hdfs.server.blockmanagement.DatanodeDescriptor;
 import org.apache.hadoop.hdfs.protocol.Block;
@@ -63,10 +64,13 @@ public class TestCommitBlockSynchronization {
   private static final long genStamp = 300;
   private static final String NON_EXISTING_BUCKET_ID = CloudBucket.NON_EXISTENT_BUCKET_NAME;
 
+  private int leaseCreationLockRows;
   private MiniDFSCluster cluster;
   @Before
   public void setup() throws IOException{
     Configuration conf = new Configuration();
+    int leaseCreationLockRows = conf.getInt(DFSConfigKeys.DFS_LEASE_CREATION_LOCKS_COUNT_KEY,
+            DFSConfigKeys.DFS_LEASE_CREATION_LOCKS_COUNT_DEFAULT);
     cluster = new MiniDFSCluster.Builder(conf).build();
   }
       
@@ -130,7 +134,7 @@ public class TestCommitBlockSynchronization {
         locks.add(
             lf.getIndividualINodeLock(TransactionLockTypes.INodeLockType.WRITE, inodeIdentifier, true))
             .add(
-                lf.getLeaseLockAllPaths(TransactionLockTypes.LockType.WRITE))
+                lf.getLeaseLockAllPaths(TransactionLockTypes.LockType.WRITE, leaseCreationLockRows))
             .add(lf.getLeasePathLock(TransactionLockTypes.LockType.READ_COMMITTED))
 
             .add(lf.getBlockLock(10, inodeIdentifier))
@@ -210,7 +214,7 @@ public class TestCommitBlockSynchronization {
         locks.add(
             lf.getIndividualINodeLock(TransactionLockTypes.INodeLockType.WRITE, inodeIdentifier, true))
             .add(
-                lf.getLeaseLockAllPaths(TransactionLockTypes.LockType.WRITE))
+                lf.getLeaseLockAllPaths(TransactionLockTypes.LockType.WRITE, leaseCreationLockRows))
             .add(lf.getLeasePathLock(TransactionLockTypes.LockType.READ_COMMITTED))
             .add(lf.getBlockLock(10, inodeIdentifier))
             .add(lf.getBlockRelated(LockFactory.BLK.RE, LockFactory.BLK.CR, LockFactory.BLK.ER, LockFactory.BLK.UC,
