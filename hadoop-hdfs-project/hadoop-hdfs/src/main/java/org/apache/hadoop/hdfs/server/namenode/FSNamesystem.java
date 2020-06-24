@@ -17,6 +17,10 @@
  */
 package org.apache.hadoop.hdfs.server.namenode;
 
+import com.google.common.annotations.VisibleForTesting;
+import com.google.common.base.Preconditions;
+import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.Lists;
 import com.google.protobuf.InvalidProtocolBufferException;
 import io.hops.common.IDsGeneratorFactory;
 import io.hops.common.IDsMonitor;
@@ -41,72 +45,10 @@ import io.hops.transaction.lock.*;
 import io.hops.transaction.lock.TransactionLockTypes.INodeLockType;
 import io.hops.transaction.lock.TransactionLockTypes.INodeResolveType;
 import io.hops.transaction.lock.TransactionLockTypes.LockType;
-import static org.apache.hadoop.util.Time.monotonicNow;
-
-import java.util.TreeMap;
-import static org.apache.hadoop.crypto.key.KeyProviderCryptoExtension
-    .EncryptedKeyVersion;
-import static org.apache.hadoop.fs.CommonConfigurationKeysPublic.FS_TRASH_INTERVAL_DEFAULT;
-import static org.apache.hadoop.fs.CommonConfigurationKeysPublic.FS_TRASH_INTERVAL_KEY;
-import static org.apache.hadoop.fs.CommonConfigurationKeysPublic.IO_FILE_BUFFER_SIZE_DEFAULT;
-import static org.apache.hadoop.fs.CommonConfigurationKeysPublic.IO_FILE_BUFFER_SIZE_KEY;
-import static org.apache.hadoop.hdfs.DFSConfigKeys.DFS_BLOCK_SIZE_DEFAULT;
-import static org.apache.hadoop.hdfs.DFSConfigKeys.DFS_BLOCK_SIZE_KEY;
-import static org.apache.hadoop.hdfs.DFSConfigKeys.DFS_BYTES_PER_CHECKSUM_DEFAULT;
-import static org.apache.hadoop.hdfs.DFSConfigKeys.DFS_BYTES_PER_CHECKSUM_KEY;
-import static org.apache.hadoop.hdfs.DFSConfigKeys.DFS_CHECKSUM_TYPE_DEFAULT;
-import static org.apache.hadoop.hdfs.DFSConfigKeys.DFS_CHECKSUM_TYPE_KEY;
-import static org.apache.hadoop.hdfs.DFSConfigKeys.DFS_CLIENT_WRITE_PACKET_SIZE_DEFAULT;
-import static org.apache.hadoop.hdfs.DFSConfigKeys.DFS_CLIENT_WRITE_PACKET_SIZE_KEY;
-import static org.apache.hadoop.hdfs.DFSConfigKeys.DFS_ENCRYPT_DATA_TRANSFER_DEFAULT;
-import static org.apache.hadoop.hdfs.DFSConfigKeys.DFS_ENCRYPT_DATA_TRANSFER_KEY;
-import static org.apache.hadoop.hdfs.DFSConfigKeys.DFS_NAMENODE_ACCESSTIME_PRECISION_DEFAULT;
-import static org.apache.hadoop.hdfs.DFSConfigKeys.DFS_NAMENODE_ACCESSTIME_PRECISION_KEY;
-import static org.apache.hadoop.hdfs.DFSConfigKeys.DFS_NAMENODE_AUDIT_LOGGERS_KEY;
-import static org.apache.hadoop.hdfs.DFSConfigKeys.DFS_NAMENODE_AUDIT_LOG_ASYNC_DEFAULT;
-import static org.apache.hadoop.hdfs.DFSConfigKeys.DFS_NAMENODE_AUDIT_LOG_ASYNC_KEY;
-import static org.apache.hadoop.hdfs.DFSConfigKeys.DFS_NAMENODE_AUDIT_LOG_TOKEN_TRACKING_ID_DEFAULT;
-import static org.apache.hadoop.hdfs.DFSConfigKeys.DFS_NAMENODE_AUDIT_LOG_TOKEN_TRACKING_ID_KEY;
-import static org.apache.hadoop.hdfs.DFSConfigKeys.DFS_NAMENODE_DEFAULT_AUDIT_LOGGER_NAME;
-import static org.apache.hadoop.hdfs.DFSConfigKeys.DFS_NAMENODE_DELEGATION_KEY_UPDATE_INTERVAL_DEFAULT;
-import static org.apache.hadoop.hdfs.DFSConfigKeys.DFS_NAMENODE_DELEGATION_KEY_UPDATE_INTERVAL_KEY;
-import static org.apache.hadoop.hdfs.DFSConfigKeys.DFS_NAMENODE_DELEGATION_TOKEN_ALWAYS_USE_DEFAULT;
-import static org.apache.hadoop.hdfs.DFSConfigKeys.DFS_NAMENODE_DELEGATION_TOKEN_ALWAYS_USE_KEY;
-import static org.apache.hadoop.hdfs.DFSConfigKeys.DFS_NAMENODE_DELEGATION_TOKEN_MAX_LIFETIME_DEFAULT;
-import static org.apache.hadoop.hdfs.DFSConfigKeys.DFS_NAMENODE_DELEGATION_TOKEN_MAX_LIFETIME_KEY;
-import static org.apache.hadoop.hdfs.DFSConfigKeys.DFS_NAMENODE_DELEGATION_TOKEN_RENEW_INTERVAL_DEFAULT;
-import static org.apache.hadoop.hdfs.DFSConfigKeys.DFS_NAMENODE_DELEGATION_TOKEN_RENEW_INTERVAL_KEY;
-import static org.apache.hadoop.hdfs.DFSConfigKeys.DFS_NAMENODE_ENABLE_RETRY_CACHE_DEFAULT;
-import static org.apache.hadoop.hdfs.DFSConfigKeys.DFS_NAMENODE_ENABLE_RETRY_CACHE_KEY;
-import static org.apache.hadoop.hdfs.DFSConfigKeys.DFS_NAMENODE_MAX_OBJECTS_DEFAULT;
-import static org.apache.hadoop.hdfs.DFSConfigKeys.DFS_NAMENODE_MAX_OBJECTS_KEY;
-import static org.apache.hadoop.hdfs.DFSConfigKeys.DFS_NAMENODE_REPLICATION_MIN_DEFAULT;
-import static org.apache.hadoop.hdfs.DFSConfigKeys.DFS_NAMENODE_REPLICATION_MIN_KEY;
-import static org.apache.hadoop.hdfs.DFSConfigKeys.DFS_NAMENODE_REPL_QUEUE_THRESHOLD_PCT_KEY;
-import static org.apache.hadoop.hdfs.DFSConfigKeys.DFS_NAMENODE_RESOURCE_CHECK_INTERVAL_DEFAULT;
-import static org.apache.hadoop.hdfs.DFSConfigKeys.DFS_NAMENODE_RESOURCE_CHECK_INTERVAL_KEY;
-import static org.apache.hadoop.hdfs.DFSConfigKeys.DFS_NAMENODE_RETRY_CACHE_EXPIRYTIME_MILLIS_DEFAULT;
-import static org.apache.hadoop.hdfs.DFSConfigKeys.DFS_NAMENODE_RETRY_CACHE_EXPIRYTIME_MILLIS_KEY;
-import static org.apache.hadoop.hdfs.DFSConfigKeys.DFS_NAMENODE_RETRY_CACHE_HEAP_PERCENT_DEFAULT;
-import static org.apache.hadoop.hdfs.DFSConfigKeys.DFS_NAMENODE_RETRY_CACHE_HEAP_PERCENT_KEY;
-import static org.apache.hadoop.hdfs.DFSConfigKeys.DFS_NAMENODE_SAFEMODE_EXTENSION_KEY;
-import static org.apache.hadoop.hdfs.DFSConfigKeys.DFS_NAMENODE_SAFEMODE_MIN_DATANODES_DEFAULT;
-import static org.apache.hadoop.hdfs.DFSConfigKeys.DFS_NAMENODE_SAFEMODE_MIN_DATANODES_KEY;
-import static org.apache.hadoop.hdfs.DFSConfigKeys.DFS_NAMENODE_SAFEMODE_THRESHOLD_PCT_DEFAULT;
-import static org.apache.hadoop.hdfs.DFSConfigKeys.DFS_NAMENODE_SAFEMODE_THRESHOLD_PCT_KEY;
-import static org.apache.hadoop.hdfs.DFSConfigKeys.DFS_PERMISSIONS_ENABLED_DEFAULT;
-import static org.apache.hadoop.hdfs.DFSConfigKeys.DFS_PERMISSIONS_ENABLED_KEY;
-import static org.apache.hadoop.hdfs.DFSConfigKeys.DFS_PERMISSIONS_SUPERUSERGROUP_DEFAULT;
-import static org.apache.hadoop.hdfs.DFSConfigKeys.DFS_PERMISSIONS_SUPERUSERGROUP_KEY;
-import static org.apache.hadoop.hdfs.DFSConfigKeys.DFS_REPLICATION_DEFAULT;
-import static org.apache.hadoop.hdfs.DFSConfigKeys.DFS_REPLICATION_KEY;
-import static org.apache.hadoop.hdfs.DFSConfigKeys.DFS_SUPPORT_APPEND_DEFAULT;
-import static org.apache.hadoop.hdfs.DFSConfigKeys.DFS_SUPPORT_APPEND_KEY;
-import java.security.GeneralSecurityException;
-import java.util.concurrent.TimeUnit;
-
+import io.hops.util.Slicer;
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
+import org.apache.commons.logging.impl.Log4JLogger;
 import org.apache.hadoop.HadoopIllegalArgumentException;
 import org.apache.hadoop.classification.InterfaceAudience;
 import org.apache.hadoop.conf.Configuration;
@@ -114,54 +56,19 @@ import org.apache.hadoop.crypto.CipherSuite;
 import org.apache.hadoop.crypto.CryptoProtocolVersion;
 import org.apache.hadoop.crypto.key.KeyProvider;
 import org.apache.hadoop.crypto.key.KeyProviderCryptoExtension;
-import org.apache.hadoop.fs.ContentSummary;
-import org.apache.hadoop.fs.CreateFlag;
-import org.apache.hadoop.fs.FSDataInputStream;
-import org.apache.hadoop.fs.FSDataOutputStream;
-import org.apache.hadoop.fs.FileAlreadyExistsException;
-import org.apache.hadoop.fs.FileEncryptionInfo;
-import org.apache.hadoop.fs.FileStatus;
-import org.apache.hadoop.fs.FileSystem;
-import org.apache.hadoop.fs.FsServerDefaults;
-import org.apache.hadoop.fs.InvalidPathException;
+import org.apache.hadoop.fs.BatchedRemoteIterator.BatchedListEntries;
 import org.apache.hadoop.fs.Options;
-import org.apache.hadoop.fs.Path;
-import org.apache.hadoop.fs.UnresolvedLinkException;
-import org.apache.hadoop.fs.XAttr;
-import org.apache.hadoop.fs.XAttrSetFlag;
-import org.apache.hadoop.fs.permission.AclEntry;
-import org.apache.hadoop.fs.permission.AclEntryScope;
-import org.apache.hadoop.fs.permission.AclStatus;
-import org.apache.hadoop.fs.permission.FsAction;
-import org.apache.hadoop.fs.permission.FsPermission;
-import org.apache.hadoop.fs.permission.PermissionStatus;
-import org.apache.hadoop.fs.StorageType;
-import org.apache.hadoop.hdfs.XAttrHelper;
-import org.apache.hadoop.hdfs.DFSConfigKeys;
-import org.apache.hadoop.hdfs.DFSUtil;
-import org.apache.hadoop.hdfs.HdfsConfiguration;
-import org.apache.hadoop.hdfs.UnknownCryptoProtocolVersionException;
-import org.apache.hadoop.hdfs.protocol.AlreadyBeingCreatedException;
-import org.apache.hadoop.hdfs.protocol.Block;
-import org.apache.hadoop.hdfs.protocol.BlockStoragePolicy;
-import org.apache.hadoop.hdfs.protocol.ClientProtocol;
-import org.apache.hadoop.hdfs.protocol.DatanodeID;
-import org.apache.hadoop.hdfs.protocol.DatanodeInfo;
-import org.apache.hadoop.hdfs.protocol.DirectoryListing;
+import org.apache.hadoop.fs.*;
+import org.apache.hadoop.fs.permission.*;
+import org.apache.hadoop.hdfs.*;
 import org.apache.hadoop.hdfs.protocol.EncryptionZone;
-import org.apache.hadoop.hdfs.protocol.ExtendedBlock;
-import org.apache.hadoop.hdfs.protocol.HdfsConstants;
-import org.apache.hadoop.hdfs.protocol.HdfsConstantsClient;
-import org.apache.hadoop.hdfs.protocol.LastBlockWithStatus;
+import org.apache.hadoop.hdfs.protocol.*;
 import org.apache.hadoop.hdfs.protocol.HdfsConstants.DatanodeReportType;
 import org.apache.hadoop.hdfs.protocol.HdfsConstants.SafeModeAction;
-import org.apache.hadoop.hdfs.protocol.HdfsFileStatus;
-import org.apache.hadoop.hdfs.protocol.LastUpdatedContentSummary;
-import org.apache.hadoop.hdfs.protocol.LocatedBlock;
-import org.apache.hadoop.hdfs.protocol.LocatedBlocks;
-import org.apache.hadoop.hdfs.protocol.QuotaExceededException;
-import org.apache.hadoop.hdfs.protocol.RecoveryInProgressException;
 import org.apache.hadoop.hdfs.protocol.datatransfer.ReplaceDatanodeOnFailure;
+import org.apache.hadoop.hdfs.protocol.proto.ClientNamenodeProtocolProtos;
+import org.apache.hadoop.hdfs.protocol.proto.HdfsProtos;
+import org.apache.hadoop.hdfs.protocolPB.PBHelper;
 import org.apache.hadoop.hdfs.security.token.block.BlockTokenIdentifier;
 import org.apache.hadoop.hdfs.security.token.delegation.DelegationTokenIdentifier;
 import org.apache.hadoop.hdfs.security.token.delegation.DelegationTokenSecretManager;
@@ -169,8 +76,8 @@ import org.apache.hadoop.hdfs.server.blockmanagement.*;
 import org.apache.hadoop.hdfs.server.common.CloudHelper;
 import org.apache.hadoop.hdfs.server.common.HdfsServerConstants;
 import org.apache.hadoop.hdfs.server.common.HdfsServerConstants.BlockUCState;
-import org.apache.hadoop.hdfs.server.common.HdfsServerConstants.StartupOption;
 import org.apache.hadoop.hdfs.server.common.HdfsServerConstants.RollingUpgradeStartupOption;
+import org.apache.hadoop.hdfs.server.common.HdfsServerConstants.StartupOption;
 import org.apache.hadoop.hdfs.server.common.Storage;
 import org.apache.hadoop.hdfs.server.common.StorageInfo;
 import org.apache.hadoop.hdfs.server.datanode.fsdataset.CloudPersistenceProvider;
@@ -178,21 +85,21 @@ import org.apache.hadoop.hdfs.server.datanode.fsdataset.impl.CloudPersistencePro
 import org.apache.hadoop.hdfs.server.namenode.INode.BlocksMapUpdateInfo;
 import org.apache.hadoop.hdfs.server.namenode.metrics.FSNamesystemMBean;
 import org.apache.hadoop.hdfs.server.namenode.metrics.NameNodeMetrics;
+import org.apache.hadoop.hdfs.server.namenode.startupprogress.*;
+import org.apache.hadoop.hdfs.server.namenode.startupprogress.StartupProgress.Counter;
 import org.apache.hadoop.hdfs.server.namenode.top.TopAuditLogger;
 import org.apache.hadoop.hdfs.server.namenode.top.TopConf;
 import org.apache.hadoop.hdfs.server.namenode.top.metrics.TopMetrics;
 import org.apache.hadoop.hdfs.server.namenode.top.window.RollingWindowManager;
 import org.apache.hadoop.hdfs.server.namenode.web.resources.NamenodeWebHdfsMethods;
-import org.apache.hadoop.hdfs.server.protocol.DatanodeCommand;
-import org.apache.hadoop.hdfs.server.protocol.DatanodeRegistration;
-import org.apache.hadoop.hdfs.server.protocol.DatanodeStorageReport;
-import org.apache.hadoop.hdfs.server.protocol.HeartbeatResponse;
-import org.apache.hadoop.hdfs.server.protocol.NamespaceInfo;
-import org.apache.hadoop.hdfs.server.protocol.VolumeFailureSummary;
+import org.apache.hadoop.hdfs.server.protocol.*;
 import org.apache.hadoop.io.EnumSetWritable;
 import org.apache.hadoop.io.IOUtils;
 import org.apache.hadoop.io.Text;
-import org.apache.hadoop.ipc.*;
+import org.apache.hadoop.ipc.NotALeaderException;
+import org.apache.hadoop.ipc.RetriableException;
+import org.apache.hadoop.ipc.Server;
+import org.apache.hadoop.ipc.StandbyException;
 import org.apache.hadoop.metrics2.annotation.Metric;
 import org.apache.hadoop.metrics2.annotation.Metrics;
 import org.apache.hadoop.metrics2.lib.DefaultMetricsSystem;
@@ -207,9 +114,13 @@ import org.apache.hadoop.security.token.SecretManager.InvalidToken;
 import org.apache.hadoop.security.token.Token;
 import org.apache.hadoop.security.token.TokenIdentifier;
 import org.apache.hadoop.security.token.delegation.DelegationKey;
-import org.apache.hadoop.util.Daemon;
-import org.apache.hadoop.util.DataChecksum;
-import org.apache.hadoop.util.VersionInfo;
+import org.apache.hadoop.util.Timer;
+import org.apache.hadoop.util.*;
+import org.apache.log4j.Appender;
+import org.apache.log4j.AsyncAppender;
+import org.apache.log4j.Logger;
+import org.codehaus.jackson.map.ObjectMapper;
+import org.eclipse.jetty.util.ajax.JSON;
 
 import javax.management.NotCompliantMBeanException;
 import javax.management.ObjectName;
@@ -220,67 +131,23 @@ import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.lang.management.ManagementFactory;
 import java.net.InetAddress;
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.Collection;
-import java.util.Collections;
-import java.util.Date;
-import java.util.EnumSet;
-import java.util.HashMap;
-import java.util.HashSet;
-import java.util.Iterator;
-import java.util.LinkedList;
-import java.util.List;
-import java.util.Map;
-import java.util.Set;
-import java.util.StringTokenizer;
-import java.util.concurrent.*;
+import java.security.GeneralSecurityException;
+import java.util.*;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.atomic.AtomicInteger;
 
 import static io.hops.transaction.lock.LockFactory.BLK;
 import static io.hops.transaction.lock.LockFactory.getInstance;
-import io.hops.transaction.lock.TransactionLockTypes;
-import io.hops.util.Slicer;
-import java.util.concurrent.atomic.AtomicBoolean;
-import java.util.concurrent.atomic.AtomicInteger;
-import org.apache.commons.logging.impl.Log4JLogger;
-import org.apache.hadoop.fs.BatchedRemoteIterator.BatchedListEntries;
-import org.apache.hadoop.fs.CacheFlag;
-import org.apache.hadoop.hdfs.protocol.CacheDirectiveEntry;
-import org.apache.hadoop.hdfs.protocol.CacheDirectiveInfo;
-import org.apache.hadoop.hdfs.protocol.CachePoolEntry;
-import org.apache.hadoop.hdfs.protocol.CachePoolInfo;
-import org.apache.hadoop.hdfs.protocol.RollingUpgradeException;
-import org.apache.hadoop.hdfs.protocol.RollingUpgradeInfo;
-import org.apache.hadoop.hdfs.protocol.proto.ClientNamenodeProtocolProtos;
-import org.apache.hadoop.hdfs.protocol.proto.HdfsProtos;
-import org.apache.hadoop.hdfs.protocolPB.PBHelper;
-import org.apache.hadoop.hdfs.server.namenode.startupprogress.Phase;
-import org.apache.hadoop.hdfs.server.namenode.startupprogress.StartupProgress;
-import org.apache.hadoop.hdfs.server.namenode.startupprogress.StartupProgress.Counter;
-import org.apache.hadoop.hdfs.server.namenode.startupprogress.Status;
-import org.apache.hadoop.hdfs.server.namenode.startupprogress.Step;
-import org.apache.hadoop.hdfs.server.namenode.startupprogress.StepType;
-import org.apache.hadoop.hdfs.server.protocol.StorageReceivedDeletedBlocks;
-import org.apache.hadoop.ipc.RetryCache.CacheEntry;
-import org.apache.hadoop.ipc.RetryCacheDistributed.CacheEntryWithPayload;
-import org.apache.hadoop.util.StringUtils;
-
+import static org.apache.hadoop.crypto.key.KeyProviderCryptoExtension.EncryptedKeyVersion;
+import static org.apache.hadoop.fs.CommonConfigurationKeysPublic.*;
 import static org.apache.hadoop.hdfs.DFSConfigKeys.*;
 import static org.apache.hadoop.hdfs.server.common.HdfsServerConstants.SECURITY_XATTR_UNREADABLE_BY_SUPERUSER;
-import static org.apache.hadoop.util.Time.now;
-import org.apache.hadoop.util.Timer;
-import org.apache.log4j.Appender;
-import org.apache.log4j.AsyncAppender;
-import org.apache.log4j.Logger;
 import static org.apache.hadoop.util.ExitUtil.terminate;
-import org.codehaus.jackson.map.ObjectMapper;
-import org.eclipse.jetty.util.ajax.JSON;
-
-import com.google.common.annotations.VisibleForTesting;
-import com.google.common.base.Preconditions;
-import com.google.common.collect.ImmutableMap;
-import com.google.common.collect.Lists;
-import org.apache.hadoop.hdfs.server.protocol.StorageReport;
+import static org.apache.hadoop.util.Time.monotonicNow;
+import static org.apache.hadoop.util.Time.now;
 
 /**
  * ************************************************
@@ -472,8 +339,6 @@ public class FSNamesystem implements Namesystem, FSNamesystemMBean,
 
   private volatile boolean imageLoaded = false;
   
-
-  private final RetryCacheDistributed retryCache;
   private final boolean isRetryCacheEnabled;
   
   //Add delay for file system operations. Used only for testing
@@ -545,7 +410,7 @@ public class FSNamesystem implements Namesystem, FSNamesystemMBean,
    */
   static FSNamesystem loadFromDisk(Configuration conf, NameNode namenode) throws IOException {
 
-    FSNamesystem namesystem = new FSNamesystem(conf, namenode, false);
+    FSNamesystem namesystem = new FSNamesystem(conf, namenode);
     StartupOption startOpt = NameNode.getStartupOption(conf);
     if (startOpt == StartupOption.RECOVER) {
       namesystem.setSafeMode(SafeModeAction.SAFEMODE_ENTER);
@@ -575,10 +440,6 @@ public class FSNamesystem implements Namesystem, FSNamesystemMBean,
     return namesystem;
   }
 
-  FSNamesystem(Configuration conf, NameNode namenode) throws IOException {
-    this(conf, namenode, false);
-  }
-
   /**
    * Create an FSNamesystem.
    *
@@ -591,7 +452,7 @@ public class FSNamesystem implements Namesystem, FSNamesystemMBean,
    * @throws IOException
    *      on bad configuration
    */
-  private FSNamesystem(Configuration conf, NameNode namenode, boolean ignoreRetryCache) throws IOException {
+  FSNamesystem(Configuration conf, NameNode namenode) throws IOException {
     try {
       provider = DFSUtil.createKeyProviderCryptoExtension(conf);
       if (provider == null) {
@@ -712,7 +573,7 @@ public class FSNamesystem implements Namesystem, FSNamesystemMBean,
           auditLoggers.get(0) instanceof DefaultAuditLogger;
       this.isRetryCacheEnabled = conf.getBoolean(DFS_NAMENODE_ENABLE_RETRY_CACHE_KEY,
           DFS_NAMENODE_ENABLE_RETRY_CACHE_DEFAULT);
-      this.retryCache = ignoreRetryCache ? null : initRetryCache(conf);
+      LightWeightCacheDistributed.enable = isRetryCacheEnabled;
       this.slicerBatchSize = conf.getInt(DFSConfigKeys.DFS_NAMENODE_SLICER_BATCH_SIZE,
           DFSConfigKeys.DFS_NAMENODE_SLICER_BATCH_SIZE_DEFAULT);
 
@@ -737,53 +598,15 @@ public class FSNamesystem implements Namesystem, FSNamesystemMBean,
     return auditLoggers;
   }
 
-  @VisibleForTesting
-  public RetryCacheDistributed getRetryCache() {
-    return retryCache;
-  }
-
   /** Whether or not retry cache is enabled */
   boolean hasRetryCache() {
-    return retryCache != null;
-  }
-
-  void addCacheEntryWithPayload(byte[] clientId, int callId, Object payload) {
-    if (retryCache != null) {
-      retryCache.addCacheEntryWithPayload(clientId, callId, payload);
-    }
-  }
-
-  void addCacheEntry(byte[] clientId, int callId) {
-    if (retryCache != null) {
-      retryCache.addCacheEntry(clientId, callId);
-    }
+    return isRetryCacheEnabled;
   }
 
   public KeyProviderCryptoExtension getProvider() {
     return provider;
   }
   
-  @VisibleForTesting
-  static RetryCacheDistributed initRetryCache(Configuration conf) {
-    boolean enable = conf.getBoolean(DFS_NAMENODE_ENABLE_RETRY_CACHE_KEY,
-        DFS_NAMENODE_ENABLE_RETRY_CACHE_DEFAULT);
-    LOG.info("Retry cache on namenode is " + (enable ? "enabled" : "disabled"));
-    if (enable) {
-      float heapPercent = conf.getFloat(
-          DFS_NAMENODE_RETRY_CACHE_HEAP_PERCENT_KEY,
-          DFS_NAMENODE_RETRY_CACHE_HEAP_PERCENT_DEFAULT);
-      long entryExpiryMillis = conf.getLong(
-          DFS_NAMENODE_RETRY_CACHE_EXPIRYTIME_MILLIS_KEY,
-          DFS_NAMENODE_RETRY_CACHE_EXPIRYTIME_MILLIS_DEFAULT);
-      LOG.info("Retry cache will use " + heapPercent
-          + " of total heap and retry cache entry expiry time is "
-          + entryExpiryMillis + " millis");
-      return new RetryCacheDistributed("NameNodeRetryCache", heapPercent,
-          entryExpiryMillis);
-    }
-    return null;
-  }
-
   private List<AuditLogger> initAuditLoggers(Configuration conf) {
     // Initialize the custom access loggers if configured.
     Collection<String> alClasses =
@@ -913,7 +736,6 @@ public class FSNamesystem implements Namesystem, FSNamesystemMBean,
       quotaUpdateManager.close();
     }
     RootINodeCache.stop();
-    RetryCacheDistributed.clear(retryCache);
   }
 
   /**
@@ -957,7 +779,7 @@ public class FSNamesystem implements Namesystem, FSNamesystemMBean,
 
       if(isRetryCacheEnabled) {
         this.retryCacheCleanerThread = new Daemon(new RetryCacheCleaner());
-        this.retryCacheCleanerThread.setName("retry cache cleane");
+        this.retryCacheCleanerThread.setName("Retry Cache Cleaner");
         retryCacheCleanerThread.start();
       }
 
@@ -2108,7 +1930,7 @@ public class FSNamesystem implements Namesystem, FSNamesystemMBean,
 
         if (isRetryCacheEnabled) {
           locks.add(lf.getRetryCacheEntryLock(Server.getClientId(),
-              Server.getCallId()));
+              Server.getCallId(), Server.getRpcEpoch()));
         }
 
         if (flag.contains(CreateFlag.OVERWRITE) && dir.isQuotaEnabled()) {
@@ -2127,8 +1949,8 @@ public class FSNamesystem implements Namesystem, FSNamesystemMBean,
 
       @Override
       public Object performTask() throws IOException {
-        CacheEntryWithPayload cacheEntry = RetryCacheDistributed.waitForCompletion(retryCache,
-            null);
+        boolean success = false;
+        RetryCacheEntry cacheEntry = LightWeightCacheDistributed.get();
         if (cacheEntry != null && cacheEntry.isSuccess()) {
           HdfsFileStatus test = PBHelper.convert(HdfsProtos.HdfsFileStatusProto.parseFrom(cacheEntry.getPayload()));
           return test;
@@ -2155,13 +1977,16 @@ public class FSNamesystem implements Namesystem, FSNamesystemMBean,
           checkNameNodeSafeMode("Cannot create file" + src);
           status = startFileInt(srcArg, src, permissions, holder, clientMachine, flag,
               createParent, replication, blockSize, suite[0], protocolVersion[0], edek[0]);
+          if(status != null){
+            success = true;
+          }
           return status;
         } catch (AccessControlException e) {
           logAuditEvent(false, "create", src);
           throw e;
         } finally {
           byte[] statusArray = status == null ? null : PBHelper.convert(status).toByteArray();
-          RetryCacheDistributed.setState(cacheEntry, status != null, statusArray);
+          LightWeightCacheDistributed.put(statusArray, success);
         }
       }
     }.handle(this);
@@ -2725,7 +2550,7 @@ public class FSNamesystem implements Namesystem, FSNamesystemMBean,
                     .add(lf.getLastBlockHashBucketsLock());
             if(isRetryCacheEnabled) {
               locks.add(lf.getRetryCacheEntryLock(Server.getClientId(),
-                  Server.getCallId()));
+                  Server.getCallId(), Server.getRpcEpoch()));
             }
             
             if(erasureCodingEnabled) {
@@ -2739,8 +2564,7 @@ public class FSNamesystem implements Namesystem, FSNamesystemMBean,
       @Override
       public Object performTask() throws IOException {
         LastBlockWithStatus lastBlockWithStatus = null;
-        CacheEntryWithPayload cacheEntry = RetryCacheDistributed.waitForCompletion(retryCache,
-            null);
+        RetryCacheEntry cacheEntry = LightWeightCacheDistributed.get();
         if (cacheEntry != null && cacheEntry.isSuccess()) {
           ClientNamenodeProtocolProtos.AppendResponseProto proto = ClientNamenodeProtocolProtos.AppendResponseProto.
               parseFrom(cacheEntry.getPayload());
@@ -2819,7 +2643,7 @@ public class FSNamesystem implements Namesystem, FSNamesystemMBean,
             builder.setStat(PBHelper.convert(lastBlockWithStatus.getFileStatus()));
           }
           byte[] toCache = builder.build().toByteArray();
-          RetryCacheDistributed.setState(cacheEntry, success, toCache);
+          LightWeightCacheDistributed.put(toCache, success);
         }
       }
     };
@@ -6291,13 +6115,13 @@ public class FSNamesystem implements Namesystem, FSNamesystemMBean,
                 .add(lf.getLastBlockHashBucketsLock());
         if(isRetryCacheEnabled) {
           locks.add(lf.getRetryCacheEntryLock(Server.getClientId(),
-              Server.getCallId()));
+              Server.getCallId(), Server.getRpcEpoch()));
         }
       }
 
       @Override
       public Object performTask() throws IOException {
-        CacheEntry cacheEntry = RetryCacheDistributed.waitForCompletion(retryCache);
+        RetryCacheEntry cacheEntry = LightWeightCacheDistributed.get();
         if (cacheEntry != null && cacheEntry.isSuccess()) {
           return null; // Return previous response
         }
@@ -6321,9 +6145,8 @@ public class FSNamesystem implements Namesystem, FSNamesystemMBean,
           success = true;
           return null;
         } finally {
-          RetryCacheDistributed.setState(cacheEntry, success);
+          LightWeightCacheDistributed.put(null, success);
         }
-
       }
     }.handle(this);
   }
@@ -8089,15 +7912,15 @@ public class FSNamesystem implements Namesystem, FSNamesystemMBean,
         locks.add(lf.getEncodingStatusLock(LockType.WRITE, sourcePath));
         if(isRetryCacheEnabled) {
           locks.add(lf.getRetryCacheEntryLock(Server.getClientId(),
-              Server.getCallId()));
+              Server.getCallId(), Server.getRpcEpoch()));
         }
       }
 
       @Override
       public Object performTask() throws IOException {
-        CacheEntry cacheEntry = null;
+        RetryCacheEntry cacheEntry = null;
         if (checkRetryCache) {
-          cacheEntry = RetryCacheDistributed.waitForCompletion(retryCache);
+          cacheEntry = LightWeightCacheDistributed.get();
           if (cacheEntry != null && cacheEntry.isSuccess()) {
             return null; // Return previous response
           }
@@ -8128,7 +7951,7 @@ public class FSNamesystem implements Namesystem, FSNamesystemMBean,
 
         } finally {
           if (checkRetryCache) {
-            RetryCacheDistributed.setState(cacheEntry, success);
+            LightWeightCacheDistributed.put(null, success);
           }
         }
       }
@@ -8581,13 +8404,13 @@ public class FSNamesystem implements Namesystem, FSNamesystemMBean,
          
             if (isRetryCacheEnabled) {
               locks.add(lf.getRetryCacheEntryLock(Server.getClientId(),
-                  Server.getCallId()));
+                  Server.getCallId(), Server.getRpcEpoch()));
             }
           }
 
           @Override
           public Object performTask() throws IOException {
-            final CacheEntry cacheEntry = RetryCache.waitForCompletion(retryCache);
+            RetryCacheEntry cacheEntry = LightWeightCacheDistributed.get();
             if (cacheEntry != null && cacheEntry.isSuccess()) {
               return null; // Return previous response
             }
@@ -8600,9 +8423,10 @@ public class FSNamesystem implements Namesystem, FSNamesystemMBean,
               xAttrs.add(ezXAttr);
               final INodesInPath iip = dir.getINodesInPath4Write(src, false);
               HdfsFileStatus resultingStat = dir.getAuditFileInfo(iip);
+              success = true;
               return resultingStat;
             } finally {
-              RetryCache.setState(cacheEntry, success);
+              LightWeightCacheDistributed.put(null, success);
             }
           }
         }.handle();
@@ -9052,48 +8876,9 @@ public class FSNamesystem implements Namesystem, FSNamesystemMBean,
 
   }
 
-  CacheEntry retryCacheWaitForCompletionTransactional() throws IOException {
-    if(!isRetryCacheEnabled){
-      return null;
-    }
-    HopsTransactionalRequestHandler rh = new HopsTransactionalRequestHandler(HDFSOperationType
-            .RETRY_CACHE) {
-      @Override
-      public void acquireLock(TransactionLocks locks) throws IOException {
-        LockFactory lf = getInstance();
-        locks.add(lf.getRetryCacheEntryLock(Server.getClientId(), Server.getCallId()));
-      }
-
-      @Override
-      public Object performTask() throws IOException {
-        return RetryCacheDistributed.waitForCompletion(retryCache);
-      }
-    };
-    return (CacheEntry) rh.handle(this);
-  }
-
-  CacheEntry retryCacheSetStateTransactional(final CacheEntry cacheEntry, final boolean ret) throws IOException {
-    if(!isRetryCacheEnabled){
-      return null;
-    }
-    HopsTransactionalRequestHandler rh = new HopsTransactionalRequestHandler(HDFSOperationType
-            .RETRY_CACHE) {
-      @Override
-      public void acquireLock(TransactionLocks locks) throws IOException {
-        LockFactory lf = getInstance();
-        locks.add(lf.getRetryCacheEntryLock(Server.getClientId(), Server.getCallId()));
-      }
-
-      @Override
-      public Object performTask() throws IOException {
-        RetryCacheDistributed.setState(cacheEntry, ret);
-        return null;
-      }
-    };
-    return (CacheEntry) rh.handle(this);
-  }
-
   class RetryCacheCleaner implements Runnable {
+
+    public final Log cleanerLog = LogFactory.getLog(RetryCacheCleaner.class);
 
     boolean shouldCacheCleanerRun = true;
     long entryExpiryMillis;
@@ -9105,68 +8890,44 @@ public class FSNamesystem implements Namesystem, FSNamesystemMBean,
           DFS_NAMENODE_RETRY_CACHE_EXPIRYTIME_MILLIS_DEFAULT);
     }
 
+    private int deleteAllForEpoch(final long epoch) throws IOException {
+      return (int)(new LightWeightRequestHandler(
+              HDFSOperationType.CLEAN_RETRY_CACHE) {
+        @Override
+        public Object performTask() throws IOException {
+
+          RetryCacheEntryDataAccess da = (RetryCacheEntryDataAccess) HdfsStorageFactory
+                  .getDataAccess(RetryCacheEntryDataAccess.class);
+          return da.removeOlds(epoch);
+        }
+      }.handle());
+    }
+
     @Override
     public void run() {
-      int numRun = 0;
       while (fsRunning && shouldCacheCleanerRun) {
         try {
-          long start = monotonicNow();
-          final List<CacheEntry> toRemove = new ArrayList<>();
-          int num = retryCache.getToRemove().drainTo(toRemove);
-          if (num > 0) {
-            HopsTransactionalRequestHandler rh
-                = new HopsTransactionalRequestHandler(HDFSOperationType.CLEAN_RETRY_CACHE) {
-              @Override
-              public void acquireLock(TransactionLocks locks) throws IOException {
-                LockFactory lf = getInstance();
-                locks.add(lf.getRetryCacheEntryLock(toRemove));
-              }
-
-              @Override
-              public Object performTask() throws IOException {
-                int i = 0;
-                Iterator<CacheEntry> it = toRemove.iterator();
-                while (it.hasNext() && i<100) {
-                  CacheEntry entry = it.next();
-                  if (EntityManager.find(RetryCacheEntry.Finder.ByClientIdAndCallId, entry.getClientId(), entry.
-                      getCallId()) != null) {
-                    EntityManager.remove(new RetryCacheEntry(entry.getClientId(), entry.getCallId()));
-                  }
-                  i++;
-                  it.remove();
-                }
-                return null;
-              }
-            };
-            while(!toRemove.isEmpty()){
-              rh.handle();
+          if (isLeader()) {
+            long lastDeletedEpochSec = HdfsVariables.getRetryCacheCleanerEpoch();
+            long toBeDeletedEpochSec = lastDeletedEpochSec + 1L;
+            if (toBeDeletedEpochSec < ((timer.now() - entryExpiryMillis) / 1000)) {
+              cleanerLog.debug("Current epoch " + (System.currentTimeMillis() / 1000) +
+                      " Last deleted epoch is " + lastDeletedEpochSec +
+                      " To be deleted epoch " + toBeDeletedEpochSec);
+              int countDeleted = deleteAllForEpoch(toBeDeletedEpochSec);
+              //save the epoch
+              HdfsVariables.setRetryCacheCleanerEpoch(toBeDeletedEpochSec);
+              cleanerLog.debug("Deleted " + countDeleted + " entries for epoch " + toBeDeletedEpochSec);
+              continue;
             }
           }
-
-          if (isLeader() && numRun % 60 == 0) {
-            new LightWeightRequestHandler(
-                HDFSOperationType.CLEAN_RETRY_CACHE) {
-              @Override
-              public Object performTask() throws IOException {
-
-                RetryCacheEntryDataAccess da = (RetryCacheEntryDataAccess) HdfsStorageFactory
-                    .getDataAccess(RetryCacheEntryDataAccess.class);
-                da.removeOlds(timer.now() - entryExpiryMillis);
-                return null;
-              }
-            }.handle();
-          }
-
-          long pause = 1000-(monotonicNow()-start);
-          if(pause>0){
-            Thread.sleep(pause);
-          }
-          numRun++;
-        } catch (Throwable e) {
+          Thread.sleep(1000);
+        } catch (Exception e) {
           if (e instanceof InterruptedException) {
-            FSNamesystem.LOG.warn("RetryCacheCleaner Interrupted");
+            cleanerLog.warn("RetryCacheCleaner Interrupted");
+            return;
           } else {
-            FSNamesystem.LOG.error("Exception in RetryCacheCleaner: ", e);
+            cleanerLog.warn("Exception in RetryCacheCleaner: ", e);
           }
         }
       }
@@ -9354,5 +9115,19 @@ public class FSNamesystem implements Namesystem, FSNamesystemMBean,
   public int getLeaseCreationLockRows(){
     return leaseCreationLockRows;
   }
+
+  //only for tests
+  public List<RetryCacheEntry> getCacheSet() throws IOException {
+    return (List<RetryCacheEntry>)
+            (new LightWeightRequestHandler(HDFSOperationType.RETRY_CACHE_GET_ALL) {
+      @Override
+      public Object performTask() throws IOException {
+        RetryCacheEntryDataAccess da = (RetryCacheEntryDataAccess) HdfsStorageFactory
+                .getDataAccess(RetryCacheEntryDataAccess.class);
+        return da.findAll();
+      }
+    }.handle());
+  }
 }
+
 

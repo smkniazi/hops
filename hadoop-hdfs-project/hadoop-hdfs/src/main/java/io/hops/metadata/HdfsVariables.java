@@ -751,6 +751,42 @@ public class HdfsVariables {
     }.handle();
   }
 
+  public static long getRetryCacheCleanerEpoch() throws IOException {
+    return (long) new LightWeightRequestHandler(HDFSOperationType.GET_RETRY_CACHE_CLEANER_EPOCH) {
+      @Override
+      public Object performTask() throws IOException {
+        return handleVariableWithReadLock(new Handler() {
+          @Override
+          public Object handle(VariableDataAccess<Variable, Variable.Finder> vd)
+                  throws StorageException {
+            LongVariable var = (LongVariable) vd.getVariable(Variable.Finder.RetryCacheCleanerEpoch);
+            long result = 0;
+            if (var.getValue() != null) {
+              result = var.getValue();
+            }
+            return result;
+          }
+        });
+      }
+    }.handle();
+  }
+
+  public static void setRetryCacheCleanerEpoch(final long epoch) throws IOException {
+    new LightWeightRequestHandler(HDFSOperationType.GET_RETRY_CACHE_CLEANER_EPOCH) {
+      @Override
+      public Object performTask() throws IOException {
+        return handleVariableWithWriteLock(new Handler() {
+          @Override
+          public Object handle(VariableDataAccess<Variable, Variable.Finder> vd)
+                  throws StorageException {
+            vd.setVariable(new LongVariable(Variable.Finder.RetryCacheCleanerEpoch, epoch));
+            return null;
+          }
+        });
+      }
+    }.handle();
+  }
+
   public static int getBlockReplicationQueueThreshold() throws IOException {
     return (int) new LightWeightRequestHandler(HDFSOperationType.GET_BLOCK_REPLICATION_QUEUE_THRESHOLD) {
       @Override
@@ -817,6 +853,9 @@ public class HdfsVariables {
             new LongVariable(0).getBytes());
     Variable.registerVariableDefaultValue(Variable.Finder.providedBlocksCheckStartTime,
             new LongVariable(0).getBytes());
+    Variable.registerVariableDefaultValue(Variable.Finder.RetryCacheCleanerEpoch,
+            new LongVariable(0).getBytes());  // special value. when NN reads 0 value then it
+                                              // will update it with proper epoch value
     VarsRegister.registerHdfsDefaultValues();
     // This is a workaround that is needed until HA-YARN has its own format command
     VarsRegister.registerYarnDefaultValues();
