@@ -24,6 +24,7 @@ import io.hops.metadata.hdfs.entity.CloudBucket;
 import io.hops.transaction.handler.HDFSOperationType;
 import io.hops.transaction.handler.LightWeightRequestHandler;
 import org.apache.hadoop.conf.Configuration;
+import org.apache.hadoop.fs.CloudProvider;
 import org.apache.hadoop.hdfs.DFSConfigKeys;
 import org.apache.hadoop.hdfs.protocol.Block;
 import org.apache.hadoop.hdfs.server.blockmanagement.CloudBucketAlreadyExistsException;
@@ -198,7 +199,21 @@ public class CloudHelper {
   }
 
   public static List<String> getBucketsFromConf(Configuration conf) {
-    String bucket = conf.get(DFSConfigKeys.S3_BUCKET_KEY, DFSConfigKeys.S3_BUCKET_DEFAULT);
+
+    String cloudProvider = conf.get(DFSConfigKeys.DFS_CLOUD_PROVIDER,
+            DFSConfigKeys.DFS_CLOUD_PROVIDER_DEFAULT);
+    String bucket = null;
+
+    if(cloudProvider.compareToIgnoreCase(CloudProvider.AZURE.name()) == 0){
+      bucket = conf.get(DFSConfigKeys.AZURE_CONTAINER_KEY,
+              DFSConfigKeys.AZURE_CONTAINER_DEFAULT);
+    } else  if(cloudProvider.compareToIgnoreCase(CloudProvider.AWS.name()) == 0){
+      bucket = conf.get(DFSConfigKeys.S3_BUCKET_KEY,
+              DFSConfigKeys.S3_BUCKET_DEFAULT);
+    } else {
+      throw new IllegalArgumentException("Cloud Provider "+cloudProvider+" not supported");
+    }
+
     List<String> buckets = new ArrayList();
     buckets.add(bucket);
     return buckets;

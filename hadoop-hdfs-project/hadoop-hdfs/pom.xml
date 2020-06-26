@@ -208,6 +208,11 @@ http://maven.apache.org/xsd/maven-4.0.0.xsd">
       <artifactId>aws-java-sdk-s3</artifactId>
       <version>1.11.627</version>
     </dependency>
+    <dependency>
+      <groupId>com.logicalclocks</groupId>
+      <artifactId>azure-storage-blob-shaded</artifactId>
+      <version>12.7.0-beta.1</version>
+    </dependency>
   </dependencies>
 
   <build>
@@ -484,6 +489,14 @@ http://maven.apache.org/xsd/maven-4.0.0.xsd">
             <exclude>src/main/webapps/static/jquery-1.10.2.min.js</exclude>
             <exclude>src/main/webapps/static/jquery-1.10.2.min.js</exclude>
           </excludes>
+        </configuration>
+      </plugin>
+      <plugin>
+        <groupId>org.apache.maven.plugins</groupId>
+        <artifactId>maven-compiler-plugin</artifactId>
+        <configuration>
+          <source>8</source>
+          <target>8</target>
         </configuration>
       </plugin>
     </plugins>

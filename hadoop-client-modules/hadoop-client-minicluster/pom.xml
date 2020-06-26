@@ -338,9 +338,13 @@
           <groupId>org.bouncycastle</groupId>
           <artifactId>bcpkix-jdk15on</artifactId>
         </exclusion>
-	<exclusion>
-	  <groupId>com.amazonaws</groupId>
-	  <artifactId>aws-java-sdk-s3</artifactId>
+        <exclusion>
+          <groupId>com.amazonaws</groupId>
+          <artifactId>aws-java-sdk-s3</artifactId>
+        </exclusion>
+        <exclusion>
+          <groupId>com.logicalclocks</groupId>
+          <artifactId>azure-storage-blob-shaded</artifactId>
         </exclusion>
       </exclusions>
     </dependency>

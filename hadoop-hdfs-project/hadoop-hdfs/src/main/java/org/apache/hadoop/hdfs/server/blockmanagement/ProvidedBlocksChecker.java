@@ -40,12 +40,14 @@ import io.hops.transaction.lock.TransactionLocks;
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
 import org.apache.hadoop.conf.Configuration;
+import org.apache.hadoop.fs.CloudProvider;
+import org.apache.hadoop.hdfs.DFSConfigKeys;
 import org.apache.hadoop.hdfs.protocol.Block;
 import org.apache.hadoop.hdfs.protocol.CloudBlock;
 import org.apache.hadoop.hdfs.server.common.CloudHelper;
-import org.apache.hadoop.hdfs.server.datanode.fsdataset.ActiveMultipartUploads;
-import org.apache.hadoop.hdfs.server.datanode.fsdataset.CloudPersistenceProvider;
-import org.apache.hadoop.hdfs.server.datanode.fsdataset.impl.CloudPersistenceProviderFactory;
+import org.apache.hadoop.hdfs.server.datanode.fsdataset.impl.cloud.ActiveMultipartUploads;
+import org.apache.hadoop.hdfs.server.datanode.fsdataset.impl.cloud.CloudPersistenceProvider;
+import org.apache.hadoop.hdfs.server.datanode.fsdataset.impl.cloud.CloudPersistenceProviderFactory;
 import org.apache.hadoop.hdfs.server.namenode.FSNamesystem;
 import org.apache.hadoop.hdfs.server.namenode.INode;
 import org.apache.hadoop.hdfs.server.namenode.Namesystem;
@@ -75,12 +77,13 @@ public class ProvidedBlocksChecker extends Thread {
   private boolean isBRInProgress = false;
   private final long deleteAbandonedBlocksAfter;
   private final Configuration conf;
+  private final boolean isMultipartUploadEnabled;
 
   CloudPersistenceProvider cloudConnector;
 
   static final Log LOG = LogFactory.getLog(ProvidedBlocksChecker.class);
 
-  public ProvidedBlocksChecker(Configuration conf, Namesystem ns, BlockManager bm) {
+  public ProvidedBlocksChecker(Configuration conf, Namesystem ns, BlockManager bm) throws IOException {
     this.ns = ns;
     this.bm = bm;
     this.conf = conf;
@@ -103,6 +106,16 @@ public class ProvidedBlocksChecker extends Thread {
     this.deleteAbandonedBlocksAfter =
             conf.getLong(DFS_CLOUD_DELETE_ABANDONED_MULTIPART_FILES_AFTER,
             DFS_CLOUD_DELETE_ABANDONED_MULTIPART_FILES_AFTER_DEFAUlT);
+
+    String cloudProvider = conf.get(
+            DFSConfigKeys.DFS_CLOUD_PROVIDER,
+            DFSConfigKeys.DFS_CLOUD_PROVIDER_DEFAULT);
+    //only s3 supports checking for failed multipart uploads
+    //Azure automatically deletes the failed uploads
+    this.isMultipartUploadEnabled = conf.getBoolean(
+            DFSConfigKeys.DFS_CLOUD_CONCURRENT_UPLOAD,
+            DFSConfigKeys.DFS_CLOUD_CONCURRENT_UPLOAD_DEFAUlT) &&
+            cloudProvider.compareToIgnoreCase(CloudProvider.AWS.name()) == 0;
 
     this.cloudConnector = CloudPersistenceProviderFactory.getCloudClient(conf);
 
@@ -683,11 +696,13 @@ public class ProvidedBlocksChecker extends Thread {
   }
 
   void checkAbandonedBlocks() throws IOException {
-    for (ActiveMultipartUploads upload : cloudConnector.
-            listMultipartUploads(Lists.newArrayList(CloudHelper.getAllBuckets().keySet()))) {
-      long elapsedTime = System.currentTimeMillis() - upload.getStartTime();
-      if (elapsedTime > deleteAbandonedBlocksAfter) {
-        cloudConnector.abortMultipartUpload(upload.getBucket(), upload.getObjectID(), upload.getUploadID());
+    if(isMultipartUploadEnabled) {
+      for (ActiveMultipartUploads upload : cloudConnector.
+              listMultipartUploads(Lists.newArrayList(CloudHelper.getAllBuckets().keySet()))) {
+        long elapsedTime = System.currentTimeMillis() - upload.getStartTime();
+        if (elapsedTime > deleteAbandonedBlocksAfter) {
+          cloudConnector.abortMultipartUpload(upload.getBucket(), upload.getObjectID(), upload.getUploadID());
+        }
       }
     }
   }

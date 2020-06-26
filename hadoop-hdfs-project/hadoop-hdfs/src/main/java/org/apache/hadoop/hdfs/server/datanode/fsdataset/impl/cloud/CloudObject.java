@@ -13,35 +13,45 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package org.apache.hadoop.hdfs.server.datanode.fsdataset;
 
-public class ActiveMultipartUploads {
-  private final String bucket;
-  private final String objectID;
-  private final long startTime;
-  private final String uploadID;
+package org.apache.hadoop.hdfs.server.datanode.fsdataset.impl.cloud;
 
-  public ActiveMultipartUploads(String bucket, String objectID, long startTime,
-                                String uploadID) {
+public class CloudObject {
+  private long size;
+  private String key;
+  private String bucket;
+  private long lastModifiedTime;
+
+  public void setSize(long size) {
+    this.size = size;
+  }
+
+  public void setKey(String key) {
+    this.key = key;
+  }
+
+  public void setBucket(String bucket) {
     this.bucket = bucket;
-    this.objectID = objectID;
-    this.startTime = startTime;
-    this.uploadID = uploadID;
   }
 
-  public String getObjectID() {
-    return objectID;
+  public void setLastModifiedTime(long lastModifiedTime) {
+    this.lastModifiedTime = lastModifiedTime;
   }
 
-  public long getStartTime() {
-    return startTime;
+  public long getSize() {
+    return size;
   }
 
-  public String getUploadID() {
-    return uploadID;
+  public String getKey() {
+    return key;
   }
 
-  public String getBucket() {
+  public String getBucketName() {
     return bucket;
+
+  }
+
+  public long getLastModified() {
+    return lastModifiedTime;
   }
 }

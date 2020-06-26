@@ -29,33 +29,44 @@ import org.apache.hadoop.hdfs.protocol.LocatedBlock;
 import org.apache.hadoop.hdfs.server.balancer.ExitStatus;
 import org.apache.hadoop.hdfs.server.blockmanagement.BlockManager;
 import org.apache.hadoop.hdfs.server.datanode.fsdataset.impl.CloudFsDatasetImpl;
-import org.apache.hadoop.hdfs.server.datanode.fsdataset.impl.CloudPersistenceProviderS3Impl;
 import org.apache.hadoop.util.ToolRunner;
 import org.apache.log4j.Level;
 import org.apache.log4j.Logger;
 import org.junit.*;
 import org.junit.rules.TestName;
+import org.junit.runner.RunWith;
+import org.junit.runners.Parameterized;
 
 import java.io.IOException;
-import java.util.ArrayList;
-import java.util.List;
+import java.util.*;
 
 import static org.apache.hadoop.hdfs.HopsFilesTestHelper.verifyFile;
 import static org.apache.hadoop.hdfs.HopsFilesTestHelper.writeFile;
 import static org.apache.hadoop.hdfs.server.datanode.TestBlockReport2.sendAndCheckBR;
 
+@RunWith(Parameterized.class)
 public class TestCloudMover {
   static final Log LOG = LogFactory.getLog(TestCloudMover.class);
+
+  static String testBucketPrefix = "hopsfs-testing-TCM";
+
+  static Collection params = Arrays.asList(new Object[][]{
+          {CloudProvider.AWS},
+          {CloudProvider.AZURE}
+  });
+
+  @Parameterized.Parameters
+  public static Collection<Object> configs() {
+    return params;
+  }
+
+  CloudProvider defaultCloudProvider = null;
+  public TestCloudMover(CloudProvider cloudProvider) {
+    this.defaultCloudProvider = cloudProvider;
+  }
+
   @Rule
   public TestName testname = new TestName();
-
-  @BeforeClass
-  public static void setBucketPrefix() {
-    CloudTestHelper.prependBucketPrefix("TCM");
-//    Logger.getRootLogger().setLevel(Level.TRACE);
-    Logger.getLogger(CloudFsDatasetImpl.class).setLevel(Level.DEBUG);
-    Logger.getLogger(CloudPersistenceProviderS3Impl.class).setLevel(Level.DEBUG);
-  }
 
   @Test
   public void testScheduleBlockWithinSameNode1() throws Exception {
@@ -68,7 +79,7 @@ public class TestCloudMover {
   }
 
   public void testScheduleBlockWithinSameNode(int datanodes) throws Exception {
-    CloudTestHelper.purgeS3();
+    CloudTestHelper.purgeCloudData(defaultCloudProvider, testBucketPrefix);
 
     final int FILE_SIZE = 10 * 1024 * 1024;
     final int BLKSIZE = 1 * 1024 * 1024;
@@ -78,7 +89,7 @@ public class TestCloudMover {
     conf.setBoolean(DFSConfigKeys.DFS_DN_CLOUD_BYPASS_CACHE_KEY, true);
     conf.setInt(DFSConfigKeys.DFS_DATANODE_BALANCE_MAX_NUM_CONCURRENT_MOVES_KEY, 20);
     conf.setLong(DFSConfigKeys.DFS_BLOCK_SIZE_KEY, BLKSIZE);
-    CloudTestHelper.setRandomBucketPrefix(conf, testname);
+    CloudTestHelper.setRandomBucketPrefix(conf, testBucketPrefix, testname);
 
     final MiniDFSCluster cluster = new MiniDFSCluster.Builder(conf)
             .numDataNodes(datanodes)
@@ -173,7 +184,7 @@ public class TestCloudMover {
     final Configuration conf = new HdfsConfiguration();
     conf.setBoolean(DFSConfigKeys.DFS_ENABLE_CLOUD_PERSISTENCE, true);
     conf.set(DFSConfigKeys.DFS_CLOUD_PROVIDER, CloudProvider.AWS.name());
-    CloudTestHelper.setRandomBucketPrefix(conf, testname);
+    CloudTestHelper.setRandomBucketPrefix(conf, testBucketPrefix, testname);
     final MiniDFSCluster cluster = new MiniDFSCluster.Builder(conf)
             .numDataNodes(3)
             .storageTypes(
@@ -225,7 +236,10 @@ public class TestCloudMover {
 
   @AfterClass
   public static void TestZDeleteAllBuckets() throws IOException {
-    CloudTestHelper.purgeS3();
+    Iterator<Object> itr = params.iterator();
+    while(itr.hasNext()){
+      Object[] obj =(Object[]) itr.next();
+      CloudTestHelper.purgeCloudData((CloudProvider) obj[0], testBucketPrefix);
+    }
   }
-
 }

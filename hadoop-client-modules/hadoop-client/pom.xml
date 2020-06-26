@@ -306,6 +306,10 @@
           <groupId>jakarta.xml.bind</groupId>
           <artifactId>jakarta.xml.bind-api</artifactId>
         </exclusion>
+        <exclusion>
+          <groupId>com.logicalclocks</groupId>
+          <artifactId>azure-storage-blob-shaded</artifactId>
+        </exclusion>
       </exclusions>
     </dependency>
 

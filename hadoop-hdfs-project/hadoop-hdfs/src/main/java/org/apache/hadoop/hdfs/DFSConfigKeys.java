@@ -95,6 +95,9 @@ public class DFSConfigKeys extends CommonConfigurationKeys {
   public static final String S3_BUCKET_KEY = "dfs.cloud.aws.s3.bucket";
   public static final String S3_BUCKET_DEFAULT = "hopsfs.bucket";
 
+  public static final String AZURE_CONTAINER_KEY = "dfs.cloud.azure.container";
+  public static final String AZURE_CONTAINER_DEFAULT = "hopsfs.container";
+
   public static final String DFS_CLOUD_AWS_S3_REGION = "dfs.cloud.aws.s3.region";
   public static final String DFS_CLOUD_AWS_S3_REGION_DEFAULT = "eu-north-1";
 

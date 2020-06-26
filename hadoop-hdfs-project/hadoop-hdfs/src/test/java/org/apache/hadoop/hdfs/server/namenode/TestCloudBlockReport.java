@@ -33,46 +33,58 @@ import org.apache.hadoop.hdfs.protocol.HdfsConstants;
 import org.apache.hadoop.hdfs.server.blockmanagement.BlockInfoContiguous;
 import org.apache.hadoop.hdfs.server.blockmanagement.ProvidedBlocksChecker;
 import org.apache.hadoop.hdfs.server.common.CloudHelper;
-import org.apache.hadoop.hdfs.server.datanode.fsdataset.CloudPersistenceProvider;
+import org.apache.hadoop.hdfs.server.datanode.fsdataset.impl.cloud.CloudPersistenceProvider;
 import org.apache.hadoop.hdfs.server.datanode.fsdataset.impl.CloudFsDatasetImpl;
-import org.apache.hadoop.hdfs.server.datanode.fsdataset.impl.CloudPersistenceProviderFactory;
 import org.apache.hadoop.hdfs.server.mover.Mover;
+import org.apache.hadoop.hdfs.server.datanode.fsdataset.impl.cloud.CloudPersistenceProviderAzureImpl;
+import org.apache.hadoop.hdfs.server.datanode.fsdataset.impl.cloud.CloudPersistenceProviderFactory;
+import org.apache.hadoop.hdfs.server.datanode.fsdataset.impl.cloud.CloudPersistenceProviderS3Impl;
 import org.apache.hadoop.hdfs.server.protocol.*;
 import org.apache.hadoop.util.ToolRunner;
 import org.apache.log4j.Level;
 import org.apache.log4j.Logger;
 import org.junit.*;
 import org.junit.rules.TestName;
-import org.junit.runners.MethodSorters;
+import org.junit.runner.RunWith;
+import org.junit.runners.Parameterized;
 
 import java.io.File;
 import java.io.FileWriter;
 import java.io.IOException;
-import java.util.ArrayList;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
+import java.util.*;
 
 import static junit.framework.TestCase.assertTrue;
 import static org.apache.hadoop.hdfs.HopsFilesTestHelper.writeFile;
 import static org.junit.Assert.fail;
 
-@FixMethodOrder(MethodSorters.NAME_ASCENDING)
+@RunWith(Parameterized.class)
 public class TestCloudBlockReport {
 
   static final Log LOG = LogFactory.getLog(TestCloudBlockReport.class);
+  static String testBucketPrefix = "hopsfs-testing-TCBR";
+  static Collection params = Arrays.asList(new Object[][]{
+          {CloudProvider.AWS},
+          {CloudProvider.AZURE}
+  });
+
+  @Parameterized.Parameters
+  public static Collection<Object> configs() {
+    return params;
+  }
+
+  CloudProvider defaultCloudProvider = null;
+  public TestCloudBlockReport(CloudProvider cloudProvider) {
+    this.defaultCloudProvider = cloudProvider;
+  }
+
   @Rule
   public TestName testname = new TestName();
 
-  @BeforeClass
-  public static void setBucketPrefix(){
-    CloudTestHelper.prependBucketPrefix("TCBR");
-  }
-
   @Before
   public void setup() {
-    Logger.getRootLogger().setLevel(Level.INFO);
-//    Logger.getLogger(ProvidedBlocksChecker.class).setLevel(Level.TRACE);
+    Logger.getLogger(ProvidedBlocksChecker.class).setLevel(Level.DEBUG);
+    Logger.getLogger(CloudPersistenceProviderAzureImpl.class).setLevel(Level.DEBUG);
+    Logger.getLogger(CloudPersistenceProviderS3Impl.class).setLevel(Level.DEBUG);
   }
 
   /**
@@ -84,7 +96,7 @@ public class TestCloudBlockReport {
    */
   @Test
   public void TestBlockReportSimple() throws IOException {
-    CloudTestHelper.purgeS3();
+    CloudTestHelper.purgeCloudData(defaultCloudProvider, testBucketPrefix);
     MiniDFSCluster cluster = null;
     try {
 
@@ -93,7 +105,7 @@ public class TestCloudBlockReport {
 
       Configuration conf = new HdfsConfiguration();
       conf.setBoolean(DFSConfigKeys.DFS_ENABLE_CLOUD_PERSISTENCE, true);
-      conf.set(DFSConfigKeys.DFS_CLOUD_PROVIDER, CloudProvider.AWS.name());
+      conf.set(DFSConfigKeys.DFS_CLOUD_PROVIDER, defaultCloudProvider.name());
       conf.setLong(DFSConfigKeys.DFS_BLOCK_SIZE_KEY, BLKSIZE);
 
       conf.setLong(DFSConfigKeys.DFS_CLOUD_BLOCK_REPORT_THREAD_SLEEP_INTERVAL_KEY, 1000);
@@ -101,8 +113,7 @@ public class TestCloudBlockReport {
       conf.setLong(DFSConfigKeys.DFS_CLOUD_BLOCK_REPORT_DELAY_KEY,
               DFSConfigKeys.DFS_CLOUD_BLOCK_REPORT_DELAY_DEFAULT);
       conf.setLong(DFSConfigKeys.DFS_NAMENODE_BLOCKID_BATCH_SIZE, 10);
-
-      CloudTestHelper.setRandomBucketPrefix(conf, testname);
+      CloudTestHelper.setRandomBucketPrefix(conf, testBucketPrefix, testname);
 
       cluster = new MiniDFSCluster.Builder(conf).numDataNodes(NUM_DN)
               .storageTypes(CloudTestHelper.genStorageTypes(NUM_DN)).format(true).build();
@@ -151,7 +162,7 @@ public class TestCloudBlockReport {
    */
   @Test
   public void TestBlockReportAbandonedBlocks() throws IOException {
-    CloudTestHelper.purgeS3();
+    CloudTestHelper.purgeCloudData(defaultCloudProvider, testBucketPrefix);
     MiniDFSCluster cluster = null;
     try {
 
@@ -160,7 +171,7 @@ public class TestCloudBlockReport {
 
       Configuration conf = new HdfsConfiguration();
       conf.setBoolean(DFSConfigKeys.DFS_ENABLE_CLOUD_PERSISTENCE, true);
-      conf.set(DFSConfigKeys.DFS_CLOUD_PROVIDER, CloudProvider.AWS.name());
+      conf.set(DFSConfigKeys.DFS_CLOUD_PROVIDER, defaultCloudProvider.name());
       conf.setLong(DFSConfigKeys.DFS_BLOCK_SIZE_KEY, BLKSIZE);
 
       conf.setLong(DFSConfigKeys.DFS_CLOUD_BLOCK_REPORT_THREAD_SLEEP_INTERVAL_KEY, 1000);
@@ -169,7 +180,7 @@ public class TestCloudBlockReport {
               DFSConfigKeys.DFS_CLOUD_BLOCK_REPORT_DELAY_DEFAULT);
       conf.setLong(DFSConfigKeys.DFS_NAMENODE_BLOCKID_BATCH_SIZE, 10);
 
-      CloudTestHelper.setRandomBucketPrefix(conf, testname);
+      CloudTestHelper.setRandomBucketPrefix(conf,  testBucketPrefix, testname);
 
       cluster = new MiniDFSCluster.Builder(conf).numDataNodes(NUM_DN)
               .storageTypes(CloudTestHelper.genStorageTypes(NUM_DN)).format(true).build();
@@ -250,7 +261,7 @@ public class TestCloudBlockReport {
    */
   @Test
   public void TestBlockReportCorruptBlocks() throws IOException {
-    CloudTestHelper.purgeS3();
+    CloudTestHelper.purgeCloudData(defaultCloudProvider, testBucketPrefix);
     MiniDFSCluster cluster = null;
     try {
 
@@ -259,7 +270,7 @@ public class TestCloudBlockReport {
 
       Configuration conf = new HdfsConfiguration();
       conf.setBoolean(DFSConfigKeys.DFS_ENABLE_CLOUD_PERSISTENCE, true);
-      conf.set(DFSConfigKeys.DFS_CLOUD_PROVIDER, CloudProvider.AWS.name());
+      conf.set(DFSConfigKeys.DFS_CLOUD_PROVIDER, defaultCloudProvider.name());
       conf.setLong(DFSConfigKeys.DFS_BLOCK_SIZE_KEY, BLKSIZE);
 
       conf.setLong(DFSConfigKeys.DFS_CLOUD_BLOCK_REPORT_THREAD_SLEEP_INTERVAL_KEY, 1000);
@@ -268,7 +279,7 @@ public class TestCloudBlockReport {
               DFSConfigKeys.DFS_CLOUD_BLOCK_REPORT_DELAY_DEFAULT);
       conf.setLong(DFSConfigKeys.DFS_NAMENODE_BLOCKID_BATCH_SIZE, 10);
 
-      CloudTestHelper.setRandomBucketPrefix(conf, testname);
+      CloudTestHelper.setRandomBucketPrefix(conf,  testBucketPrefix, testname);
 
       cluster = new MiniDFSCluster.Builder(conf).numDataNodes(NUM_DN)
               .storageTypes(CloudTestHelper.genStorageTypes(NUM_DN)).format(true).build();
@@ -337,7 +348,7 @@ public class TestCloudBlockReport {
 
   @Test
   public void TestManuallyDeletedBlocks() throws IOException {
-    CloudTestHelper.purgeS3();
+    CloudTestHelper.purgeCloudData(defaultCloudProvider, testBucketPrefix);
     MiniDFSCluster cluster = null;
     try {
 
@@ -346,7 +357,7 @@ public class TestCloudBlockReport {
 
       Configuration conf = new HdfsConfiguration();
       conf.setBoolean(DFSConfigKeys.DFS_ENABLE_CLOUD_PERSISTENCE, true);
-      conf.set(DFSConfigKeys.DFS_CLOUD_PROVIDER, CloudProvider.AWS.name());
+      conf.set(DFSConfigKeys.DFS_CLOUD_PROVIDER, defaultCloudProvider.name());
       conf.setLong(DFSConfigKeys.DFS_BLOCK_SIZE_KEY, BLKSIZE);
 
       conf.setLong(DFSConfigKeys.DFS_CLOUD_BLOCK_REPORT_THREAD_SLEEP_INTERVAL_KEY, 1000);
@@ -357,7 +368,7 @@ public class TestCloudBlockReport {
       conf.setLong(DFSConfigKeys.DFS_CLOUD_MARK_PARTIALLY_LISTED_BLOCKS_CORRUPT_AFTER_KEY,
               30 * 1000);
 
-      CloudTestHelper.setRandomBucketPrefix(conf, testname);
+      CloudTestHelper.setRandomBucketPrefix(conf,  testBucketPrefix, testname);
 
       cluster = new MiniDFSCluster.Builder(conf).numDataNodes(NUM_DN)
               .storageTypes(CloudTestHelper.genStorageTypes(NUM_DN)).format(true).build();
@@ -417,7 +428,7 @@ public class TestCloudBlockReport {
 
   @Test
   public void TestBlockReportPartialListing() throws IOException {
-    CloudTestHelper.purgeS3();
+    CloudTestHelper.purgeCloudData(defaultCloudProvider, testBucketPrefix);
     MiniDFSCluster cluster = null;
     try {
 
@@ -426,7 +437,7 @@ public class TestCloudBlockReport {
 
       Configuration conf = new HdfsConfiguration();
       conf.setBoolean(DFSConfigKeys.DFS_ENABLE_CLOUD_PERSISTENCE, true);
-      conf.set(DFSConfigKeys.DFS_CLOUD_PROVIDER, CloudProvider.AWS.name());
+      conf.set(DFSConfigKeys.DFS_CLOUD_PROVIDER, defaultCloudProvider.name());
       conf.setLong(DFSConfigKeys.DFS_BLOCK_SIZE_KEY, BLKSIZE);
 
       conf.setLong(DFSConfigKeys.DFS_CLOUD_BLOCK_REPORT_THREAD_SLEEP_INTERVAL_KEY, 1000);
@@ -437,7 +448,7 @@ public class TestCloudBlockReport {
       conf.setLong(DFSConfigKeys.DFS_CLOUD_MARK_PARTIALLY_LISTED_BLOCKS_CORRUPT_AFTER_KEY,
               30 * 1000);
 
-      CloudTestHelper.setRandomBucketPrefix(conf, testname);
+      CloudTestHelper.setRandomBucketPrefix(conf,  testBucketPrefix, testname);
 
       cluster = new MiniDFSCluster.Builder(conf).numDataNodes(NUM_DN)
               .storageTypes(CloudTestHelper.genStorageTypes(NUM_DN)).format(true).build();
@@ -492,7 +503,7 @@ public class TestCloudBlockReport {
 
   @Test
   public void TestBlockReportMultipleErrors() throws IOException {
-    CloudTestHelper.purgeS3();
+    CloudTestHelper.purgeCloudData(defaultCloudProvider, testBucketPrefix);
     MiniDFSCluster cluster = null;
     try {
 
@@ -502,7 +513,7 @@ public class TestCloudBlockReport {
 
       Configuration conf = new HdfsConfiguration();
       conf.setBoolean(DFSConfigKeys.DFS_ENABLE_CLOUD_PERSISTENCE, true);
-      conf.set(DFSConfigKeys.DFS_CLOUD_PROVIDER, CloudProvider.AWS.name());
+      conf.set(DFSConfigKeys.DFS_CLOUD_PROVIDER, defaultCloudProvider.name());
       conf.setLong(DFSConfigKeys.DFS_BLOCK_SIZE_KEY, BLKSIZE);
 
       conf.setLong(DFSConfigKeys.DFS_CLOUD_BLOCK_REPORT_THREAD_SLEEP_INTERVAL_KEY, 1000);
@@ -513,7 +524,7 @@ public class TestCloudBlockReport {
       conf.setLong(DFSConfigKeys.DFS_CLOUD_MARK_PARTIALLY_LISTED_BLOCKS_CORRUPT_AFTER_KEY,
               parkPartiallyListedBlksCorruptAfter);
 
-      CloudTestHelper.setRandomBucketPrefix(conf, testname);
+      CloudTestHelper.setRandomBucketPrefix(conf,  testBucketPrefix, testname);
 
       cluster = new MiniDFSCluster.Builder(conf).numDataNodes(NUM_DN)
               .storageTypes(CloudTestHelper.genStorageTypes(NUM_DN)).format(true).build();
@@ -596,7 +607,7 @@ public class TestCloudBlockReport {
 
   @Test
   public void TestBlockReportOpenFiles() throws IOException {
-    CloudTestHelper.purgeS3();
+    CloudTestHelper.purgeCloudData(defaultCloudProvider, testBucketPrefix);
     MiniDFSCluster cluster = null;
     try {
 
@@ -605,7 +616,7 @@ public class TestCloudBlockReport {
 
       Configuration conf = new HdfsConfiguration();
       conf.setBoolean(DFSConfigKeys.DFS_ENABLE_CLOUD_PERSISTENCE, true);
-      conf.set(DFSConfigKeys.DFS_CLOUD_PROVIDER, CloudProvider.AWS.name());
+      conf.set(DFSConfigKeys.DFS_CLOUD_PROVIDER, defaultCloudProvider.name());
       conf.setLong(DFSConfigKeys.DFS_BLOCK_SIZE_KEY, BLKSIZE);
 
       conf.setLong(DFSConfigKeys.DFS_CLOUD_BLOCK_REPORT_THREAD_SLEEP_INTERVAL_KEY, 1000);
@@ -617,7 +628,7 @@ public class TestCloudBlockReport {
       conf.setLong(DFSConfigKeys.DFS_CLOUD_MARK_PARTIALLY_LISTED_BLOCKS_CORRUPT_AFTER_KEY,
               corruptAfter);
 
-      CloudTestHelper.setRandomBucketPrefix(conf, testname);
+      CloudTestHelper.setRandomBucketPrefix(conf,  testBucketPrefix, testname);
 
       cluster = new MiniDFSCluster.Builder(conf).numDataNodes(NUM_DN)
               .storageTypes(CloudTestHelper.genStorageTypes(NUM_DN)).format(true).build();
@@ -672,7 +683,7 @@ public class TestCloudBlockReport {
 
   @Test
   public void TestCloudRBWBR() throws IOException {
-    CloudTestHelper.purgeS3();
+    CloudTestHelper.purgeCloudData(defaultCloudProvider, testBucketPrefix);
     MiniDFSCluster cluster = null;
     try {
 
@@ -681,7 +692,7 @@ public class TestCloudBlockReport {
 
       Configuration conf = new HdfsConfiguration();
       conf.setBoolean(DFSConfigKeys.DFS_ENABLE_CLOUD_PERSISTENCE, true);
-      conf.set(DFSConfigKeys.DFS_CLOUD_PROVIDER, CloudProvider.AWS.name());
+      conf.set(DFSConfigKeys.DFS_CLOUD_PROVIDER, defaultCloudProvider.name());
       conf.setLong(DFSConfigKeys.DFS_BLOCK_SIZE_KEY, BLKSIZE);
 
       conf.setLong(DFSConfigKeys.DFS_CLOUD_BLOCK_REPORT_THREAD_SLEEP_INTERVAL_KEY, 1000);
@@ -690,7 +701,7 @@ public class TestCloudBlockReport {
               DFSConfigKeys.DFS_CLOUD_BLOCK_REPORT_DELAY_DEFAULT);
       conf.setLong(DFSConfigKeys.DFS_NAMENODE_BLOCKID_BATCH_SIZE, 10);
 
-      CloudTestHelper.setRandomBucketPrefix(conf, testname);
+      CloudTestHelper.setRandomBucketPrefix(conf,  testBucketPrefix, testname);
 
       cluster = new MiniDFSCluster.Builder(conf).numDataNodes(NUM_DN)
               .storageTypes(CloudTestHelper.genStorageTypes(NUM_DN)).format(true).build();
@@ -771,7 +782,7 @@ public class TestCloudBlockReport {
    */
   @Test
   public void TestCloudDanglingIBR() throws IOException {
-    CloudTestHelper.purgeS3();
+    CloudTestHelper.purgeCloudData(defaultCloudProvider, testBucketPrefix);
     MiniDFSCluster cluster = null;
     try {
 
@@ -781,7 +792,7 @@ public class TestCloudBlockReport {
 
       Configuration conf = new HdfsConfiguration();
       conf.setBoolean(DFSConfigKeys.DFS_ENABLE_CLOUD_PERSISTENCE, true);
-      conf.set(DFSConfigKeys.DFS_CLOUD_PROVIDER, CloudProvider.AWS.name());
+      conf.set(DFSConfigKeys.DFS_CLOUD_PROVIDER, defaultCloudProvider.name());
       conf.setLong(DFSConfigKeys.DFS_BLOCK_SIZE_KEY, BLKSIZE);
 
       conf.setLong(DFSConfigKeys.DFS_CLOUD_BLOCK_REPORT_THREAD_SLEEP_INTERVAL_KEY, 1000);
@@ -790,7 +801,7 @@ public class TestCloudBlockReport {
               DFSConfigKeys.DFS_CLOUD_BLOCK_REPORT_DELAY_DEFAULT);
       conf.setLong(DFSConfigKeys.DFS_NAMENODE_BLOCKID_BATCH_SIZE, 10);
 
-      CloudTestHelper.setRandomBucketPrefix(conf, testname);
+      CloudTestHelper.setRandomBucketPrefix(conf,  testBucketPrefix, testname);
 
       cluster = new MiniDFSCluster.Builder(conf).numDataNodes(NUM_DN)
               .storageTypes(CloudTestHelper.genStorageTypes(NUM_DN)).format(true).build();
@@ -800,14 +811,15 @@ public class TestCloudBlockReport {
 
       File file = new File(cluster.getDataDirectory()+"/tmp-blk");
       FileWriter outblk = new FileWriter(file);
+      outblk.write("hello");
       outblk.close();
 
-      String bucket = conf.get(DFSConfigKeys.S3_BUCKET_KEY, DFSConfigKeys.S3_BUCKET_DEFAULT);
+      String bucket = CloudHelper.getBucketsFromConf(conf).get(0);
       Block blk = new Block(1, 0, 1, bucket);
       String blkKey = CloudHelper.getBlockKey( prefixSize, blk);
       String metaKey = CloudHelper.getMetaFileKey( prefixSize, blk);
 
-      Map<String, String> metadata = new HashMap<>();
+      HashMap<String, String> metadata = new HashMap<>();
       CloudPersistenceProvider cloudConnector =
               CloudPersistenceProviderFactory.getCloudClient(conf);
       cloudConnector.uploadObject(bucket, blkKey, file, metadata);
@@ -852,7 +864,7 @@ public class TestCloudBlockReport {
   // upload
   //
   public void testFailedMultipartUploads() throws IOException {
-    CloudTestHelper.purgeS3();
+    CloudTestHelper.purgeCloudData(defaultCloudProvider, testBucketPrefix);
     MiniDFSCluster cluster = null;
     try {
 
@@ -863,7 +875,7 @@ public class TestCloudBlockReport {
 
       Configuration conf = new HdfsConfiguration();
       conf.setBoolean(DFSConfigKeys.DFS_ENABLE_CLOUD_PERSISTENCE, true);
-      conf.set(DFSConfigKeys.DFS_CLOUD_PROVIDER, CloudProvider.AWS.name());
+      conf.set(DFSConfigKeys.DFS_CLOUD_PROVIDER, defaultCloudProvider.name());
       conf.setLong(DFSConfigKeys.DFS_BLOCK_SIZE_KEY, BLKSIZE);
 
       conf.setLong(DFSConfigKeys.DFS_CLOUD_BLOCK_REPORT_THREAD_SLEEP_INTERVAL_KEY, 1000);
@@ -874,7 +886,7 @@ public class TestCloudBlockReport {
       conf.setLong(DFSConfigKeys.DFS_CLOUD_DELETE_ABANDONED_MULTIPART_FILES_AFTER,
               deleteAbandonedBlocksAfter); //two mins
 
-      CloudTestHelper.setRandomBucketPrefix(conf, testname);
+      CloudTestHelper.setRandomBucketPrefix(conf,  testBucketPrefix, testname);
 
       cluster = new MiniDFSCluster.Builder(conf).numDataNodes(NUM_DN)
               .storageTypes(CloudTestHelper.genStorageTypes(NUM_DN)).format(true).build();
@@ -940,7 +952,7 @@ public class TestCloudBlockReport {
    */
   @Test
   public void TestBlockReport() throws IOException {
-    CloudTestHelper.purgeS3();
+    CloudTestHelper.purgeCloudData(defaultCloudProvider, testBucketPrefix);
     MiniDFSCluster cluster = null;
     try {
 
@@ -960,7 +972,7 @@ public class TestCloudBlockReport {
       conf.setLong(DFSConfigKeys.DFS_NAMENODE_BLOCKID_BATCH_SIZE, 10);
       conf.setInt(DFSConfigKeys.DFS_DATANODE_BALANCE_MAX_NUM_CONCURRENT_MOVES_KEY, 20);
 
-      CloudTestHelper.setRandomBucketPrefix(conf, testname);
+      CloudTestHelper.setRandomBucketPrefix(conf,  testBucketPrefix, testname);
 
       cluster = new MiniDFSCluster.Builder(conf).numDataNodes(NUM_DN)
               .storageTypes(CloudTestHelper.genStorageTypes(NUM_DN)).format(true).build();
@@ -1021,7 +1033,11 @@ public class TestCloudBlockReport {
 
   @AfterClass
   public static void TestZDeleteAllBuckets() throws IOException {
-    CloudTestHelper.purgeS3();
+    Iterator<Object> itr = params.iterator();
+    while(itr.hasNext()){
+      Object[] obj =(Object[]) itr.next();
+      CloudTestHelper.purgeCloudData((CloudProvider) obj[0], testBucketPrefix);
+    }
   }
 
 }

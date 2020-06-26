@@ -26,24 +26,40 @@ import org.apache.log4j.Level;
 import org.apache.log4j.Logger;
 import org.junit.*;
 import org.junit.rules.TestName;
-import org.junit.runners.MethodSorters;
+import org.junit.runner.RunWith;
+import org.junit.runners.Parameterized;
 
 import java.io.IOException;
+import java.util.Arrays;
+import java.util.Collection;
+import java.util.Iterator;
 
 import static junit.framework.TestCase.assertTrue;
 import static org.apache.hadoop.hdfs.HopsFilesTestHelper.*;
 import static org.junit.Assert.fail;
 
+@RunWith(Parameterized.class)
 public class TestCloudRestart {
 
   static final Log LOG = LogFactory.getLog(TestCloudRestart.class);
+  static String testBucketPrefix = "hopsfs-testing-TCR";
+  static Collection params = Arrays.asList(new Object[][]{
+          {CloudProvider.AWS},
+          {CloudProvider.AZURE}
+  });
+
+  @Parameterized.Parameters
+  public static Collection<Object> configs() {
+    return params;
+  }
+
+  CloudProvider defaultCloudProvider = null;
+  public TestCloudRestart(CloudProvider cloudProvider) {
+    this.defaultCloudProvider = cloudProvider;
+  }
+
   @Rule
   public TestName testname = new TestName();
-
-  @BeforeClass
-  public static void setBucketPrefix(){
-    CloudTestHelper.prependBucketPrefix("TCR");
-  }
 
   @Before
   public void setup() {
@@ -52,7 +68,7 @@ public class TestCloudRestart {
 
   @Test
   public void TestSimpleRestart() throws IOException {
-    CloudTestHelper.purgeS3();
+    CloudTestHelper.purgeCloudData(defaultCloudProvider, testBucketPrefix);
     MiniDFSCluster cluster = null;
     try {
 
@@ -61,7 +77,7 @@ public class TestCloudRestart {
 
       Configuration conf = new HdfsConfiguration();
       conf.setBoolean(DFSConfigKeys.DFS_ENABLE_CLOUD_PERSISTENCE, true);
-      conf.set(DFSConfigKeys.DFS_CLOUD_PROVIDER, CloudProvider.AWS.name());
+      conf.set(DFSConfigKeys.DFS_CLOUD_PROVIDER, defaultCloudProvider.name());
       conf.setLong(DFSConfigKeys.DFS_BLOCK_SIZE_KEY, BLKSIZE);
 
       conf.setLong(DFSConfigKeys.DFS_CLOUD_BLOCK_REPORT_THREAD_SLEEP_INTERVAL_KEY, 1000);
@@ -70,7 +86,7 @@ public class TestCloudRestart {
               DFSConfigKeys.DFS_CLOUD_BLOCK_REPORT_DELAY_DEFAULT);
       conf.setLong(DFSConfigKeys.DFS_NAMENODE_BLOCKID_BATCH_SIZE, 10);
 
-      CloudTestHelper.setRandomBucketPrefix(conf, testname);
+      CloudTestHelper.setRandomBucketPrefix(conf, testBucketPrefix, testname);
 
       cluster = new MiniDFSCluster.Builder(conf).numDataNodes(NUM_DN)
               .storageTypes(CloudTestHelper.genStorageTypes(NUM_DN)).format(true).build();
@@ -116,7 +132,10 @@ public class TestCloudRestart {
 
   @AfterClass
   public static void TestZDeleteAllBuckets() throws IOException {
-    CloudTestHelper.purgeS3();
+    Iterator<Object> itr = params.iterator();
+    while(itr.hasNext()){
+      Object[] obj =(Object[]) itr.next();
+      CloudTestHelper.purgeCloudData((CloudProvider) obj[0], testBucketPrefix);
+    }
   }
-
 }

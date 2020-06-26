@@ -13,7 +13,7 @@ import org.apache.hadoop.hdfs.protocol.ExtendedBlock;
 import org.apache.hadoop.hdfs.server.common.CloudHelper;
 import org.apache.hadoop.hdfs.server.common.HdfsServerConstants;
 import org.apache.hadoop.hdfs.server.datanode.*;
-import org.apache.hadoop.hdfs.server.datanode.fsdataset.CloudPersistenceProvider;
+import org.apache.hadoop.hdfs.server.datanode.fsdataset.impl.cloud.CloudPersistenceProvider;
 
 import java.io.*;
 import java.util.*;
@@ -23,6 +23,9 @@ import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
 import org.apache.hadoop.hdfs.server.datanode.fsdataset.FsVolumeReference;
 import org.apache.hadoop.hdfs.server.datanode.fsdataset.LengthInputStream;
+import org.apache.hadoop.hdfs.server.datanode.fsdataset.impl.cloud.CloudPersistenceProviderFactory;
+import org.apache.hadoop.hdfs.server.datanode.fsdataset.impl.cloud.PartRef;
+import org.apache.hadoop.hdfs.server.datanode.fsdataset.impl.cloud.UploadID;
 import org.apache.hadoop.hdfs.server.protocol.BlockReport;
 import org.apache.hadoop.hdfs.server.protocol.DatanodeStorage;
 import org.apache.hadoop.io.IOUtils;
@@ -280,7 +283,8 @@ public class CloudFsDatasetImpl extends FsDatasetImpl {
                                   File currentDir, Configuration conf,
                                   StorageType storageType) throws IOException {
     if (storageType == StorageType.CLOUD) {
-      if (getCloudProviderName().compareToIgnoreCase(CloudProvider.AWS.name()) == 0) {
+      if (getCloudProviderName().compareToIgnoreCase(CloudProvider.AWS.name()) == 0 ||
+              getCloudProviderName().compareToIgnoreCase(CloudProvider.AZURE.name()) == 0) {
         return new CloudFsVolumeImpl(this, storageID, currentDir, conf, storageType);
       } else {
         throw new UnsupportedOperationException("Cloud provider '" +
@@ -735,7 +739,7 @@ public class CloudFsDatasetImpl extends FsDatasetImpl {
     int partId = pReplicaInfo.incrementAndGetNextPart();
     if(partId == 1){
       if (!cloud.objectExists(b.getCloudBucket(), blockKey)){
-        String uploadID = cloud.startMultipartUpload(b.getCloudBucket(), blockKey,
+        UploadID uploadID = cloud.startMultipartUpload(b.getCloudBucket(), blockKey,
                 getBlockFileMetadata(b.getLocalBlock()));
         pReplicaInfo.setUploadID(uploadID);
         pReplicaInfo.setMultipart(true);
@@ -785,7 +789,7 @@ public class CloudFsDatasetImpl extends FsDatasetImpl {
   private void waitForPartsUpload(ProvidedReplicaBeingWritten prbw) throws IOException {
     for(Future future : prbw.getAllUploadTasks()){
       try{
-        PartETag tag = (PartETag) future.get();
+        PartRef tag = (PartRef) future.get();
         prbw.addEtag(tag);
       } catch (ExecutionException e) {
         LOG.error("Exception was thrown during uploading a block to cloud", e);
@@ -805,13 +809,13 @@ public class CloudFsDatasetImpl extends FsDatasetImpl {
   class PartUploadWorker implements Callable{
     private final String bucket;
     private final String key;
-    private final String uploadID;
+    private final UploadID uploadID;
     private final int partID;
     private final File file;
     private final long startPos;
     private final long endPos;
 
-    PartUploadWorker(String bucket, String key, String uploadID, int partID, File file,
+    PartUploadWorker(String bucket, String key, UploadID uploadID, int partID, File file,
                      long startPos, long endPos){
       this.bucket = bucket;
       this.key = key;
@@ -824,7 +828,7 @@ public class CloudFsDatasetImpl extends FsDatasetImpl {
 
     @Override
     public Object call() throws Exception {
-      PartETag etag = cloud.uploadPart(bucket, key, uploadID,
+      PartRef etag = cloud.uploadPart(bucket, key, uploadID,
               partID, file, startPos, endPos);
       LOG.info("HopsFS-Cloud. Part id to upload "+partID+
               " start "+startPos+" end "+endPos+ " payload size "+(endPos-startPos));
@@ -842,13 +846,13 @@ public class CloudFsDatasetImpl extends FsDatasetImpl {
     return null;
   }
 
-  private Map<String, String> getBlockFileMetadata(Block b) {
-    Map<String, String> metadata = new HashMap<>();
+  private HashMap<String, String> getBlockFileMetadata(Block b) {
+    HashMap<String, String> metadata = new HashMap<>();
     return metadata;
   }
 
-  private Map<String, String> getMetaMetadata(Block b) {
-    Map<String, String> metadata = new HashMap<>();
+  private HashMap<String, String> getMetaMetadata(Block b) {
+    HashMap<String, String> metadata = new HashMap<>();
     metadata.put(GEN_STAMP, Long.toString(b.getGenerationStamp()));
     metadata.put(OBJECT_SIZE, Long.toString(b.getNumBytes()));
     return metadata;

@@ -17,6 +17,8 @@
 package org.apache.hadoop.hdfs.server.datanode;
 
 import com.amazonaws.services.s3.model.PartETag;
+import org.apache.hadoop.hdfs.server.datanode.fsdataset.impl.cloud.PartRef;
+import org.apache.hadoop.hdfs.server.datanode.fsdataset.impl.cloud.UploadID;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -28,9 +30,9 @@ public class ProvidedReplicaBeingWritten extends ReplicaBeingWritten {
   private boolean isMultipartComplete = false;
   private int currentPart = 0;
   private final long partSize;
-  List<PartETag> partETags = new ArrayList<PartETag>();
+  List<PartRef> partETags = new ArrayList<PartRef>();
   List<Future> uploadTasks = new ArrayList<Future>();
-  private String uploadID = null;
+  private UploadID uploadID = null;
 
   public ProvidedReplicaBeingWritten(ReplicaBeingWritten from, long partSize) {
     super(from);
@@ -56,19 +58,19 @@ public class ProvidedReplicaBeingWritten extends ReplicaBeingWritten {
     return partSize;
   }
 
-  public String getUploadID() {
+  public UploadID getUploadID() {
     return uploadID;
   }
 
-  public void setUploadID(String uploadID) {
+  public void setUploadID(UploadID uploadID) {
     this.uploadID = uploadID;
   }
 
-  public void addEtag(PartETag etag){
+  public void addEtag(PartRef etag){
     partETags.add(etag);
   }
 
-  public List<PartETag> getPartETags(){
+  public List<PartRef> getPartETags(){
     return partETags;
   }
 

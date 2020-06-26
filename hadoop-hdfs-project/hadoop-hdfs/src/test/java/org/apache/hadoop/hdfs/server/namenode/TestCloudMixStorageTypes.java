@@ -21,40 +21,54 @@ import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.CloudProvider;
 import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.hdfs.*;
-import org.apache.hadoop.hdfs.server.datanode.fsdataset.impl.CloudPersistenceProviderFactory;
+import org.apache.hadoop.hdfs.server.datanode.fsdataset.impl.cloud.CloudPersistenceProviderFactory;
 import org.apache.log4j.Level;
 import org.apache.log4j.Logger;
 import org.junit.*;
 import org.junit.rules.TestName;
+import org.junit.runner.RunWith;
+import org.junit.runners.Parameterized;
 
 import java.io.IOException;
+import java.util.Arrays;
+import java.util.Collection;
+import java.util.Iterator;
 
 import static junit.framework.TestCase.assertTrue;
 import static org.apache.hadoop.hdfs.HopsFilesTestHelper.*;
 import static org.junit.Assert.fail;
 
+@RunWith(Parameterized.class)
 public class TestCloudMixStorageTypes {
 
   static final Log LOG = LogFactory.getLog(TestCloudMixStorageTypes.class);
+  static String testBucketPrefix = "hopsfs-testing-TCMST";
+  static Collection params = Arrays.asList(new Object[][]{
+          {CloudProvider.AWS},
+          {CloudProvider.AZURE}
+  });
+
+  @Parameterized.Parameters
+  public static Collection<Object> configs() {
+    return params;
+  }
+
+  CloudProvider defaultCloudProvider = null;
+  public TestCloudMixStorageTypes(CloudProvider cloudProvider) {
+    this.defaultCloudProvider = cloudProvider;
+  }
 
   @Rule
   public TestName testname = new TestName();
 
-  @BeforeClass
-  public static void setBucketPrefix(){
-    CloudTestHelper.prependBucketPrefix("TCMST");
-  }
-
   @Before
   public void setup() {
     Logger.getRootLogger().setLevel(Level.INFO);
-    //Logger.getLogger(ProvidedBlocksChecker.class).setLevel(Level.DEBUG);
-    //Logger.getLogger(CloudTestHelper.class).setLevel(Level.DEBUG);
   }
 
   @Test
   public void TestNestedCloudAndDBTypes() throws IOException {
-    CloudTestHelper.purgeS3();
+    CloudTestHelper.purgeCloudData(defaultCloudProvider, testBucketPrefix);
     MiniDFSCluster cluster = null;
     try {
       Configuration conf = new HdfsConfiguration();
@@ -62,9 +76,9 @@ public class TestCloudMixStorageTypes {
       final int BLKSIZE = 128 * 1024;
 
       conf.setBoolean(DFSConfigKeys.DFS_ENABLE_CLOUD_PERSISTENCE, true);
-      conf.set(DFSConfigKeys.DFS_CLOUD_PROVIDER, CloudProvider.AWS.name());
+      conf.set(DFSConfigKeys.DFS_CLOUD_PROVIDER, defaultCloudProvider.name());
       conf.setLong(DFSConfigKeys.DFS_BLOCK_SIZE_KEY, BLKSIZE);
-      CloudTestHelper.setRandomBucketPrefix(conf, testname);
+      CloudTestHelper.setRandomBucketPrefix(conf, testBucketPrefix, testname);
 
       cluster = new MiniDFSCluster.Builder(conf).numDataNodes(NUM_DN).
               storageTypes(CloudTestHelper.genStorageTypes(NUM_DN)).format(true).build();
@@ -125,7 +139,7 @@ public class TestCloudMixStorageTypes {
 
   @Test
   public void TestHotStorage() throws IOException {
-    CloudTestHelper.purgeS3();
+    CloudTestHelper.purgeCloudData(defaultCloudProvider, testBucketPrefix);
     MiniDFSCluster cluster = null;
     try {
       Configuration conf = new HdfsConfiguration();
@@ -133,9 +147,9 @@ public class TestCloudMixStorageTypes {
       final int BLKSIZE = 128 * 1024;
 
       conf.setBoolean(DFSConfigKeys.DFS_ENABLE_CLOUD_PERSISTENCE, true);
-      conf.set(DFSConfigKeys.DFS_CLOUD_PROVIDER, CloudProvider.AWS.name());
+      conf.set(DFSConfigKeys.DFS_CLOUD_PROVIDER, defaultCloudProvider.name());
       conf.setLong(DFSConfigKeys.DFS_BLOCK_SIZE_KEY, BLKSIZE);
-      CloudTestHelper.setRandomBucketPrefix(conf, testname);
+      CloudTestHelper.setRandomBucketPrefix(conf, testBucketPrefix, testname);
 
       cluster = new MiniDFSCluster.Builder(conf).numDataNodes(NUM_DN).
               storageTypes(CloudTestHelper.genStorageTypes(NUM_DN)).format(true).build();
@@ -169,7 +183,7 @@ public class TestCloudMixStorageTypes {
   // store small files in DB and large files in cloud
   @Test
   public void TestSmallAndLargeFiles() throws IOException {
-    CloudTestHelper.purgeS3();
+    CloudTestHelper.purgeCloudData(defaultCloudProvider, testBucketPrefix);
     MiniDFSCluster cluster = null;
     try {
       Configuration conf = new HdfsConfiguration();
@@ -177,9 +191,9 @@ public class TestCloudMixStorageTypes {
       final int BLKSIZE = 128 * 1024;
 
       conf.setBoolean(DFSConfigKeys.DFS_ENABLE_CLOUD_PERSISTENCE, true);
-      conf.set(DFSConfigKeys.DFS_CLOUD_PROVIDER, CloudProvider.AWS.name());
+      conf.set(DFSConfigKeys.DFS_CLOUD_PROVIDER, defaultCloudProvider.name());
       conf.setLong(DFSConfigKeys.DFS_BLOCK_SIZE_KEY, BLKSIZE);
-      CloudTestHelper.setRandomBucketPrefix(conf, testname);
+      CloudTestHelper.setRandomBucketPrefix(conf, testBucketPrefix, testname);
 
       cluster = new MiniDFSCluster.Builder(conf).numDataNodes(NUM_DN).
               storageTypes(CloudTestHelper.genStorageTypes(NUM_DN)).format(true).build();
@@ -274,7 +288,7 @@ public class TestCloudMixStorageTypes {
   // test disabling small files support for cloud storage policy
   @Test
   public void TestDisableSmallFiles() throws IOException {
-    CloudTestHelper.purgeS3();
+    CloudTestHelper.purgeCloudData(defaultCloudProvider, testBucketPrefix);
     MiniDFSCluster cluster = null;
     try {
       Configuration conf = new HdfsConfiguration();
@@ -282,10 +296,10 @@ public class TestCloudMixStorageTypes {
       final int BLKSIZE = 128 * 1024;
 
       conf.setBoolean(DFSConfigKeys.DFS_ENABLE_CLOUD_PERSISTENCE, true);
-      conf.set(DFSConfigKeys.DFS_CLOUD_PROVIDER, CloudProvider.AWS.name());
+      conf.set(DFSConfigKeys.DFS_CLOUD_PROVIDER, defaultCloudProvider.name());
       conf.setLong(DFSConfigKeys.DFS_BLOCK_SIZE_KEY, BLKSIZE);
       conf.setBoolean(DFSConfigKeys.DFS_CLOUD_STORE_SMALL_FILES_IN_DB_KEY, false);
-      CloudTestHelper.setRandomBucketPrefix(conf, testname);
+      CloudTestHelper.setRandomBucketPrefix(conf, testBucketPrefix, testname);
 
       cluster = new MiniDFSCluster.Builder(conf).numDataNodes(NUM_DN).
               storageTypes(CloudTestHelper.genStorageTypes(NUM_DN)).format(true).build();
@@ -366,7 +380,7 @@ public class TestCloudMixStorageTypes {
   // Test reading small files and other files after changing the parent storage policy
   @Test
   public void TestSmallFiles() throws IOException {
-    CloudTestHelper.purgeS3();
+    CloudTestHelper.purgeCloudData(defaultCloudProvider, testBucketPrefix);
     MiniDFSCluster cluster = null;
     try {
       Configuration conf = new HdfsConfiguration();
@@ -374,10 +388,10 @@ public class TestCloudMixStorageTypes {
       final int BLKSIZE = 128 * 1024;
 
       conf.setBoolean(DFSConfigKeys.DFS_ENABLE_CLOUD_PERSISTENCE, true);
-      conf.set(DFSConfigKeys.DFS_CLOUD_PROVIDER, CloudProvider.AWS.name());
+      conf.set(DFSConfigKeys.DFS_CLOUD_PROVIDER, defaultCloudProvider.name());
       conf.setLong(DFSConfigKeys.DFS_BLOCK_SIZE_KEY, BLKSIZE);
       conf.setBoolean(DFSConfigKeys.DFS_CLOUD_STORE_SMALL_FILES_IN_DB_KEY, true);
-      CloudTestHelper.setRandomBucketPrefix(conf, testname);
+      CloudTestHelper.setRandomBucketPrefix(conf, testBucketPrefix, testname);
 
       cluster = new MiniDFSCluster.Builder(conf).numDataNodes(NUM_DN).
               storageTypes(CloudTestHelper.genStorageTypes(NUM_DN)).format(true).build();
@@ -429,7 +443,11 @@ public class TestCloudMixStorageTypes {
 
   @AfterClass
   public static void TestZDeleteAllBuckets() throws IOException {
-    CloudTestHelper.purgeS3();
+    Iterator<Object> itr = params.iterator();
+    while(itr.hasNext()){
+      Object[] obj =(Object[]) itr.next();
+      CloudTestHelper.purgeCloudData((CloudProvider) obj[0], testBucketPrefix);
+    }
   }
 
 }

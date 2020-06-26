@@ -17,6 +17,7 @@
 package org.apache.hadoop.hdfs.server.datanode.fsdataset.impl;
 
 import java.io.File;
+import java.io.FileFilter;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Collections;
@@ -51,11 +52,17 @@ public class ProvidedBlocksCacheCleaner extends Thread {
     this.diskUtilization = new ProvidedBlocksCacheDiskUtilization(baseDir);
     this.waitBeforeDelete = waitBeforeDelete;
 
-    File[] files = baseDir.listFiles(); //flat dir structure
-    for (File file : files) {
-      if (file.isFile()) {
-        cachedFiles.put(file.getAbsolutePath(), new CachedProvidedBlock(file.getAbsolutePath(),
-                System.currentTimeMillis()));
+    List<File> dirs = new ArrayList<>();
+    dirs.add(baseDir);
+    while(!dirs.isEmpty()){
+      File[] files = dirs.remove(0).listFiles();
+      for (File file : files) {
+        if (file.isFile()) {
+          cachedFiles.put(file.getAbsolutePath(), new CachedProvidedBlock(file.getAbsolutePath(),
+                  System.currentTimeMillis()));
+        }else{
+          dirs.add(file);
+        }
       }
     }
   }

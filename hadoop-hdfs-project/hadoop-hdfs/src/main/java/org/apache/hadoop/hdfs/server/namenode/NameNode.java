@@ -17,7 +17,6 @@
 package org.apache.hadoop.hdfs.server.namenode;
 
 import com.google.common.annotations.VisibleForTesting;
-import com.google.common.collect.Lists;
 import io.hops.exception.StorageException;
 import io.hops.leaderElection.HdfsLeDescriptorFactory;
 import io.hops.leaderElection.LeaderElection;
@@ -52,8 +51,8 @@ import org.apache.hadoop.hdfs.server.common.HdfsServerConstants.NamenodeRole;
 import org.apache.hadoop.hdfs.server.common.HdfsServerConstants.RollingUpgradeStartupOption;
 import org.apache.hadoop.hdfs.server.common.HdfsServerConstants.StartupOption;
 import org.apache.hadoop.hdfs.server.common.StorageInfo;
-import org.apache.hadoop.hdfs.server.datanode.fsdataset.CloudPersistenceProvider;
-import org.apache.hadoop.hdfs.server.datanode.fsdataset.impl.CloudPersistenceProviderFactory;
+import org.apache.hadoop.hdfs.server.datanode.fsdataset.impl.cloud.CloudPersistenceProvider;
+import org.apache.hadoop.hdfs.server.datanode.fsdataset.impl.cloud.CloudPersistenceProviderFactory;
 import org.apache.hadoop.hdfs.server.namenode.metrics.NameNodeMetrics;
 import org.apache.hadoop.hdfs.server.namenode.startupprogress.StartupProgress;
 import org.apache.hadoop.hdfs.server.namenode.startupprogress.StartupProgressMetrics;
@@ -999,7 +998,7 @@ public class NameNode implements NameNodeStatusMXBean {
     return false;
   }
 
-  private static void formatCloud(Configuration conf) throws StorageException {
+  private static void formatCloud(Configuration conf) throws IOException {
     // Wipe cloud buckets
     boolean cloud = conf.getBoolean(DFSConfigKeys.DFS_ENABLE_CLOUD_PERSISTENCE,
             DFSConfigKeys.DFS_ENABLE_CLOUD_PERSISTENCE_DEFAULT);
@@ -1011,6 +1010,7 @@ public class NameNode implements NameNodeStatusMXBean {
       List<String> buckets =  CloudHelper.getBucketsFromConf(conf);
 
       cloudConnector.format(buckets);
+      cloudConnector.checkAllBuckets(buckets);
       CloudHelper.clearCache();
       for(String bucket : buckets){
         CloudHelper.addBucket(bucket);

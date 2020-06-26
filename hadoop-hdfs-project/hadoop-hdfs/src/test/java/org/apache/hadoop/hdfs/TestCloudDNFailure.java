@@ -24,31 +24,60 @@ import org.apache.hadoop.fs.StorageType;
 import org.apache.hadoop.hdfs.MiniDFSCluster.DataNodeProperties;
 import org.apache.hadoop.hdfs.client.HdfsDataInputStream;
 import org.apache.hadoop.hdfs.client.HdfsDataOutputStream;
+import org.apache.hadoop.hdfs.server.blockmanagement.ProvidedBlocksChecker;
 import org.apache.hadoop.hdfs.server.datanode.DataNode;
-import org.apache.hadoop.hdfs.server.datanode.fsdataset.impl.CloudPersistenceProviderS3Impl;
+import org.apache.hadoop.hdfs.server.datanode.fsdataset.impl.cloud.CloudPersistenceProviderAzureImpl;
+import org.apache.hadoop.hdfs.server.datanode.fsdataset.impl.cloud.CloudPersistenceProviderS3Impl;
 import org.apache.hadoop.hdfs.server.protocol.BlockReport;
 import org.apache.hadoop.hdfs.server.protocol.DatanodeStorage;
 import org.apache.hadoop.io.IOUtils;
 import org.apache.log4j.Level;
+import org.apache.log4j.Logger;
 import org.junit.AfterClass;
-import org.junit.BeforeClass;
+import org.junit.Before;
 import org.junit.Rule;
 import org.junit.Test;
 import org.junit.rules.TestName;
+import org.junit.runner.RunWith;
+import org.junit.runners.Parameterized;
 
 import java.io.IOException;
-import java.util.List;
-import java.util.Map;
+import java.util.*;
 import java.util.concurrent.*;
 
 import static junit.framework.TestCase.assertTrue;
 import static org.junit.Assert.fail;
+import org.apache.hadoop.hdfs.protocol.Block;
 
 /**
  * This class tests datanode failure handling during file read and write operations for hopsfs-cloud
  */
+
+@RunWith(Parameterized.class)
 public class TestCloudDNFailure {
   static final Log LOG = AppendTestUtil.LOG;
+  static String testBucketPrefix = "hopsfs-testing-TCDNF";
+  static Collection params = Arrays.asList(new Object[][]{
+          {CloudProvider.AWS},
+          {CloudProvider.AZURE}
+  });
+
+  @Before
+  public void setup() {
+    Logger.getLogger(ProvidedBlocksChecker.class).setLevel(Level.DEBUG);
+    Logger.getLogger(CloudPersistenceProviderAzureImpl.class).setLevel(Level.DEBUG);
+    Logger.getLogger(CloudPersistenceProviderS3Impl.class).setLevel(Level.DEBUG);
+  }
+
+  @Parameterized.Parameters
+  public static Collection<Object> configs() {
+    return params;
+  }
+
+  CloudProvider defaultCloudProvider = null;
+  public TestCloudDNFailure(CloudProvider cloudProvider) {
+    this.defaultCloudProvider = cloudProvider;
+  }
 
   @Rule
   public TestName testname = new TestName();
@@ -58,11 +87,6 @@ public class TestCloudDNFailure {
 
   {
     ((Log4JLogger) CloudPersistenceProviderS3Impl.LOG).getLogger().setLevel(Level.ALL);
-  }
-
-  @BeforeClass
-  public static void setBucketPrefix(){
-    CloudTestHelper.prependBucketPrefix("TCDNF");
   }
 
   /**
@@ -99,11 +123,11 @@ public class TestCloudDNFailure {
     ExecutorService es = Executors.newFixedThreadPool(numWorker);
 
     if (enableCloud) {
-      CloudTestHelper.purgeS3();
+      CloudTestHelper.purgeCloudData(defaultCloudProvider, testBucketPrefix);
       conf.setBoolean(DFSConfigKeys.DFS_ENABLE_CLOUD_PERSISTENCE, true);
-      conf.set(DFSConfigKeys.DFS_CLOUD_PROVIDER, CloudProvider.AWS.name());
+      conf.set(DFSConfigKeys.DFS_CLOUD_PROVIDER, defaultCloudProvider.name());
       conf.setInt(DFSConfigKeys.DFS_CLOUD_MAX_PHANTOM_BLOCKS_FOR_READ_KEY, phantomReplication);
-      CloudTestHelper.setRandomBucketPrefix(conf, testname);
+      CloudTestHelper.setRandomBucketPrefix(conf, testBucketPrefix, testname);
     }
     conf.setLong(DFSConfigKeys.DFS_BLOCK_SIZE_KEY, BLK_SIZE);
 
@@ -115,10 +139,16 @@ public class TestCloudDNFailure {
     //Increasing the stale time to make sure the NN always return the same stale DN
     conf.setLong(DFSConfigKeys.DFS_NAMENODE_STALE_DATANODE_INTERVAL_KEY, 5 * 60 * 1000);
 
+    //if a datanode fails then the unfinished block report entry will linger for some time
+    //before it is reclaimed. Untill the entry is reclaimed other datanodes will not be
+    //able to block report. Reducing the BR Max process time to quickly reclaim
+    //unfinished block reports
+    conf.setLong(DFSConfigKeys.DFS_BR_LB_MAX_BR_PROCESSING_TIME, 5*1000);
+
     final int INITIAL_NUM_DN = 1;
     final int ADDITIONAL_NUM_DN = 1;
 
-    final MiniDFSCluster.Builder builder = new MiniDFSCluster.Builder(conf).
+    final MiniDFSCluster.Builder builder = new MiniDFSCluster.Builder(conf).format(true).
             numDataNodes(INITIAL_NUM_DN);
     if (enableCloud) {
       builder.storageTypes(CloudTestHelper.genStorageTypes(INITIAL_NUM_DN));
@@ -162,6 +192,10 @@ public class TestCloudDNFailure {
       //start reading
       sleepSeconds(3);
 
+      for (int i = 0; i < cluster.getDataNodes().size(); i++) {
+        LOG.info("HopsFS-Cloud. Datanode : " + i + " ID: " + cluster.getDataNodes().get(i).getDatanodeUuid());
+      }
+      LOG.info("HopsFS-Cloud. Storring First Datanode");
       //kill DN that stores the block
       MiniDFSCluster.DataNodeProperties dnprop = cluster.stopDataNode(0);
 
@@ -200,17 +234,22 @@ public class TestCloudDNFailure {
 
     ExecutorService es = Executors.newFixedThreadPool(numThreads);
     if (enableCloud) {
-      CloudTestHelper.purgeS3();
+      CloudTestHelper.purgeCloudData(defaultCloudProvider, testBucketPrefix);
       conf.setBoolean(DFSConfigKeys.DFS_ENABLE_CLOUD_PERSISTENCE, true);
-      conf.set(DFSConfigKeys.DFS_CLOUD_PROVIDER, CloudProvider.AWS.name());
-      CloudTestHelper.setRandomBucketPrefix(conf, testname);
+      conf.set(DFSConfigKeys.DFS_CLOUD_PROVIDER, defaultCloudProvider.name());
+      CloudTestHelper.setRandomBucketPrefix(conf, testBucketPrefix, testname);
     }
     conf.setLong(DFSConfigKeys.DFS_BLOCK_SIZE_KEY, BLK_SIZE);
 
     conf.setInt(DFSConfigKeys.DFS_NAMENODE_HEARTBEAT_RECHECK_INTERVAL_KEY, 500);
+    //if a datanode fails then the unfinished block report entry will linger for some time
+    //before it is reclaimed. Untill the entry is reclaimed other datanodes will not be
+    //able to block report. Reducing the BR Max process time to quickly reclaim
+    //unfinished block reports
+    conf.setLong(DFSConfigKeys.DFS_BR_LB_MAX_BR_PROCESSING_TIME, 5*1000);
     conf.setLong(DFSConfigKeys.DFS_HEARTBEAT_INTERVAL_KEY, 1L);
 
-    final MiniDFSCluster.Builder builder = new MiniDFSCluster.Builder(conf).
+    final MiniDFSCluster.Builder builder = new MiniDFSCluster.Builder(conf).format(true).
             numDataNodes(NUM_DN);
     if (enableCloud) {
       builder.storageTypes(CloudTestHelper.genStorageTypes(NUM_DN));
@@ -253,7 +292,7 @@ public class TestCloudDNFailure {
       }
 
       // sleep to make sure that the client is writing to the first DN
-      sleepSeconds(3);
+      sleepSeconds(10);
 
 
       int numfailures = NUM_DN - 1;
@@ -297,7 +336,7 @@ public class TestCloudDNFailure {
       waitDNCount(cluster, dnProps.length);
 
       //make sure that all block reports are done and stray blocks have been deleted
-      sleepSeconds(20);
+      sleepSeconds(60);
       checkForStrayDNBlocks(cluster, NUM_DN);
 
     } finally {
@@ -334,7 +373,13 @@ public class TestCloudDNFailure {
     String poolId = cluster.getNamesystem().getBlockPoolId();
     Map<DatanodeStorage, BlockReport> br = dn.getFSDataset().getBlockReports(poolId);
     for (BlockReport reportedBlocks : br.values()) {
-      assertTrue(dn + " should have no blocks on disk", reportedBlocks.getNumberOfBlocks() == 0);
+      if(reportedBlocks.getNumberOfBlocks() != 0){
+        Iterator<Block> itr = reportedBlocks.blockIterable().iterator();
+         while(itr.hasNext()){
+           LOG.info("Block stored on DN is "+ itr.next());
+         }
+        fail(dn + " should have no blocks on disk. ");
+      }
     }
   }
 
@@ -483,6 +528,10 @@ public class TestCloudDNFailure {
 
   @AfterClass
   public static void TestZDeleteAllBuckets() throws IOException {
-    CloudTestHelper.purgeS3();
+    Iterator<Object> itr = params.iterator();
+    while(itr.hasNext()){
+      Object[] obj =(Object[]) itr.next();
+      CloudTestHelper.purgeCloudData((CloudProvider) obj[0], testBucketPrefix);
+    }
   }
 }

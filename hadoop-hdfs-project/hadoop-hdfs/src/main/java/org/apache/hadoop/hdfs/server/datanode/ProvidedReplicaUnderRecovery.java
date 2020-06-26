@@ -17,15 +17,16 @@
 package org.apache.hadoop.hdfs.server.datanode;
 
 import org.apache.hadoop.hdfs.protocol.Block;
+import org.apache.hadoop.hdfs.server.datanode.fsdataset.impl.cloud.UploadID;
 
 public class ProvidedReplicaUnderRecovery extends ReplicaUnderRecovery {
 
   private final boolean partiallyUploaded;
-  private final String uploadID;
+  private final UploadID uploadID;
   private final Block block;
 
   public ProvidedReplicaUnderRecovery(ReplicaInfo replica, long recoveryId
-          , boolean partiallyUploaded, String uploadID, Block block) {
+          , boolean partiallyUploaded, UploadID uploadID, Block block) {
     super(replica, recoveryId);
     this.partiallyUploaded = partiallyUploaded;
     this.uploadID = uploadID;
@@ -36,7 +37,7 @@ public class ProvidedReplicaUnderRecovery extends ReplicaUnderRecovery {
     return partiallyUploaded;
   }
 
-  public String getUploadID() {
+  public UploadID getUploadID() {
     return uploadID;
   }
 

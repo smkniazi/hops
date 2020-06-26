@@ -5798,7 +5798,7 @@ public class BlockManager {
     return invalidateBlocks;
   }
 
-  public void startProvidedBlocksChecker(Configuration conf){
+  public void startProvidedBlocksChecker(Configuration conf) throws IOException {
     if(isCloudEnabled){
       LOG.info("HopsFS-Cloud. Starting Provide Blocks Checker");
       providedBlocksChecker = new ProvidedBlocksChecker(conf, namesystem, this);

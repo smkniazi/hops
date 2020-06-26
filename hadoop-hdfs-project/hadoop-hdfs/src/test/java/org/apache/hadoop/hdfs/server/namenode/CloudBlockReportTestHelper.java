@@ -11,10 +11,8 @@ import java.io.IOException;
 import java.util.Map;
 
 import org.apache.hadoop.hdfs.server.common.CloudHelper;
-import org.apache.hadoop.hdfs.server.datanode.fsdataset.CloudPersistenceProvider;
-import org.apache.hadoop.hdfs.server.datanode.fsdataset.impl.CloudPersistenceProviderFactory;
-import org.apache.log4j.Level;
-import org.apache.log4j.Logger;
+import org.apache.hadoop.hdfs.server.datanode.fsdataset.impl.cloud.CloudPersistenceProvider;
+import org.apache.hadoop.hdfs.server.datanode.fsdataset.impl.cloud.CloudPersistenceProviderFactory;
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
 

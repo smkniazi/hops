@@ -1,4 +1,19 @@
-package org.apache.hadoop.hdfs.server.datanode.fsdataset.impl;
+/*
+ * Copyright (C) 2020 Logical Clocks AB.
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *      http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+package org.apache.hadoop.hdfs.server.datanode.fsdataset.impl.cloud;
 
 import com.amazonaws.AmazonServiceException;
 import com.amazonaws.ClientConfiguration;
@@ -14,7 +29,6 @@ import com.amazonaws.services.s3.transfer.TransferManagerBuilder;
 import com.amazonaws.services.s3.transfer.Upload;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.Sets;
-import io.hops.metadata.hdfs.entity.CloudBucket;
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
 import org.apache.hadoop.conf.Configuration;
@@ -22,8 +36,6 @@ import org.apache.hadoop.hdfs.DFSConfigKeys;
 import org.apache.hadoop.hdfs.protocol.Block;
 import org.apache.hadoop.hdfs.protocol.CloudBlock;
 import org.apache.hadoop.hdfs.server.common.CloudHelper;
-import org.apache.hadoop.hdfs.server.datanode.fsdataset.ActiveMultipartUploads;
-import org.apache.hadoop.hdfs.server.datanode.fsdataset.CloudPersistenceProvider;
 
 import java.io.File;
 import java.io.IOException;
@@ -132,7 +144,7 @@ public class CloudPersistenceProviderS3Impl implements CloudPersistenceProvider 
   deletes all the bucket belonging to this user.
   This is only used for testing.
    */
-  public void deleteAllBuckets(String prefix) {
+  public void deleteAllBuckets(String prefix) throws IOException {
     ExecutorService tPool = Executors.newFixedThreadPool(bucketDeletionThreads);
     try {
       List<Bucket> buckets = s3Client.listBuckets();
@@ -170,7 +182,7 @@ public class CloudPersistenceProviderS3Impl implements CloudPersistenceProvider 
   }
 
   @Override
-  public void checkAllBuckets(List<String> buckets) {
+  public void checkAllBuckets(List<String> buckets) throws IOException {
 
     final int retry = 300;  // keep trying until the newly created bucket is available
     for (String bucket : buckets) {
@@ -289,7 +301,7 @@ public class CloudPersistenceProviderS3Impl implements CloudPersistenceProvider 
 
   @Override
   public void uploadObject(String bucket, String objectKey, File object,
-                           Map<String, String> metadata) throws IOException {
+                           HashMap<String, String> metadata) throws IOException {
     try {
       LOG.debug("HopsFS-Cloud. Put Object. Bucket: " + bucket + " Object Key: " + objectKey);
 
@@ -307,7 +319,7 @@ public class CloudPersistenceProviderS3Impl implements CloudPersistenceProvider 
       Upload upload = transfers.upload(putReq);
 
       upload.waitForUploadResult();
-      LOG.info("HopsFS-Cloud. Put Object. Bucket: " + bucket + " Object Key: " + objectKey
+      LOG.debug("HopsFS-Cloud. Put Object. Bucket: " + bucket + " Object Key: " + objectKey
               + " Time (ms): " + (System.currentTimeMillis() - startTime));
     } catch (InterruptedException e) {
       throw new InterruptedIOException(e.toString());
@@ -359,7 +371,7 @@ public class CloudPersistenceProviderS3Impl implements CloudPersistenceProvider 
     long startTime = System.currentTimeMillis();
     ObjectMetadata s3metadata = getS3ObjectMetadata(bucket, objectKey);
     Map<String, String> metadata = s3metadata.getUserMetadata();
-    LOG.info("HopsFS-Cloud. Get Object Metadata. Bucket: " + bucket + " Object Key: " + objectKey
+    LOG.debug("HopsFS-Cloud. Get Object Metadata. Bucket: " + bucket + " Object Key: " + objectKey
             + " Time (ms): " + (System.currentTimeMillis() - startTime));
     return metadata;
   }
@@ -378,9 +390,26 @@ public class CloudPersistenceProviderS3Impl implements CloudPersistenceProvider 
   public void downloadObject(String bucket, String objectKey, File path) throws IOException {
     try {
       long startTime = System.currentTimeMillis();
+      if (path.exists()) {
+        path.delete();
+      } else {
+        //make sure that all parent dirs exists
+        if (!path.getParentFile().exists()) {
+          path.getParentFile().mkdirs();
+        }
+      }
+
+      Random rand = new Random(System.currentTimeMillis());
+      File tmpFile = new File(path.getAbsolutePath()+"."+rand.nextLong()+".downloading");
+      if(tmpFile.exists()){
+        tmpFile.delete();
+      }
+
       Download down = transfers.download(bucket, objectKey, path);
       down.waitForCompletion();
-      LOG.info("HopsFS-Cloud. Download Object. Bucket: " + bucket + " Object Key: " + objectKey
+
+      tmpFile.renameTo(path);
+      LOG.debug("HopsFS-Cloud. Download Object. Bucket: " + bucket + " Object Key: " + objectKey
               + " Download Path: " + path
               + " Time (ms): " + (System.currentTimeMillis() - startTime));
     } catch (AmazonServiceException e) {
@@ -392,6 +421,7 @@ public class CloudPersistenceProviderS3Impl implements CloudPersistenceProvider 
     }
   }
 
+  @VisibleForTesting
   @Override
   public Map<Long, CloudBlock> getAll(String prefix, List<String> buckets) throws IOException {
     Map<Long, CloudBlock> blocks = new HashMap<>();
@@ -406,7 +436,7 @@ public class CloudPersistenceProviderS3Impl implements CloudPersistenceProvider 
     try {
       long startTime = System.currentTimeMillis();
       s3Client.deleteObject(bucket, objectKey);
-      LOG.info("HopsFS-Cloud. Delete object. Bucket: " + bucket + " Object Key: " + objectKey
+      LOG.debug("HopsFS-Cloud. Delete object. Bucket: " + bucket + " Object Key: " + objectKey
               + " Time (ms): " + (System.currentTimeMillis() - startTime));
     } catch (AmazonServiceException up) {
       throw new IOException(up);
@@ -426,8 +456,8 @@ public class CloudPersistenceProviderS3Impl implements CloudPersistenceProvider 
 
   private void listBucket(String bucketName, String prefix, Map<Long, CloudBlock> result)
           throws IOException {
-    Map<Long, S3ObjectSummary> blockObjs = new HashMap<>();
-    Map<Long, S3ObjectSummary> metaObjs = new HashMap<>();
+    Map<Long, CloudObject> blockObjs = new HashMap<>();
+    Map<Long, CloudObject> metaObjs = new HashMap<>();
 
     try {
       if (!s3Client.doesBucketExist(bucketName)) {
@@ -443,12 +473,18 @@ public class CloudPersistenceProviderS3Impl implements CloudPersistenceProvider 
           S3ObjectSummary s3Object = objIter.next();
           String key = s3Object.getKey();
 
+          CloudObject co = new CloudObject();
+          co.setBucket(s3Object.getBucketName());
+          co.setKey(s3Object.getKey());
+          co.setSize(s3Object.getSize());
+          co.setLastModifiedTime(s3Object.getLastModified().getTime());
+
           if (CloudHelper.isBlockFilename(key)) {
             long blockID = CloudHelper.extractBlockIDFromBlockName(key);
-            blockObjs.put(blockID, s3Object);
+            blockObjs.put(blockID, co);
           } else if (CloudHelper.isMetaFilename(key)) {
             long blockID = CloudHelper.extractBlockIDFromMetaName(key);
-            metaObjs.put(blockID, s3Object);
+            metaObjs.put(blockID, co);
           } else {
             LOG.warn("HopsFS-Cloud. File system objects are tampered. The " + key + " is not HopsFS object.");
           }
@@ -471,8 +507,8 @@ public class CloudPersistenceProviderS3Impl implements CloudPersistenceProvider 
     return;
   }
 
-  private void mergeMetaAndBlockObjects(Map<Long, S3ObjectSummary> metaObjs,
-                                        Map<Long, S3ObjectSummary> blockObjs,
+  public static void mergeMetaAndBlockObjects(Map<Long, CloudObject> metaObjs,
+                                        Map<Long, CloudObject> blockObjs,
                                         Map<Long, CloudBlock> res) {
 
     Set blockKeySet = blockObjs.keySet();
@@ -481,8 +517,8 @@ public class CloudPersistenceProviderS3Impl implements CloudPersistenceProvider 
     Sets.SetView<Long> intersection = Sets.intersection(blockKeySet, metaKeySet);
 
     for (Long blockID : intersection) {
-      S3ObjectSummary blockObj = blockObjs.get(blockID);
-      S3ObjectSummary metaObj = metaObjs.get(blockID);
+      CloudObject blockObj = blockObjs.get(blockID);
+      CloudObject metaObj = metaObjs.get(blockID);
 
       long blockSize = blockObj.getSize();
 
@@ -493,7 +529,7 @@ public class CloudPersistenceProviderS3Impl implements CloudPersistenceProvider 
 
       Block block = new Block(blockID, blockSize, genStamp, blockObj.getBucketName());
 
-      CloudBlock cb = new CloudBlock(block, blockObj.getLastModified().getTime());
+      CloudBlock cb = new CloudBlock(block, blockObj.getLastModified());
       res.put(blockID, cb);
     }
 
@@ -502,17 +538,17 @@ public class CloudPersistenceProviderS3Impl implements CloudPersistenceProvider 
       String bucket = "";
       CloudBlock cb = new CloudBlock();
 
-      S3ObjectSummary blockObj = blockObjs.get(id);
-      S3ObjectSummary metaObj = metaObjs.get(id);
+      CloudObject blockObj = blockObjs.get(id);
+      CloudObject metaObj = metaObjs.get(id);
 
       if (blockObj != null) {
         cb.setBlockObjectFound(true);
-        cb.setLastModified(blockObj.getLastModified().getTime());
+        cb.setLastModified(blockObj.getLastModified());
         keyFound = blockObj.getKey();
         bucket = blockObj.getBucketName();
       } else if (metaObj != null) {
         cb.setMetaObjectFound(true);
-        cb.setLastModified(metaObj.getLastModified().getTime());
+        cb.setLastModified(metaObj.getLastModified());
         keyFound = metaObj.getKey();
         bucket = metaObj.getBucketName();
       }
@@ -541,6 +577,7 @@ public class CloudPersistenceProviderS3Impl implements CloudPersistenceProvider 
     }
   }
 
+  @VisibleForTesting
   public void renameObject(String srcBucket, String dstBucket, String srcKey,
                            String dstKey) throws IOException {
     try {
@@ -548,7 +585,7 @@ public class CloudPersistenceProviderS3Impl implements CloudPersistenceProvider 
       CopyObjectRequest req = new CopyObjectRequest(srcBucket, srcKey,
               dstBucket, dstKey);
       CopyObjectResult res = s3Client.copyObject(req);
-      LOG.info("HopsFS-Cloud. Rename object. Src Bucket: " + srcBucket +
+      LOG.debug("HopsFS-Cloud. Rename object. Src Bucket: " + srcBucket +
               " Dst Bucket: " + dstBucket +
               " Src Object Key: " + srcKey +
               " Dst Object Key: " + dstKey +
@@ -575,7 +612,8 @@ public class CloudPersistenceProviderS3Impl implements CloudPersistenceProvider 
   }
 
   @Override
-  public String startMultipartUpload(String bucket, String objectKey, Map<String, String> metadata) throws IOException {
+  public  UploadID startMultipartUpload(String bucket, String objectKey,
+                                          Map<String, String> metadata) throws IOException {
     try {
       long startTime = System.currentTimeMillis();
       InitiateMultipartUploadRequest initRequest = new InitiateMultipartUploadRequest(bucket,
@@ -589,9 +627,9 @@ public class CloudPersistenceProviderS3Impl implements CloudPersistenceProvider 
 
       InitiateMultipartUploadResult initResponse = s3Client.initiateMultipartUpload(initRequest);
 
-      LOG.info("HopsFS-Cloud. Start multipart upload. Bucket: " + bucket + " Object Key: " + objectKey
+      LOG.debug("HopsFS-Cloud. Start multipart upload. Bucket: " + bucket + " Object Key: " + objectKey
               + " Time (ms): " + (System.currentTimeMillis() - startTime));
-      return initResponse.getUploadId();
+      return new S3UploadID(initResponse.getUploadId());
     } catch (AmazonServiceException up) {
       throw new IOException(up);
     } catch (SdkClientException up) {
@@ -600,23 +638,23 @@ public class CloudPersistenceProviderS3Impl implements CloudPersistenceProvider 
   }
 
   @Override
-  public PartETag uploadPart(String bucket, String objectKey, String uploadID, int partNo,
+  public PartRef uploadPart(String bucket, String objectKey, UploadID uploadID, int partNo,
                              File file, long startPos, long endPos) throws IOException {
     try {
       long startTime = System.currentTimeMillis();
       UploadPartRequest uploadRequest = new UploadPartRequest()
               .withBucketName(bucket)
               .withKey(objectKey)
-              .withUploadId(uploadID)
+              .withUploadId(((S3UploadID)uploadID).getS3MultipartID())
               .withPartNumber(partNo)
               .withFileOffset(startPos)
               .withFile(file)
               .withPartSize(endPos - startPos);
 
       UploadPartResult uploadResult = s3Client.uploadPart(uploadRequest);
-      LOG.info("HopsFS-Cloud. Upload part. Bucket: " + bucket + " Object Key: " + objectKey + " " +
+      LOG.debug("HopsFS-Cloud. Upload part. Bucket: " + bucket + " Object Key: " + objectKey + " " +
               "PartNo: " + partNo + " Time (ms): " + (System.currentTimeMillis() - startTime));
-      return uploadResult.getPartETag();
+      return new S3PartRef(uploadResult.getPartETag());
     } catch (AmazonServiceException up) {
       throw new IOException(up);
     } catch (SdkClientException up) {
@@ -625,14 +663,20 @@ public class CloudPersistenceProviderS3Impl implements CloudPersistenceProvider 
   }
 
   @Override
-  public void finalizeMultipartUpload(String bucket, String objectKey, String uploadID,
-                                      List<PartETag> partETags) throws IOException {
+  public void finalizeMultipartUpload(String bucket, String objectKey, UploadID uploadID,
+                                      List<PartRef> refs) throws IOException {
     try {
       long startTime = System.currentTimeMillis();
-      CompleteMultipartUploadRequest compRequest = new CompleteMultipartUploadRequest(bucket, objectKey,
-              uploadID, partETags);
+      List<PartETag> partETags = new ArrayList();
+      for (PartRef ref : refs) {
+        partETags.add(((S3PartRef) ref).getPartETag());
+      }
+
+      CompleteMultipartUploadRequest compRequest = new CompleteMultipartUploadRequest(
+              bucket, objectKey, ((S3UploadID)uploadID).getS3MultipartID(),
+              partETags);
       s3Client.completeMultipartUpload(compRequest);
-      LOG.info("HopsFS-Cloud. Finalize multipart upload. Bucket: " + bucket +
+      LOG.debug("HopsFS-Cloud. Finalize multipart upload. Bucket: " + bucket +
               " Object Key: " + objectKey + " " + "Total Parts: " + partETags.size() +
               " Time (ms): " + (System.currentTimeMillis() - startTime));
     } catch (AmazonServiceException up) {
@@ -643,13 +687,14 @@ public class CloudPersistenceProviderS3Impl implements CloudPersistenceProvider 
   }
 
   @Override
-  public void abortMultipartUpload(String bucket, String objectKey, String uploadID)
+  public void abortMultipartUpload(String bucket, String objectKey, UploadID uploadID)
           throws IOException {
     try {
       long startTime = System.currentTimeMillis();
-      AbortMultipartUploadRequest req = new AbortMultipartUploadRequest(bucket, objectKey, uploadID);
+      AbortMultipartUploadRequest req = new AbortMultipartUploadRequest(bucket, objectKey,
+              ((S3UploadID)uploadID).getS3MultipartID());
       s3Client.abortMultipartUpload(req);
-      LOG.info("HopsFS-Cloud. Aborted multipart upload. Bucket: " + bucket +
+      LOG.debug("HopsFS-Cloud. Aborted multipart upload. Bucket: " + bucket +
               " Object Key: " + objectKey + " Time (ms): " + (System.currentTimeMillis() - startTime));
     } catch (AmazonServiceException up) {
       throw new IOException(up);
@@ -665,7 +710,7 @@ public class CloudPersistenceProviderS3Impl implements CloudPersistenceProvider 
     for (String bucket : buckets) {
       uploads.addAll(listMultipartUploadsForBucket(bucket));
     }
-    LOG.info("HopsFS-Cloud. List multipart. Active Uploads " + uploads.size() +
+    LOG.debug("HopsFS-Cloud. List multipart. Active Uploads " + uploads.size() +
             " Time (ms): " + (System.currentTimeMillis() - startTime));
     return uploads;
   }
@@ -679,7 +724,8 @@ public class CloudPersistenceProviderS3Impl implements CloudPersistenceProvider 
       do {
         for (MultipartUpload upload : uploadListing.getMultipartUploads()) {
           uploads.add(new ActiveMultipartUploads(bucket, upload.getKey(),
-                  upload.getInitiated().getTime(), upload.getUploadId()));
+                  upload.getInitiated().getTime(),
+                  new S3UploadID(upload.getUploadId())));
         }
         ListMultipartUploadsRequest request = new ListMultipartUploadsRequest(bucket)
                 .withUploadIdMarker(uploadListing.getNextUploadIdMarker())

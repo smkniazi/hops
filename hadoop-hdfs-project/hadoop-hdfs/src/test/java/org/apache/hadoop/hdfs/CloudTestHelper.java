@@ -19,9 +19,9 @@ import org.apache.hadoop.hdfs.server.blockmanagement.PendingBlockInfo;
 import org.apache.hadoop.hdfs.server.blockmanagement.ReplicaUnderConstruction;
 import org.apache.hadoop.hdfs.server.common.CloudHelper;
 import org.apache.hadoop.hdfs.server.common.HdfsServerConstants;
-import org.apache.hadoop.hdfs.server.datanode.fsdataset.CloudPersistenceProvider;
+import org.apache.hadoop.hdfs.server.datanode.fsdataset.impl.cloud.CloudPersistenceProvider;
 import org.apache.hadoop.hdfs.server.datanode.fsdataset.impl.CloudFsDatasetImpl;
-import org.apache.hadoop.hdfs.server.datanode.fsdataset.impl.CloudPersistenceProviderFactory;
+import org.apache.hadoop.hdfs.server.datanode.fsdataset.impl.cloud.CloudPersistenceProviderFactory;
 import org.apache.hadoop.hdfs.server.namenode.INode;
 import org.junit.rules.TestName;
 
@@ -32,11 +32,6 @@ import static org.junit.Assert.fail;
 
 public class CloudTestHelper {
   static final Log LOG = LogFactory.getLog(CloudTestHelper.class);
-  static String testBucketPrefix = "hopsfs.testing.";
-
-  public static void prependBucketPrefix(String prefix){
-    testBucketPrefix += prefix;
-  }
 
   private static List<INode> findAllINodes() throws IOException {
     LightWeightRequestHandler handler =
@@ -182,7 +177,7 @@ public class CloudTestHelper {
   }
 
   private static boolean match(Map<Long, CloudBlock> cloudView,
-                               Map<Long, BlockInfoContiguous> dbView) {
+                               Map<Long, BlockInfoContiguous> dbView, boolean expectingUCB) {
     if (cloudView.size() != dbView.size()) {
       List cv = new ArrayList(cloudView.values());
       Collections.sort(cv);
@@ -192,20 +187,36 @@ public class CloudTestHelper {
       LOG.info("HopsFS-Cloud DB Blocks " + Arrays.toString(dbv.toArray()));
     }
 
-    assert cloudView.size() == dbView.size();
+    long dbBlockClount = dbView.size();
+    if(expectingUCB){
+      for(BlockInfoContiguous blk : dbView.values()){
+        if(blk instanceof  BlockInfoContiguousUnderConstruction){
+          dbBlockClount--;
+        }
+      }
+    }
+
+    assertTrue("number of blocks did not match." +
+                    " DB Size: " + dbBlockClount + " Cloud Size: " + cloudView.size(),
+            cloudView.size() == dbBlockClount);
 
     for (long blkID : dbView.keySet()) {
+      BlockInfoContiguous dbBlock = dbView.get(blkID);
+
+      if(expectingUCB){
+        if(dbBlock instanceof BlockInfoContiguousUnderConstruction){
+          continue;
+        }
+      }
+
       CloudBlock cloudBlock = cloudView.get(blkID);
 
       assert !cloudBlock.isPartiallyListed();
-
-      BlockInfoContiguous dbBlock = dbView.get(blkID);
-
       assert cloudBlock != null && dbBlock != null;
-
       assert cloudBlock.getBlock().getCloudBucket().compareToIgnoreCase(dbBlock.getCloudBucket()) == 0;
       assert cloudBlock.getBlock().getGenerationStamp() == dbBlock.getGenerationStamp();
-      assert cloudBlock.getBlock().getNumBytes() == dbBlock.getNumBytes();
+      assertTrue("Size Mismatch. Cloud Size: "+cloudBlock.getBlock().getNumBytes()+" DB: "+dbBlock.getNumBytes(),
+              cloudBlock.getBlock().getNumBytes() == dbBlock.getNumBytes());
 
       assert dbBlock.getBlockUCState() == HdfsServerConstants.BlockUCState.COMPLETE;
     }
@@ -241,7 +252,8 @@ public class CloudTestHelper {
 
       String cloudProvider = conf.get(DFSConfigKeys.DFS_CLOUD_PROVIDER);
       if (!cloudProvider.equals(CloudProvider.AWS.name())) {
-        match(cloudView, dbView); //fails becase of S3 eventual consistent LS, GCE is consistent
+        LOG.info("HopsFS-Cloud. Matching Cloud and DB view");
+        match(cloudView, dbView, expectingUCB); //fails becase of S3 eventual consistent
       }
 
       //block cache mapping
@@ -305,27 +317,36 @@ public class CloudTestHelper {
     return types;
   }
 
-  public static void purgeS3() throws IOException {
-    purgeS3(testBucketPrefix);
-  }
-
-  public static void purgeS3(String prefix) throws IOException {
-    LOG.info("HopsFS-Cloud. Purging all buckets");
+  public static void purgeCloudData(CloudProvider cloudProvider, String prefix) throws IOException {
+    LOG.info("HopsFS-Cloud. Purging all cloud data. Prefix: "+prefix+" Cloud provider: "+cloudProvider);
     Configuration conf = new HdfsConfiguration();
     conf.setBoolean(DFSConfigKeys.DFS_ENABLE_CLOUD_PERSISTENCE, true);
-    conf.set(DFSConfigKeys.DFS_CLOUD_PROVIDER, CloudProvider.AWS.name());
-
+    conf.set(DFSConfigKeys.DFS_CLOUD_PROVIDER, cloudProvider.name());
     CloudPersistenceProvider cloudConnector =
             CloudPersistenceProviderFactory.getCloudClient(conf);
     cloudConnector.deleteAllBuckets(prefix);
     cloudConnector.shutdown();
   }
 
-  public static void setRandomBucketPrefix(Configuration conf, TestName name) {
+  public static void setRandomBucketPrefix(Configuration conf, String prefix, TestName name) {
     Date date = new Date();
-    String prefix = testBucketPrefix + "." + name.getMethodName() +
-            "." + date.getHours() + date.getMinutes() + date.getSeconds();
-    conf.set(DFSConfigKeys.S3_BUCKET_KEY, prefix.toLowerCase());
-    LOG.info("Test bucket is "+prefix);
+    String cloudProvider = conf.get(DFSConfigKeys.DFS_CLOUD_PROVIDER,
+            DFSConfigKeys.DFS_CLOUD_PROVIDER_DEFAULT);
+
+    String methodName = name.getMethodName();
+    if(methodName.contains("[")){
+      methodName = name.getMethodName().substring(0, name.getMethodName().indexOf("["));
+    }
+
+    prefix = prefix + "-" + methodName +
+            "-" + date.getHours() + date.getMinutes() + date.getSeconds();
+
+    if(cloudProvider.compareToIgnoreCase(CloudProvider.AZURE.name()) == 0){
+      conf.set(DFSConfigKeys.AZURE_CONTAINER_KEY, prefix.toLowerCase());
+      LOG.info("Test Azure container is "+prefix);
+    } else  if(cloudProvider.compareToIgnoreCase(CloudProvider.AWS.name()) == 0){
+      conf.set(DFSConfigKeys.S3_BUCKET_KEY, prefix.toLowerCase());
+      LOG.info("Test S3 bucket is "+prefix);
+    }
   }
 }
