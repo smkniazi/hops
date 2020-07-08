@@ -20,7 +20,6 @@
 
 package org.apache.hadoop.yarn.server.nodemanager.containermanager.linux.privileged;
 
-import com.google.common.annotations.VisibleForTesting;
 import org.apache.commons.lang3.StringUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -36,6 +35,7 @@ import java.io.File;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
@@ -52,7 +52,8 @@ public class PrivilegedOperationExecutor {
   private volatile static PrivilegedOperationExecutor instance;
 
   private String containerExecutorExe;
-
+  private String ecrLoginHelperDir = "";
+  
   public static String getContainerExecutorExecutablePath(Configuration conf) {
     String yarnHomeEnvVar =
         System.getenv(ApplicationConstants.Environment.HADOOP_YARN_HOME.key());
@@ -67,6 +68,8 @@ public class PrivilegedOperationExecutor {
 
   private void init(Configuration conf) {
     containerExecutorExe = getContainerExecutorExecutablePath(conf);
+    ecrLoginHelperDir = conf == null ? "" :
+        conf.get(YarnConfiguration.YARN_NODE_MANAGER_ECR_LOGIN_HELPER_DIR, "");
   }
 
   private PrivilegedOperationExecutor(Configuration conf) {
@@ -145,8 +148,19 @@ public class PrivilegedOperationExecutor {
       throws PrivilegedOperationException {
     String[] fullCommandArray = getPrivilegedOperationExecutionCommand
         (prefixCommands, operation);
+    
+    Map<String, String> updatedEnv = env != null ? new HashMap<>(env) :
+        new HashMap<>();
+    
+    if(!ecrLoginHelperDir.isEmpty()){
+      updatedEnv.put("PATH", ecrLoginHelperDir);
+      if(LOG.isDebugEnabled()){
+        LOG.debug("Docker ecr login helper is set to: " + ecrLoginHelperDir);
+      }
+    }
+    
     ShellCommandExecutor exec = new ShellCommandExecutor(fullCommandArray,
-        workingDir, env, 0L, inheritParentEnv);
+        workingDir, updatedEnv, 0L, inheritParentEnv);
 
     try {
       exec.execute();

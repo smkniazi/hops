@@ -4067,4 +4067,7 @@ public class YarnConfiguration extends Configuration {
   
   public static final String  RESOURCE_CHECK_THRESHOLD = RM_PREFIX + "resource.check.threshold";
   public static final double  RESOURCE_CHECK_THRESHOLD_DEFAULT = 0.9;
+  
+  public static final String YARN_NODE_MANAGER_ECR_LOGIN_HELPER_DIR =
+      NM_PREFIX + "docker.ecr-login-helper.dir";
 }

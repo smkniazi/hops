@@ -4119,4 +4119,12 @@
     <name>yarn.resourcemanager.resource.check.threshold</name>
     <value>0.9</value>
   </property>
+
+  <property>
+    <description>The location of the ecr-login helper that will be used by the
+      container-executor to access images on Amazon ECR.
+    </description>
+    <name>yarn.nodemanager.docker.ecr-login-helper.dir</name>
+    <value></value>
+  </property>
 </configuration>
