@@ -357,7 +357,9 @@ public class FSNamesystem implements Namesystem, FSNamesystemMBean,
 
   // HopsFS Cloud Storage
   private final boolean cloudSmallFilesSupport;
+  private final boolean cloudEnabled;
   private final int leaseCreationLockRows;
+  private final boolean disableNonCloudStoragePolicies;
 
   /**
    * Notify that loading of this FSDirectory is complete, and
@@ -492,6 +494,12 @@ public class FSNamesystem implements Namesystem, FSNamesystemMBean,
 
       cloudSmallFilesSupport = conf.getBoolean(DFSConfigKeys.DFS_CLOUD_STORE_SMALL_FILES_IN_DB_KEY,
               DFSConfigKeys.DFS_CLOUD_STORE_SMALL_FILES_IN_DB_DEFAUlT);
+
+      cloudEnabled = conf.getBoolean(DFSConfigKeys.DFS_ENABLE_CLOUD_PERSISTENCE,
+              DFSConfigKeys.DFS_ENABLE_CLOUD_PERSISTENCE_DEFAULT);
+
+      disableNonCloudStoragePolicies = conf.getBoolean(DFS_DISABLE_NON_CLOUD_STORAE_POLICIES,
+              DFS_DISABLE_NON_CLOUD_STORAE_POLICIES_DEFAULT);
 
       this.datanodeStatistics =
           blockManager.getDatanodeManager().getDatanodeStatistics();
@@ -685,34 +693,29 @@ public class FSNamesystem implements Namesystem, FSNamesystemMBean,
     nnResourceChecker = new NameNodeResourceChecker(conf);
     checkAvailableResources();
 
-    boolean cloud = conf.getBoolean(DFSConfigKeys.DFS_ENABLE_CLOUD_PERSISTENCE,
-            DFSConfigKeys.DFS_ENABLE_CLOUD_PERSISTENCE_DEFAULT);
-
     if (isLeader()) {
       // the node is starting and directly leader, this means that no NN was alive before
-      clearSafeBlocks();
-      clearActiveBlockReports();
       HdfsVariables.setSafeModeInfo(new SafeModeInfo(conf), -1);
-      inSafeMode.set(true);
-      assert safeMode() != null && !isPopulatingReplQueues();
-      StartupProgress prog = NameNode.getStartupProgress();
-      prog.beginPhase(Phase.SAFEMODE);
-      prog.setTotal(Phase.SAFEMODE, STEP_AWAITING_REPORTED_BLOCKS,
-          getCompleteBlocksTotal());
-      setBlockTotal();
 
-      if (cloud) {
-        //delete all BR tasks
-        ProvidedBlocksChecker.deleteAllTask();
-        //schedule new BR
-        ProvidedBlocksChecker.scheduleBlockReportNow();
+      if(!cloudEnabled){
+        clearSafeBlocks();
+        clearActiveBlockReports();
+        inSafeMode.set(true);
+        assert safeMode() != null && !isPopulatingReplQueues();
+        StartupProgress prog = NameNode.getStartupProgress();
+        prog.beginPhase(Phase.SAFEMODE);
+        prog.setTotal(Phase.SAFEMODE, STEP_AWAITING_REPORTED_BLOCKS,
+                getCompleteBlocksTotal());
+        setBlockTotal();
+      } else {
+        inSafeMode.set(false);
       }
     }
 
     shouldPopulateReplicationQueue = true;
     blockManager.activate(conf);
 
-    if (cloud) {
+    if (cloudEnabled) {
       blockManager.startProvidedBlocksChecker(conf);
     }
 
@@ -1738,6 +1741,20 @@ public class FSNamesystem implements Namesystem, FSNamesystemMBean,
     HdfsFileStatus auditStat;
     try {
       checkNameNodeSafeMode("Cannot set storage policy for " + src);
+
+      if(cloudEnabled){
+        if (policyName.compareToIgnoreCase(HdfsConstants.CLOUD_STORAGE_POLICY_NAME) != 0
+                && disableNonCloudStoragePolicies) {
+          throw new IOException("Failed to set storage policy since "+
+                           " cloud storage is enabled. All blocks must be stored on the cloud.");
+        }
+      } else {
+        if (policyName.compareToIgnoreCase(HdfsConstants.CLOUD_STORAGE_POLICY_NAME) == 0) {
+          throw new IOException("Failed to set storage policy since " +
+                  " cloud storage is disabled.");
+        }
+      }
+
       auditStat = FSDirAttrOp.setStoragePolicy(
           dir, blockManager, src, policyName);
     } catch (AccessControlException e) {
@@ -4079,7 +4096,7 @@ public class FSNamesystem implements Namesystem, FSNamesystemMBean,
                 .add(lf.getLeasePathLock(LockType.READ_COMMITTED))
                 .add(lf.getBlockLock(oldBlock.getBlockId(), inodeIdentifier))
                 .add(lf.getBlockRelated(BLK.RE, BLK.CR, BLK.ER, BLK.UC, BLK.UR, BLK.PE, BLK.IV));
-        if (isErasureCodingEnabled()) {
+        if (isErasureCodingEnabled() && inodeIdentifier != null) {
           locks.add(lf.getIndivdualEncodingStatusLock(LockType.WRITE, inodeIdentifier.getInodeId()));
         }
       }
@@ -5321,6 +5338,11 @@ public class FSNamesystem implements Namesystem, FSNamesystemMBean,
       if (blockTotal == -1 /*&& blockSafe == -1*/) {
         return; // manual safe mode
       }
+
+      if(cloudEnabled){
+        return; // safe blocks is disabled for HopsFS-Cloud.
+      }
+
       long blockSafe = blockSafe();
       int activeBlocks = blockManager.getActiveBlockCount();
       if ((blockTotal != activeBlocks) &&
@@ -5598,7 +5620,7 @@ public class FSNamesystem implements Namesystem, FSNamesystemMBean,
       throws IOException {
     // safeMode is volatile, and may be set to null at any time
     SafeModeInfo safeMode = this.safeMode();
-    if (safeMode == null) {
+    if (safeMode == null || cloudEnabled) { //safe blocks are disabled for cloud storage
       return;
     }
     safeMode.adjustBlockTotals(deltaSafe, deltaTotal);

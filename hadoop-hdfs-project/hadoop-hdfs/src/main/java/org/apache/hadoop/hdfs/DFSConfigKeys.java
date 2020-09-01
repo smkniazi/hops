@@ -89,6 +89,10 @@ public class DFSConfigKeys extends CommonConfigurationKeys {
   public static final String DFS_ENABLE_CLOUD_PERSISTENCE = "dfs.enable.cloud.persistence";
   public static final boolean DFS_ENABLE_CLOUD_PERSISTENCE_DEFAULT = false;
 
+  public static final String DFS_DISABLE_NON_CLOUD_STORAE_POLICIES =
+          "dfs.disable.non.cloud.storae.policies";
+  public static final boolean DFS_DISABLE_NON_CLOUD_STORAE_POLICIES_DEFAULT = false;
+
   public static final String DFS_CLOUD_PROVIDER = "dfs.cloud.provider";
   public static final String DFS_CLOUD_PROVIDER_DEFAULT = "AWS";
 

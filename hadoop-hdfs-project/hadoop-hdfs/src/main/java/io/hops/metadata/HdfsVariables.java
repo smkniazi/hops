@@ -852,7 +852,7 @@ public class HdfsVariables {
     Variable.registerVariableDefaultValue(Variable.Finder.providedBlockReportsCount,
             new LongVariable(0).getBytes());
     Variable.registerVariableDefaultValue(Variable.Finder.providedBlocksCheckStartTime,
-            new LongVariable(0).getBytes());
+            new LongVariable(System.currentTimeMillis()).getBytes());
     Variable.registerVariableDefaultValue(Variable.Finder.RetryCacheCleanerEpoch,
             new LongVariable(0).getBytes());  // special value. when NN reads 0 value then it
                                               // will update it with proper epoch value

@@ -94,12 +94,6 @@ public class TestCloudRestart {
 
       DistributedFileSystem dfs = cluster.getFileSystem();
 
-      ProvidedBlocksChecker pbc =
-              cluster.getNamesystem().getBlockManager().getProvidedBlocksChecker();
-
-      long ret = CloudBlockReportTestHelper.waitForBRCompletion(pbc, 1);
-      assertTrue("Exptected 1. Got: " + ret, 1 == ret);
-
       dfs.mkdirs(new Path("/dir"));
       dfs.setStoragePolicy(new Path("/dir"), "CLOUD");
 

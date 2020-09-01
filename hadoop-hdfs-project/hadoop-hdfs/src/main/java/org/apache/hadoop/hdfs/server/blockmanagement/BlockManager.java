@@ -174,7 +174,7 @@ public class BlockManager {
    * Mapping: Block -> { BlockCollection, datanodes, self ref }
    * Updated only in response to client-sent information.
    */
-  final BlocksMap blocksMap;
+  BlocksMap blocksMap;
 
   /**
    * Replication thread.
@@ -5694,7 +5694,13 @@ public class BlockManager {
 
       @Override
       public Object performTask() throws IOException {
-        block.addReplicaIfNotPresent(storage, reportedState, block.getGenerationStamp());
+
+        BlockInfoContiguous storedBlock = blocksMap.getStoredBlock(block);
+        BlockUCState ucState = storedBlock.getBlockUCState();
+        if (isBlockUnderConstruction(storedBlock, ucState, reportedState)) {
+          block.addReplicaIfNotPresent(storage, reportedState, block.getGenerationStamp());
+        }
+
         //and fall through to next clause
         //add replica if appropriate
         if (reportedState == ReplicaState.FINALIZED) {
@@ -5876,4 +5882,21 @@ public class BlockManager {
 
     return newLocatedBlock(lblk.getBlock(), storages, lblk.getStartOffset(), lblk.isCorrupt());
   }
+
+  /*
+  only for testing
+   */
+  @VisibleForTesting
+  public BlocksMap getBlocksMap(){
+    return blocksMap;
+  }
+
+  /*
+  only for testing
+   */
+  @VisibleForTesting
+  public void setBlocksMapSpy(BlocksMap bm) {
+    blocksMap = bm;
+  }
 }
+

@@ -2226,6 +2226,13 @@
   </property>
 
   <property>
+    <name>dfs.disable.non.cloud.storae.policies</name>
+    <value>false</value>
+    <description>If this is set then only 'CLOUD` storage policy will used.
+    </description>
+  </property>
+
+  <property>
     <name>dfs.lease.creation.locks.count.key</name>
     <value>1000</value>
     <description>Number of lock rows to serialize the creation of new file leases.

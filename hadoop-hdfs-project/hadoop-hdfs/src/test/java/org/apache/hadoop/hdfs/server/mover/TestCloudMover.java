@@ -126,6 +126,11 @@ public class TestCloudMover {
         }
       }
 
+      //Some buckets are expected to mismatch because the initial block reporting is
+      //running in parallel with file writes.
+      sendAndCheckBR(0, datanodes, cluster, cluster.getNamesystem().getBlockPoolId(),
+              files.size() * conf.getInt(DFSConfigKeys.DFS_REPLICATION_KEY, DFSConfigKeys.DFS_REPLICATION_DEFAULT),
+              conf.getInt(DFSConfigKeys.DFS_NUM_BUCKETS_KEY, DFSConfigKeys.DFS_NUM_BUCKETS_DEFAULT));
 
       // move to CLOUD
       dfs.setStoragePolicy(dir, "CLOUD");

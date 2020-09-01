@@ -967,6 +967,73 @@ public class TestCloudFileCreation {
     }
   }
 
+  /*
+  If cloud is enabled then the user must not be able to override the storage policy
+   */
+  @Test
+  public void TestStoragePolicyCloudEnabled() throws IOException {
+    testStoragePolicy(true);
+  }
+
+  @Test
+  public void TestStoragePolicyCloudDisabled() throws IOException {
+    testStoragePolicy(false);
+  }
+
+  public void testStoragePolicy(boolean cloudEnabled) throws IOException {
+    CloudTestHelper.purgeCloudData(defaultCloudProvider, testBucketPrefix);
+    MiniDFSCluster cluster = null;
+    try {
+      final int NUM_DN = 5;
+      final int BLKSIZE = 128 * 1024;
+      Configuration conf = new HdfsConfiguration();
+      conf.setBoolean(DFSConfigKeys.DFS_ENABLE_CLOUD_PERSISTENCE, cloudEnabled);
+      conf.set(DFSConfigKeys.DFS_CLOUD_PROVIDER, CloudProvider.AWS.name());
+      conf.setLong(DFSConfigKeys.DFS_BLOCK_SIZE_KEY, BLKSIZE);
+      conf.setBoolean(DFSConfigKeys.DFS_DISABLE_NON_CLOUD_STORAE_POLICIES, true);
+      CloudTestHelper.setRandomBucketPrefix(conf, testBucketPrefix, testname);
+
+      cluster = new MiniDFSCluster.Builder(conf).numDataNodes(NUM_DN)
+              .storageTypes(CloudTestHelper.genStorageTypes(NUM_DN)).format(true).build();
+      cluster.waitActive();
+
+      DistributedFileSystem dfs = cluster.getFileSystem();
+      Exception exception = null;
+      try {
+        dfs.setStoragePolicy(new Path("/"), "HOT");
+      } catch (IOException e) {
+        // exception was expected
+        exception = e;
+      }
+
+      if(cloudEnabled) {
+        assert exception != null;
+      } else {
+        assert exception == null;
+      }
+
+      exception = null;
+      try {
+        dfs.setStoragePolicy(new Path("/"), "CLOUD");
+      } catch (IOException e) {
+        // exception was expected
+        exception = e;
+      }
+
+      if(cloudEnabled) {
+        assert exception == null;
+      } else {
+        assert exception != null;
+      }
+
+
+    } finally {
+      if (cluster != null) {
+        cluster.shutdown();
+      }
+    }
+  }
+
   int getExceptionCount(List<LoggingEvent> log, Class e) {
     int count = 0;
     for (int i = 0; i < log.size(); i++) {

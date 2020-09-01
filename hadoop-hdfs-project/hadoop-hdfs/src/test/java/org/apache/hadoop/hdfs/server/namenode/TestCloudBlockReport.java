@@ -124,6 +124,9 @@ public class TestCloudBlockReport {
       ProvidedBlocksChecker pbc =
               cluster.getNamesystem().getBlockManager().getProvidedBlocksChecker();
 
+      assert pbc.getProvidedBlockReportsCount() == 0;
+      pbc.scheduleBlockReportNow();
+
       long ret = CloudBlockReportTestHelper.waitForBRCompletion(pbc, 1);
       assertTrue("Exptected 1. Got: " + ret, 1 == ret);
 
@@ -190,6 +193,9 @@ public class TestCloudBlockReport {
 
       ProvidedBlocksChecker pbc =
               cluster.getNamesystem().getBlockManager().getProvidedBlocksChecker();
+
+      assert pbc.getProvidedBlockReportsCount() == 0;
+      pbc.scheduleBlockReportNow();
 
       long ret = CloudBlockReportTestHelper.waitForBRCompletion(pbc, 1);
       assertTrue("Exptected 1. Got: " + ret, 1 == ret);
@@ -290,6 +296,9 @@ public class TestCloudBlockReport {
       ProvidedBlocksChecker pbc =
               cluster.getNamesystem().getBlockManager().getProvidedBlocksChecker();
 
+      assert pbc.getProvidedBlockReportsCount() == 0;
+      pbc.scheduleBlockReportNow();
+
       CloudBlockReportTestHelper.waitForBRCompletion(pbc, 1);
       assert pbc.getProvidedBlockReportsCount() == 1;
 
@@ -379,6 +388,9 @@ public class TestCloudBlockReport {
       ProvidedBlocksChecker pbc =
               cluster.getNamesystem().getBlockManager().getProvidedBlocksChecker();
 
+      assert pbc.getProvidedBlockReportsCount() == 0;
+      pbc.scheduleBlockReportNow();
+
       CloudBlockReportTestHelper.waitForBRCompletion(pbc, 1);
       assert pbc.getProvidedBlockReportsCount() == 1;
 
@@ -459,6 +471,9 @@ public class TestCloudBlockReport {
       ProvidedBlocksChecker pbc =
               cluster.getNamesystem().getBlockManager().getProvidedBlocksChecker();
 
+      assert pbc.getProvidedBlockReportsCount() == 0;
+      pbc.scheduleBlockReportNow();
+
       CloudBlockReportTestHelper.waitForBRCompletion(pbc, 1);
       assert pbc.getProvidedBlockReportsCount() == 1;
 
@@ -534,6 +549,9 @@ public class TestCloudBlockReport {
 
       ProvidedBlocksChecker pbc =
               cluster.getNamesystem().getBlockManager().getProvidedBlocksChecker();
+
+      assert pbc.getProvidedBlockReportsCount() == 0;
+      pbc.scheduleBlockReportNow();
 
       CloudBlockReportTestHelper.waitForBRCompletion(pbc, 1);
       assert pbc.getProvidedBlockReportsCount() == 1;
@@ -639,6 +657,9 @@ public class TestCloudBlockReport {
       ProvidedBlocksChecker pbc =
               cluster.getNamesystem().getBlockManager().getProvidedBlocksChecker();
 
+      assert pbc.getProvidedBlockReportsCount() == 0;
+      pbc.scheduleBlockReportNow();
+
       long ret = CloudBlockReportTestHelper.waitForBRCompletion(pbc, 1);
       assertTrue("Exptected 1. Got: " + ret, 1 == ret);
 
@@ -711,6 +732,9 @@ public class TestCloudBlockReport {
 
       ProvidedBlocksChecker pbc =
               cluster.getNamesystem().getBlockManager().getProvidedBlocksChecker();
+
+      assert pbc.getProvidedBlockReportsCount() == 0;
+      pbc.scheduleBlockReportNow();
 
       long ret = CloudBlockReportTestHelper.waitForBRCompletion(pbc, 1);
       assertTrue("Exptected 1. Got: " + ret, 1 == ret);
@@ -1020,6 +1044,70 @@ public class TestCloudBlockReport {
       Thread.sleep(10000);
 
       assert CloudTestHelper.findAllUnderReplicatedBlocks().size() == 0;
+
+    } catch (Exception e) {
+      e.printStackTrace();
+      fail(e.getMessage());
+    } finally {
+      if (cluster != null) {
+        cluster.shutdown();
+      }
+    }
+  }
+
+  //Test safemode
+  @Test
+  public void TestNoSafeModeAtStartup() throws IOException {
+    CloudTestHelper.purgeCloudData(defaultCloudProvider, testBucketPrefix);
+    MiniDFSCluster cluster = null;
+    try {
+
+      final int BLKSIZE = 128 * 1024;
+      final int NUM_DN = 3;
+
+      Configuration conf = new HdfsConfiguration();
+      conf.setBoolean(DFSConfigKeys.DFS_ENABLE_CLOUD_PERSISTENCE, true);
+      conf.set(DFSConfigKeys.DFS_CLOUD_PROVIDER, CloudProvider.AWS.name());
+      conf.setLong(DFSConfigKeys.DFS_BLOCK_SIZE_KEY, BLKSIZE);
+
+      conf.setLong(DFSConfigKeys.DFS_CLOUD_BLOCK_REPORT_THREAD_SLEEP_INTERVAL_KEY, 1000);
+      conf.setLong(DFSConfigKeys.DFS_CLOUD_PREFIX_SIZE_KEY, 10);
+      conf.setLong(DFSConfigKeys.DFS_CLOUD_BLOCK_REPORT_DELAY_KEY,
+              DFSConfigKeys.DFS_CLOUD_BLOCK_REPORT_DELAY_DEFAULT);
+      conf.setLong(DFSConfigKeys.DFS_NAMENODE_BLOCKID_BATCH_SIZE, 10);
+
+      CloudTestHelper.setRandomBucketPrefix(conf,  testBucketPrefix, testname);
+
+      cluster = new MiniDFSCluster.Builder(conf).numDataNodes(NUM_DN)
+              .storageTypes(CloudTestHelper.genStorageTypes(NUM_DN)).format(true).build();
+      cluster.waitActive();
+
+      DistributedFileSystem dfs = cluster.getFileSystem();
+
+      ProvidedBlocksChecker pbc =
+              cluster.getNamesystem().getBlockManager().getProvidedBlocksChecker();
+
+      long brCount = pbc.getProvidedBlockReportsCount();
+      assertTrue("Expecting 0. Got: "+ brCount, brCount == 0);
+
+      dfs.mkdirs(new Path("/dir"));
+      dfs.setStoragePolicy(new Path("/dir"), "CLOUD");
+
+      for (int i = 0; i < 10; i++) {
+        writeFile(dfs, "/dir/file" + i, BLKSIZE * 2);
+      }
+      CloudTestHelper.matchMetadata(conf);
+
+      //restart namenode
+      cluster.restartNameNodes();
+
+      assert cluster.getNameNode().isInSafeMode() == false;
+      brCount = pbc.getProvidedBlockReportsCount();
+      assertTrue("Expecting 0. Got: "+ brCount, brCount == 0);
+
+      pbc.scheduleBlockReportNow();
+      brCount = CloudBlockReportTestHelper.waitForBRCompletion(pbc, 1);
+      assertTrue("Exptected 2. Got: " + brCount, 1 == brCount);
 
     } catch (Exception e) {
       e.printStackTrace();

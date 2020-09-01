@@ -26,6 +26,7 @@ import io.hops.metadata.Variables;
 import io.hops.metadata.common.entity.LongVariable;
 import io.hops.metadata.common.entity.Variable;
 import io.hops.metadata.hdfs.dal.BlockInfoDataAccess;
+import io.hops.metadata.hdfs.dal.BlockLookUpDataAccess;
 import io.hops.metadata.hdfs.dal.ProvidedBlockReportTasksDataAccess;
 import io.hops.metadata.hdfs.entity.INodeIdentifier;
 import io.hops.metadata.hdfs.entity.InvalidatedBlock;
@@ -35,6 +36,7 @@ import io.hops.transaction.EntityManager;
 import io.hops.transaction.handler.HDFSOperationType;
 import io.hops.transaction.handler.HopsTransactionalRequestHandler;
 import io.hops.transaction.handler.LightWeightRequestHandler;
+import io.hops.transaction.handler.TransactionalRequestHandler;
 import io.hops.transaction.lock.LockFactory;
 import io.hops.transaction.lock.TransactionLocks;
 import org.apache.commons.logging.Log;
@@ -50,6 +52,7 @@ import org.apache.hadoop.hdfs.server.datanode.fsdataset.impl.cloud.CloudPersiste
 import org.apache.hadoop.hdfs.server.datanode.fsdataset.impl.cloud.CloudPersistenceProviderFactory;
 import org.apache.hadoop.hdfs.server.namenode.FSNamesystem;
 import org.apache.hadoop.hdfs.server.namenode.INode;
+import org.apache.hadoop.hdfs.server.namenode.INodeDirectory;
 import org.apache.hadoop.hdfs.server.namenode.Namesystem;
 
 import java.io.IOException;
@@ -407,16 +410,47 @@ public class ProvidedBlocksChecker extends Thread {
 
   public Map<Long, BlockInfoContiguous> findAllBlocksRange(final long startID, final long endID)
           throws IOException {
-    LightWeightRequestHandler handler =
-            new LightWeightRequestHandler(HDFSOperationType.BR_GET_RANGE_OF_BLOCKS) {
+    HopsTransactionalRequestHandler handler =
+            new HopsTransactionalRequestHandler(HDFSOperationType.BR_GET_RANGE_OF_BLOCKS) {
+
+              @Override
+              public void acquireLock(TransactionLocks locks) throws IOException {
+              }
+
               @Override
               public Object performTask() throws IOException {
-                Map<Long, BlockInfoContiguous> blkMap = new HashMap<>();
-                BlockInfoDataAccess da = (BlockInfoDataAccess) HdfsStorageFactory
-                        .getDataAccess(BlockInfoDataAccess.class);
 
-                List<BlockInfoContiguous> blocks = da.findAllBlocks(startID, endID);
-                for (BlockInfoContiguous blk : blocks) {
+                //get the primary keys of the blocks in the range
+                BlockLookUpDataAccess da = (BlockLookUpDataAccess) HdfsStorageFactory
+                        .getDataAccess(BlockLookUpDataAccess.class);
+                long allBlockIDs[] = new long[(int) (endID - startID)];
+
+                int index = 0;
+                for (long blockID = startID; blockID < endID; blockID++, index++) {
+                  allBlockIDs[index] = blockID;
+                }
+
+                long allInodeIDs[] = da.findINodeIdsByBlockIds(allBlockIDs);
+                assert allInodeIDs.length == allBlockIDs.length;
+
+                List<Long> blockIdsArr = new LinkedList<>();
+                List<Long> inodeIdsArr = new LinkedList<>();
+
+                for(int i = 0; i < allInodeIDs.length; i++){
+                  if(allInodeIDs[i] > INodeDirectory.ROOT_INODE_ID){
+                    inodeIdsArr.add(allInodeIDs[i]);
+                    blockIdsArr.add(allBlockIDs[i]);
+                  }
+                }
+
+                BlockInfoDataAccess bda = (BlockInfoDataAccess) HdfsStorageFactory
+                        .getDataAccess(BlockInfoDataAccess.class);
+                List<BlockInfoContiguous> existingBlocks = bda.findByIds(
+                        blockIdsArr.stream().mapToLong(l -> l).toArray(),
+                        inodeIdsArr.stream().mapToLong(l -> l).toArray());
+
+                Map<Long, BlockInfoContiguous> blkMap = new HashMap<>();
+                for (BlockInfoContiguous blk : existingBlocks) {
                   blkMap.put(blk.getBlockId(), blk);
                 }
                 return blkMap;
