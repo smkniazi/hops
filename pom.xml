@@ -18,7 +18,7 @@ xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xs
   <modelVersion>4.0.0</modelVersion>
   <groupId>io.hops</groupId>
   <artifactId>hadoop-main</artifactId>
-  <version>3.2.0.0-EE-SNAPSHOT</version>
+  <version>3.2.0.1-EE-SNAPSHOT</version>
   <description>Apache Hadoop Main</description>
   <name>Apache Hadoop Main</name>
   <packaging>pom</packaging>
@@ -98,7 +98,7 @@ xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xs
 
   <properties>
     <!-- required as child projects with different version can't use ${project.version} -->
-    <hadoop.version>3.2.0.0-EE-SNAPSHOT</hadoop.version>
+    <hadoop.version>3.2.0.1-EE-SNAPSHOT</hadoop.version>
 
     <distMgmtSnapshotsId>HopsEE</distMgmtSnapshotsId>
     <distMgmtSnapshotsName>Hops Enterprise Repo</distMgmtSnapshotsName>
