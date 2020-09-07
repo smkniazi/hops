@@ -2283,7 +2283,7 @@ public class DFSClient implements java.io.Closeable, RemotePeerFactory,
    */
   public void refreshNodes() throws IOException {
     try (TraceScope ignored = tracer.newScope("refreshNodes")) {
-      namenode.refreshNodes();
+      leaderNN.refreshNodes();
     }
   }
 
