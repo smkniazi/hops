@@ -142,6 +142,8 @@ import org.apache.hadoop.yarn.security.AMRMTokenIdentifier;
 import org.apache.hadoop.yarn.server.api.ResourceManagerAdministrationProtocol;
 import org.apache.hadoop.yarn.server.api.protocolrecords.AddToClusterNodeLabelsRequest;
 import org.apache.hadoop.yarn.server.api.protocolrecords.AddToClusterNodeLabelsResponse;
+import org.apache.hadoop.yarn.server.api.protocolrecords.UpdateExcludeListRequest;
+import org.apache.hadoop.yarn.server.api.protocolrecords.UpdateExcludeListResponse;
 import org.apache.hadoop.yarn.server.api.protocolrecords.CheckForDecommissioningNodesRequest;
 import org.apache.hadoop.yarn.server.api.protocolrecords.CheckForDecommissioningNodesResponse;
 import org.apache.hadoop.yarn.server.api.protocolrecords.RefreshAdminAclsRequest;
@@ -164,6 +166,8 @@ import org.apache.hadoop.yarn.server.api.protocolrecords.RemoveFromClusterNodeLa
 import org.apache.hadoop.yarn.server.api.protocolrecords.RemoveFromClusterNodeLabelsResponse;
 import org.apache.hadoop.yarn.server.api.protocolrecords.ReplaceLabelsOnNodeRequest;
 import org.apache.hadoop.yarn.server.api.protocolrecords.ReplaceLabelsOnNodeResponse;
+import org.apache.hadoop.yarn.server.api.protocolrecords.UpdateIncludeListRequest;
+import org.apache.hadoop.yarn.server.api.protocolrecords.UpdateIncludeListResponse;
 import org.apache.hadoop.yarn.server.api.protocolrecords.UpdateNodeResourceRequest;
 import org.apache.hadoop.yarn.server.api.protocolrecords.UpdateNodeResourceResponse;
 import org.apache.hadoop.yarn.util.Records;
@@ -786,6 +790,24 @@ public class MockResourceManagerFacade implements ApplicationClientProtocol,
     validateRunning();
 
     return RefreshQueuesResponse.newInstance();
+  }
+
+  @Override
+  public UpdateExcludeListResponse updateExcludeList(UpdateExcludeListRequest request)
+      throws StandbyException, YarnException, IOException {
+
+    validateRunning();
+
+    return UpdateExcludeListResponse.newInstance();
+  }
+
+  @Override
+  public UpdateIncludeListResponse updateIncludeList(UpdateIncludeListRequest request)
+          throws StandbyException, YarnException, IOException {
+
+    validateRunning();
+
+    return UpdateIncludeListResponse.newInstance();
   }
 
   @Override

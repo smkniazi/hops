@@ -23,8 +23,7 @@ import org.apache.hadoop.yarn.nodelabels.CommonNodeLabelsManager;
 import org.apache.hadoop.yarn.proto.YarnServerResourceManagerServiceProtos;
 import org.apache.hadoop.yarn.server.api.protocolrecords
     .ReplaceLabelsOnNodeRequest;
-import org.apache.hadoop.yarn.server.api.protocolrecords.impl.pb
-    .AddToClusterNodeLabelsRequestPBImpl;
+import org.apache.hadoop.yarn.server.api.protocolrecords.impl.pb.AddToClusterNodeLabelsRequestPBImpl;
 import org.apache.hadoop.yarn.server.api.protocolrecords.impl.pb
     .ReplaceLabelsOnNodeRequestPBImpl;
 

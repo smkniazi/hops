@@ -18,6 +18,8 @@
 
 package org.apache.hadoop.yarn.server.resourcemanager;
 
+import java.io.File;
+import java.io.FileOutputStream;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.HashSet;
@@ -34,6 +36,7 @@ import java.util.concurrent.ConcurrentHashMap;
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
 import org.apache.hadoop.conf.Configuration;
+import org.apache.hadoop.io.IOUtils;
 import org.apache.hadoop.net.NetUtils;
 import org.apache.hadoop.net.Node;
 import org.apache.hadoop.service.AbstractService;
@@ -209,6 +212,48 @@ public class NodesListManager extends CompositeService implements
   public void refreshNodes(Configuration yarnConf)
       throws IOException, YarnException {
     refreshNodes(yarnConf, false);
+  }
+
+  public void updateIncludeList(Configuration yarnConf, String node)
+          throws IOException, YarnException {
+    File hostFile = new File(conf.get(YarnConfiguration.RM_NODES_INCLUDE_FILE_PATH,
+            YarnConfiguration.DEFAULT_RM_NODES_INCLUDE_FILE_PATH));
+
+    if (!hostFile.exists()) {
+      hostFile.getParentFile().mkdirs();
+    }
+
+    //TruncateFile
+    FileOutputStream fStream = null;
+    try {
+      fStream = new FileOutputStream(hostFile);
+      fStream.write(node.getBytes());
+    } finally {
+      if (fStream != null) {
+        IOUtils.closeStream(fStream);
+      }
+    }
+  }
+
+  public void updateExcludeList(Configuration yarnConf, String node)
+          throws IOException, YarnException {
+   File hostFile = new File(conf.get(YarnConfiguration.RM_NODES_EXCLUDE_FILE_PATH,
+           YarnConfiguration.DEFAULT_RM_NODES_EXCLUDE_FILE_PATH));
+
+    if (!hostFile.exists()) {
+      hostFile.getParentFile().mkdirs();
+    }
+
+    //TruncateFile
+    FileOutputStream fStream = null;
+    try {
+      fStream = new FileOutputStream(hostFile);
+        fStream.write(node.getBytes());
+    } finally {
+      if (fStream != null) {
+        IOUtils.closeStream(fStream);
+      }
+    }
   }
 
   public void refreshNodes(Configuration yarnConf, boolean graceful)

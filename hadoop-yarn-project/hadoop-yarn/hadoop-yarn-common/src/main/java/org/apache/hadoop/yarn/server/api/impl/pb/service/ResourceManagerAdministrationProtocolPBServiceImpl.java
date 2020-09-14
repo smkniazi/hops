@@ -22,6 +22,7 @@ import java.io.IOException;
 
 import org.apache.hadoop.classification.InterfaceAudience.Private;
 import org.apache.hadoop.yarn.exceptions.YarnException;
+import org.apache.hadoop.yarn.proto.YarnServerResourceManagerServiceProtos;
 import org.apache.hadoop.yarn.proto.YarnServerResourceManagerServiceProtos.AddToClusterNodeLabelsRequestProto;
 import org.apache.hadoop.yarn.proto.YarnServerResourceManagerServiceProtos.AddToClusterNodeLabelsResponseProto;
 import org.apache.hadoop.yarn.proto.YarnServerResourceManagerServiceProtos.CheckForDecommissioningNodesRequestProto;
@@ -55,6 +56,7 @@ import org.apache.hadoop.yarn.proto.YarnServerResourceManagerServiceProtos.Updat
 import org.apache.hadoop.yarn.server.api.ResourceManagerAdministrationProtocol;
 import org.apache.hadoop.yarn.server.api.ResourceManagerAdministrationProtocolPB;
 import org.apache.hadoop.yarn.server.api.protocolrecords.AddToClusterNodeLabelsResponse;
+import org.apache.hadoop.yarn.server.api.protocolrecords.UpdateExcludeListResponse;
 import org.apache.hadoop.yarn.server.api.protocolrecords.CheckForDecommissioningNodesRequest;
 import org.apache.hadoop.yarn.server.api.protocolrecords.CheckForDecommissioningNodesResponse;
 import org.apache.hadoop.yarn.server.api.protocolrecords.NodesToAttributesMappingRequest;
@@ -70,9 +72,12 @@ import org.apache.hadoop.yarn.server.api.protocolrecords.RefreshSuperUserGroupsC
 import org.apache.hadoop.yarn.server.api.protocolrecords.RefreshUserToGroupsMappingsResponse;
 import org.apache.hadoop.yarn.server.api.protocolrecords.RemoveFromClusterNodeLabelsResponse;
 import org.apache.hadoop.yarn.server.api.protocolrecords.ReplaceLabelsOnNodeResponse;
+import org.apache.hadoop.yarn.server.api.protocolrecords.UpdateIncludeListResponse;
 import org.apache.hadoop.yarn.server.api.protocolrecords.UpdateNodeResourceResponse;
 import org.apache.hadoop.yarn.server.api.protocolrecords.impl.pb.AddToClusterNodeLabelsRequestPBImpl;
 import org.apache.hadoop.yarn.server.api.protocolrecords.impl.pb.AddToClusterNodeLabelsResponsePBImpl;
+import org.apache.hadoop.yarn.server.api.protocolrecords.impl.pb.UpdateExcludeListRequestPBImpl;
+import org.apache.hadoop.yarn.server.api.protocolrecords.impl.pb.UpdateExcludeListResponsePBImpl;
 import org.apache.hadoop.yarn.server.api.protocolrecords.impl.pb.CheckForDecommissioningNodesRequestPBImpl;
 import org.apache.hadoop.yarn.server.api.protocolrecords.impl.pb.CheckForDecommissioningNodesResponsePBImpl;
 import org.apache.hadoop.yarn.server.api.protocolrecords.impl.pb.NodesToAttributesMappingRequestPBImpl;
@@ -97,6 +102,8 @@ import org.apache.hadoop.yarn.server.api.protocolrecords.impl.pb.RemoveFromClust
 import org.apache.hadoop.yarn.server.api.protocolrecords.impl.pb.RemoveFromClusterNodeLabelsResponsePBImpl;
 import org.apache.hadoop.yarn.server.api.protocolrecords.impl.pb.ReplaceLabelsOnNodeRequestPBImpl;
 import org.apache.hadoop.yarn.server.api.protocolrecords.impl.pb.ReplaceLabelsOnNodeResponsePBImpl;
+import org.apache.hadoop.yarn.server.api.protocolrecords.impl.pb.UpdateIncludeListRequestPBImpl;
+import org.apache.hadoop.yarn.server.api.protocolrecords.impl.pb.UpdateIncludeListResponsePBImpl;
 import org.apache.hadoop.yarn.server.api.protocolrecords.impl.pb.UpdateNodeResourceRequestPBImpl;
 import org.apache.hadoop.yarn.server.api.protocolrecords.impl.pb.UpdateNodeResourceResponsePBImpl;
 
@@ -119,6 +126,40 @@ public class ResourceManagerAdministrationProtocolPBServiceImpl implements Resou
     try {
       RefreshQueuesResponse response = real.refreshQueues(request);
       return ((RefreshQueuesResponsePBImpl)response).getProto();
+    } catch (YarnException e) {
+      throw new ServiceException(e);
+    } catch (IOException e) {
+      throw new ServiceException(e);
+    }
+  }
+
+  @Override
+  public YarnServerResourceManagerServiceProtos.UpdateExcludeListResponseProto updateExcludeList(
+      RpcController controller,
+      YarnServerResourceManagerServiceProtos.UpdateExcludeListRequestProto proto) throws ServiceException {
+    UpdateExcludeListRequestPBImpl request =
+            new UpdateExcludeListRequestPBImpl(proto);
+    try {
+      UpdateExcludeListResponse response =
+              real.updateExcludeList(request);
+      return ((UpdateExcludeListResponsePBImpl)response).getProto();
+    } catch (YarnException e) {
+      throw new ServiceException(e);
+    } catch (IOException e) {
+      throw new ServiceException(e);
+    }
+  }
+
+  @Override
+  public YarnServerResourceManagerServiceProtos.UpdateIncludeListResponseProto updateIncludeList(
+          RpcController controller,
+          YarnServerResourceManagerServiceProtos.UpdateIncludeListRequestProto proto) throws ServiceException {
+    UpdateIncludeListRequestPBImpl request =
+            new UpdateIncludeListRequestPBImpl(proto);
+    try {
+      UpdateIncludeListResponse response =
+              real.updateIncludeList(request);
+      return ((UpdateIncludeListResponsePBImpl)response).getProto();
     } catch (YarnException e) {
       throw new ServiceException(e);
     } catch (IOException e) {

@@ -38,8 +38,13 @@ import java.io.File;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.PrintStream;
+import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
+import java.nio.file.Paths;
+import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.Iterator;
+import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
@@ -50,21 +55,27 @@ import org.apache.hadoop.ha.HAServiceStatus;
 import org.apache.hadoop.ha.HAServiceTarget;
 import org.apache.hadoop.ha.HAServiceProtocol.HAServiceState;
 import org.apache.hadoop.service.Service.STATE;
+import org.apache.hadoop.util.ToolRunner;
 import org.apache.hadoop.yarn.api.records.DecommissionType;
 import org.apache.hadoop.yarn.api.records.NodeId;
 import org.apache.hadoop.yarn.api.records.Resource;
 import org.apache.hadoop.yarn.api.records.ResourceInformation;
 import org.apache.hadoop.yarn.api.records.ResourceOption;
+import org.apache.hadoop.yarn.client.api.YarnClient;
 import org.apache.hadoop.yarn.conf.HAUtil;
 import org.apache.hadoop.yarn.conf.YarnConfiguration;
 import org.apache.hadoop.yarn.exceptions.YarnException;
 import org.apache.hadoop.yarn.nodelabels.CommonNodeLabelsManager;
 import org.apache.hadoop.yarn.nodelabels.DummyCommonNodeLabelsManager;
+import org.apache.hadoop.yarn.server.MiniYARNCluster;
 import org.apache.hadoop.yarn.server.api.ResourceManagerAdministrationProtocol;
 import org.apache.hadoop.yarn.server.api.protocolrecords.AddToClusterNodeLabelsRequest;
 import org.apache.hadoop.yarn.server.api.protocolrecords.AddToClusterNodeLabelsResponse;
+import org.apache.hadoop.yarn.server.api.protocolrecords.UpdateExcludeListRequest;
+import org.apache.hadoop.yarn.server.api.protocolrecords.UpdateExcludeListResponse;
 import org.apache.hadoop.yarn.server.api.protocolrecords.CheckForDecommissioningNodesRequest;
 import org.apache.hadoop.yarn.server.api.protocolrecords.CheckForDecommissioningNodesResponse;
+import org.apache.hadoop.yarn.server.api.protocolrecords.NodeHeartbeatResponse;
 import org.apache.hadoop.yarn.server.api.protocolrecords.RefreshAdminAclsRequest;
 import org.apache.hadoop.yarn.server.api.protocolrecords.RefreshClusterMaxPriorityRequest;
 import org.apache.hadoop.yarn.server.api.protocolrecords.RefreshNodesRequest;
@@ -72,11 +83,21 @@ import org.apache.hadoop.yarn.server.api.protocolrecords.RefreshQueuesRequest;
 import org.apache.hadoop.yarn.server.api.protocolrecords.RefreshServiceAclsRequest;
 import org.apache.hadoop.yarn.server.api.protocolrecords.RefreshSuperUserGroupsConfigurationRequest;
 import org.apache.hadoop.yarn.server.api.protocolrecords.RefreshUserToGroupsMappingsRequest;
+import org.apache.hadoop.yarn.server.api.protocolrecords.UpdateIncludeListRequest;
+import org.apache.hadoop.yarn.server.api.protocolrecords.UpdateIncludeListResponse;
 import org.apache.hadoop.yarn.server.api.protocolrecords.UpdateNodeResourceRequest;
+import org.apache.hadoop.yarn.server.api.records.NodeAction;
+import org.apache.hadoop.yarn.server.resourcemanager.ClusterMetrics;
+import org.apache.hadoop.yarn.server.resourcemanager.MockNM;
+import org.apache.hadoop.yarn.server.resourcemanager.MockRM;
+import org.apache.hadoop.yarn.server.resourcemanager.scheduler.capacity.CapacitySchedulerConfiguration;
 import org.apache.hadoop.yarn.util.Records;
+import org.apache.hadoop.yarn.util.resource.DominantResourceCalculator;
+import org.apache.hadoop.yarn.util.resource.ResourceCalculator;
 import org.apache.hadoop.yarn.util.resource.ResourceUtils;
 import org.apache.hadoop.yarn.util.resource.Resources;
 import org.junit.After;
+import org.junit.Assert;
 import org.junit.Before;
 import org.junit.Test;
 import org.mockito.ArgumentCaptor;
@@ -474,6 +495,46 @@ public class TestRMAdminCLI {
   }
 
   @Test
+  public void testUpdateExcludeList() throws Exception {
+    String[] args = { "-updateExcludeList", "somenode" };
+    assertEquals(0, rmAdminCLI.run(args));
+    verify(admin).updateExcludeList(any(UpdateExcludeListRequest.class));
+  }
+
+  @Test
+  public void testUpdateExcludeList2() throws Exception {
+    // graceful decommission before timeout
+    String[] args = {"-updateExcludeList", "somenode"};
+    UpdateExcludeListResponse response = Records
+            .newRecord(UpdateExcludeListResponse.class);
+    when(admin.updateExcludeList(any(
+            UpdateExcludeListRequest.class))).thenReturn(response);
+    assertEquals(0, rmAdminCLI.run(args));
+    verify(admin).updateExcludeList(
+            UpdateExcludeListRequest.newInstance("somenode"));
+  }
+
+  @Test
+  public void testUpdateIncludeList() throws Exception {
+    String[] args = { "-updateIncludeList", "somenode" };
+    assertEquals(0, rmAdminCLI.run(args));
+    verify(admin).updateIncludeList(any(UpdateIncludeListRequest.class));
+  }
+
+  @Test
+  public void testUpdateIncludeList2() throws Exception {
+    // graceful decommission before timeout
+    String[] args = {"-updateIncludeList", "somenode"};
+    UpdateIncludeListResponse response = Records
+            .newRecord(UpdateIncludeListResponse.class);
+    when(admin.updateIncludeList(any(
+            UpdateIncludeListRequest.class))).thenReturn(response);
+    assertEquals(0, rmAdminCLI.run(args));
+    verify(admin).updateIncludeList(
+            UpdateIncludeListRequest.newInstance("somenode"));
+  }
+
+  @Test
   public void testRefreshNodesGracefulBeforeTimeout() throws Exception {
     // graceful decommission before timeout
     String[] args = {"-refreshNodes", "-g", "1", "-client"};
@@ -697,7 +758,8 @@ public class TestRMAdminCLI {
       assertTrue(dataOut
           .toString()
           .contains(
-              "yarn rmadmin [-refreshQueues] [-refreshNodes "+
+              "yarn rmadmin [-refreshQueues] [-updateExcludeList nodes] " +
+              "[-updateIncludeList nodes] [-refreshNodes "+
               "[-g|graceful [timeout in seconds] -client|server]] " +
               "[-refreshNodesResources] [-refresh" +
               "SuperUserGroupsConfiguration] [-refreshUserToGroupsMappings] " +
@@ -718,6 +780,14 @@ public class TestRMAdminCLI {
           .contains(
               "-refreshQueues: Reload the queues' acls, states and scheduler " +
               "specific properties."));
+      assertTrue(dataOut
+              .toString()
+              .contains(
+                      "-updateExcludeList nodes: Write the nodes to excluded nodes file"));
+      assertTrue(dataOut
+              .toString()
+              .contains(
+                      "-updateIncludeList nodes: Write the nodes to include nodes file"));
       assertTrue(dataOut
           .toString()
           .contains(
@@ -754,6 +824,10 @@ public class TestRMAdminCLI {
 
       testError(new String[] { "-help", "-refreshQueues" },
           "Usage: yarn rmadmin [-refreshQueues]", dataErr, 0);
+      testError(new String[] { "-help", "-updateExcludeList" },
+              "Usage: yarn rmadmin [-updateExcludeList nodes]", dataErr, 0);
+      testError(new String[] { "-help", "-updateIncludeList" },
+              "Usage: yarn rmadmin [-updateIncludeList nodes]", dataErr, 0);
       testError(new String[] { "-help", "-refreshNodes" },
           "Usage: yarn rmadmin [-refreshNodes [-g|graceful " +
           "[timeout in seconds] -client|server]]", dataErr, 0);
@@ -795,7 +869,8 @@ public class TestRMAdminCLI {
       assertEquals(0, rmAdminCLIWithHAEnabled.run(args));
       oldOutPrintStream.println(dataOut);
       String expectedHelpMsg = 
-          "yarn rmadmin [-refreshQueues] [-refreshNodes [-g|graceful "
+          "yarn rmadmin [-refreshQueues] [-updateExcludeList nodes] "
+              + "[-updateIncludeList nodes] " + "[-refreshNodes [-g|graceful "
               + "[timeout in seconds] -client|server]] "
               + "[-refreshNodesResources] [-refreshSuperUserGroupsConfiguration] "
               + "[-refreshUserToGroupsMappings] "
@@ -1077,4 +1152,135 @@ public class TestRMAdminCLI {
     }
   }
 
+  @Test
+  public void testUpdateExcludeListUsingToolRunner() throws IOException {
+    MiniYARNCluster cluster = new MiniYARNCluster("testMRAMTokens", 1, 1, 1);
+    YarnClient rmClient = null;
+    try {
+
+      Configuration conf = new Configuration();
+
+      File TEMP_DIR = new File(System.getProperty("test.build.data", "/tmp"), "decommision");
+      File excludeFile = new File(TEMP_DIR + File.separator + "exclude-hosts.txt");
+
+      if(excludeFile.exists()){
+        excludeFile.delete();
+      }
+      excludeFile.getParentFile().mkdirs();
+      excludeFile.createNewFile();
+
+      conf.set(YarnConfiguration.RM_NODES_EXCLUDE_FILE_PATH,
+              excludeFile.getAbsolutePath());
+      File includeFile = new File(TEMP_DIR + File.separator + "include-hosts.txt");
+
+      if(includeFile.exists()){
+        includeFile.delete();
+      }
+      includeFile.getParentFile().mkdirs();
+      includeFile.createNewFile();
+
+      conf.set(YarnConfiguration.RM_NODES_INCLUDE_FILE_PATH,
+              includeFile.getAbsolutePath());
+
+      List<String> nodes = new ArrayList<>();
+      nodes.add("somenode1");
+      nodes.add("somenode2");
+
+      conf.setClass(
+              CapacitySchedulerConfiguration.RESOURCE_CALCULATOR_CLASS,
+              DominantResourceCalculator.class, ResourceCalculator.class);
+
+      cluster.init(conf);
+      cluster.start();
+
+      int result = ToolRunner.run(new RMAdminCLI(cluster.getConfig()), new String[]{
+              "-updateExcludeList",
+              String.join(System.getProperty("line.separator"), nodes)});
+
+      assert result == 0;
+
+      List<String> linesRead = Files.readAllLines(Paths.get(excludeFile.getAbsolutePath()),
+              StandardCharsets.UTF_8);
+
+      assert linesRead.size() == nodes.size();
+      for(int i = 0; i < linesRead.size(); i++){
+        assertTrue(linesRead.get(i).compareTo(nodes.get(i)) == 0);
+      }
+
+      result = ToolRunner.run(new RMAdminCLI(cluster.getConfig()), new String[]{
+              "-updateIncludeList",
+              String.join(System.getProperty("line.separator"), nodes)});
+
+      assert result == 0;
+
+      linesRead = Files.readAllLines(Paths.get(includeFile.getAbsolutePath()),
+              StandardCharsets.UTF_8);
+
+      assert linesRead.size() == nodes.size();
+      for(int i = 0; i < linesRead.size(); i++){
+        assertTrue(linesRead.get(i).compareTo(nodes.get(i)) == 0);
+      }
+
+    } catch (Exception e) {
+      Assert.fail();
+    } finally {
+      if (rmClient != null) {
+        rmClient.stop();
+      }
+      cluster.stop();
+    }
+  }
+
+  @Test
+  public void testDecomissionedNodes() throws Exception {
+    Configuration conf = new Configuration();
+    File TEMP_DIR = new File(System.getProperty("test.build.data", "/tmp"), "decommision");
+    File hostFile = new File(TEMP_DIR + File.separator + "hostFile.txt");
+
+    if(hostFile.exists()){
+      hostFile.delete();
+    }
+    hostFile.getParentFile().mkdirs();
+    hostFile.createNewFile();
+
+    conf.set(YarnConfiguration.RM_NODES_EXCLUDE_FILE_PATH,
+            hostFile.getAbsolutePath());
+    conf.setClass(
+            CapacitySchedulerConfiguration.RESOURCE_CALCULATOR_CLASS,
+            DominantResourceCalculator.class, ResourceCalculator.class);
+
+    MockRM rm1 = null;
+    try {
+      rm1 = new MockRM(conf);
+      rm1.start();
+      MockNM nm1 = rm1.registerNode("host1:1234", 8000);
+      MockNM nm2 = rm1.registerNode("host2:1234", 8000);
+      Assert.assertEquals(0, ClusterMetrics.getMetrics().getNumDecommisionedNMs());
+
+      // Add a host to exclude list.
+      rm1.getNodesListManager().updateExcludeList(conf,"host2");
+      rm1.getNodesListManager().refreshNodes(conf);
+      NodeHeartbeatResponse nodeHeartbeat = nm2.nodeHeartbeat(true);
+      Assert.assertTrue(NodeAction.SHUTDOWN.equals(nodeHeartbeat.getNodeAction()));
+      nodeHeartbeat = nm2.nodeHeartbeat(true);
+      Assert.assertTrue("The decommisioned metrics are not updated",
+              NodeAction.SHUTDOWN.equals(nodeHeartbeat.getNodeAction()));
+      Assert.assertEquals(1, ClusterMetrics.getMetrics().getNumDecommisionedNMs());
+
+      // Add a host to exclude list.
+      rm1.getNodesListManager().updateExcludeList(conf,"host2\nhost1");
+      rm1.getNodesListManager().refreshNodes(conf);
+      nodeHeartbeat = nm1.nodeHeartbeat(true);
+      Assert.assertTrue(NodeAction.SHUTDOWN.equals(nodeHeartbeat.getNodeAction()));
+      nodeHeartbeat = nm1.nodeHeartbeat(true);
+      Assert.assertTrue("The decommisioned metrics are not updated",
+              NodeAction.SHUTDOWN.equals(nodeHeartbeat.getNodeAction()));
+      Assert.assertEquals(2, ClusterMetrics.getMetrics().getNumDecommisionedNMs());
+
+    } finally {
+      if (rm1 != null) {
+        rm1.stop();
+      }
+    }
+  }
 }

@@ -87,6 +87,7 @@ import org.apache.hadoop.util.VersionInfo;
 import org.apache.hadoop.util.VersionUtil;
 import org.slf4j.Logger;
 
+import java.io.File;
 import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.net.InetSocketAddress;
@@ -846,6 +847,11 @@ class NameNodeRpcServer implements NamenodeProtocols {
       throws IOException {
     checkNNStartup();
     return namesystem.setSafeMode(action);
+  }
+
+  @Override
+  public void updateExcludeList(String nodes) throws IOException {
+    namesystem.updateExcludeList(nodes);
   }
 
   @Override // ClientProtocol

@@ -328,6 +328,10 @@ public class TestUsersGroupsMultiNamenode {
     }
 
     @Override
+    public void updateExcludeList(String nodes) throws IOException {
+    }
+
+    @Override
     public void refreshNodes() throws IOException {
 
     }

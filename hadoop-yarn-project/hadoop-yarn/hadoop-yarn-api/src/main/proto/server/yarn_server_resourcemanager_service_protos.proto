@@ -35,6 +35,18 @@ message RefreshQueuesRequestProto {
 message RefreshQueuesResponseProto {
 }
 
+message UpdateExcludeListRequestProto {
+  required string nodes = 1; 
+}
+message UpdateExcludeListResponseProto {
+}
+
+message UpdateIncludeListRequestProto {
+  required string nodes = 1; 
+}
+message UpdateIncludeListResponseProto {
+}
+
 message RefreshNodesRequestProto {
   optional DecommissionTypeProto decommissionType = 1 [default = NORMAL];
   optional int32 decommissionTimeout = 2;

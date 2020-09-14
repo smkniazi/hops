@@ -68,6 +68,8 @@ import org.apache.hadoop.yarn.security.YarnAuthorizationProvider;
 import org.apache.hadoop.yarn.server.api.ResourceManagerAdministrationProtocol;
 import org.apache.hadoop.yarn.server.api.protocolrecords.AddToClusterNodeLabelsRequest;
 import org.apache.hadoop.yarn.server.api.protocolrecords.AddToClusterNodeLabelsResponse;
+import org.apache.hadoop.yarn.server.api.protocolrecords.UpdateExcludeListRequest;
+import org.apache.hadoop.yarn.server.api.protocolrecords.UpdateExcludeListResponse;
 import org.apache.hadoop.yarn.server.api.protocolrecords.CheckForDecommissioningNodesRequest;
 import org.apache.hadoop.yarn.server.api.protocolrecords.CheckForDecommissioningNodesResponse;
 import org.apache.hadoop.yarn.server.api.protocolrecords.NodeToAttributes;
@@ -93,6 +95,8 @@ import org.apache.hadoop.yarn.server.api.protocolrecords.RemoveFromClusterNodeLa
 import org.apache.hadoop.yarn.server.api.protocolrecords.RemoveFromClusterNodeLabelsResponse;
 import org.apache.hadoop.yarn.server.api.protocolrecords.ReplaceLabelsOnNodeRequest;
 import org.apache.hadoop.yarn.server.api.protocolrecords.ReplaceLabelsOnNodeResponse;
+import org.apache.hadoop.yarn.server.api.protocolrecords.UpdateIncludeListRequest;
+import org.apache.hadoop.yarn.server.api.protocolrecords.UpdateIncludeListResponse;
 import org.apache.hadoop.yarn.server.api.protocolrecords.UpdateNodeResourceRequest;
 import org.apache.hadoop.yarn.server.api.protocolrecords.UpdateNodeResourceResponse;
 import org.apache.hadoop.yarn.server.resourcemanager.nodelabels.NodeLabelsUtils;
@@ -405,6 +409,51 @@ public class AdminService extends CompositeService implements
       RMAuditLogger.logSuccess(user.getShortUserName(), operation,
           "AdminService");
       return response;
+    } catch (IOException ioe) {
+      throw logAndWrapException(ioe, user.getShortUserName(), operation, msg);
+    }
+  }
+
+  @Override
+  public UpdateExcludeListResponse updateExcludeList(UpdateExcludeListRequest request)
+          throws StandbyException, YarnException, IOException {
+    final String operation = "updateExcludeList";
+    final String msg = "update exclude list";
+    UserGroupInformation user = checkAcls("updateExcludeList");
+
+    checkRMStatus(user.getShortUserName(), operation, msg);
+
+    try {
+      Configuration conf =
+              getConfiguration(new Configuration(false),
+                      YarnConfiguration.YARN_SITE_CONFIGURATION_FILE);
+
+      rm.getRMContext().getNodesListManager().updateExcludeList(conf, request.getNodes());
+
+      RMAuditLogger.logSuccess(user.getShortUserName(), operation, "AdminService");
+      return recordFactory.newRecordInstance(UpdateExcludeListResponse.class);
+    } catch (IOException ioe) {
+      throw logAndWrapException(ioe, user.getShortUserName(), operation, msg);
+    }
+  }
+
+  @Override
+  public UpdateIncludeListResponse updateIncludeList(UpdateIncludeListRequest request) throws StandbyException, YarnException, IOException {
+    final String operation = "updateIncludeList";
+    final String msg = "update include list";
+    UserGroupInformation user = checkAcls("updateIncludeList");
+
+    checkRMStatus(user.getShortUserName(), operation, msg);
+
+    try {
+      Configuration conf =
+              getConfiguration(new Configuration(false),
+                      YarnConfiguration.YARN_SITE_CONFIGURATION_FILE);
+
+      rm.getRMContext().getNodesListManager().updateIncludeList(conf, request.getNodes());
+
+      RMAuditLogger.logSuccess(user.getShortUserName(), operation, "AdminService");
+      return recordFactory.newRecordInstance(UpdateIncludeListResponse.class);
     } catch (IOException ioe) {
       throw logAndWrapException(ioe, user.getShortUserName(), operation, msg);
     }

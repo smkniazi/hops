@@ -20,6 +20,9 @@ package org.apache.hadoop.hdfs;
 import static org.junit.Assert.assertNotNull;
 
 import java.io.File;
+import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
+import java.nio.file.Paths;
 import java.util.List;
 
 import com.google.common.base.Supplier;
@@ -53,7 +56,9 @@ import org.apache.hadoop.hdfs.server.datanode.DataNodeTestUtils;
 import org.apache.hadoop.hdfs.server.namenode.FSNamesystem;
 import org.apache.hadoop.hdfs.server.namenode.NameNode;
 import org.apache.hadoop.hdfs.server.namenode.NameNodeAdapter;
+import org.apache.hadoop.hdfs.tools.DFSAdmin;
 import org.apache.hadoop.test.GenericTestUtils;
+import org.apache.hadoop.util.ToolRunner;
 import org.apache.log4j.Level;
 import org.junit.After;
 import org.junit.Before;
@@ -1104,6 +1109,40 @@ public class TestDecommission {
       Thread.sleep(20);
     }
 
+
+    cluster.shutdown();
+  }
+
+  @Test
+  public void testUpdateExcludeList() throws Exception {
+    LOG.info("Starting test testDecommission");
+    int numNamenodes = 1;
+    int numDatanodes = 0;
+    conf.setInt(DFSConfigKeys.DFS_REPLICATION_KEY, 3);
+
+    File ef = new File(excludeFile.toUri());
+    if(ef.exists()){
+      ef.delete();
+    }
+    ef.getParentFile().mkdirs();
+    ef.createNewFile();
+
+    startCluster(numNamenodes, numDatanodes, conf);
+
+    List<String> nodes = new ArrayList<>();
+    nodes.add("somenode1");
+    nodes.add("somenode2");
+
+    ToolRunner.run(new DFSAdmin(conf), new String[]{"-updateExcludeList",
+            String.join(System.getProperty("line.separator"), nodes)});
+
+    List<String> linesRead = Files.readAllLines(Paths.get(ef.getAbsolutePath()),
+            StandardCharsets.UTF_8);
+
+    assert linesRead.size() == nodes.size();
+    for(int i = 0; i < linesRead.size(); i++){
+      assertTrue(linesRead.get(i).compareTo(nodes.get(i)) == 0);
+    }
 
     cluster.shutdown();
   }

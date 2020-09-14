@@ -24,7 +24,7 @@ import org.apache.hadoop.yarn.server.api.protocolrecords.AddToClusterNodeLabelsR
 import com.google.protobuf.TextFormat;
 
 public class AddToClusterNodeLabelsResponsePBImpl extends
-    AddToClusterNodeLabelsResponse {
+        AddToClusterNodeLabelsResponse {
 
   AddToClusterNodeLabelsResponseProto proto = AddToClusterNodeLabelsResponseProto
       .getDefaultInstance();

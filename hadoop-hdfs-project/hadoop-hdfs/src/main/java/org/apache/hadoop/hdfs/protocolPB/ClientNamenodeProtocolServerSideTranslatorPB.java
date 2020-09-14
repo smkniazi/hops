@@ -161,6 +161,8 @@ import org.apache.hadoop.hdfs.protocol.proto.ClientNamenodeProtocolProtos.CheckA
 import org.apache.hadoop.hdfs.protocol.proto.ClientNamenodeProtocolProtos.CheckAccessResponseProto;
 import org.apache.hadoop.hdfs.protocol.proto.ClientNamenodeProtocolProtos.GetLastUpdatedContentSummaryRequestProto;
 import org.apache.hadoop.hdfs.protocol.proto.ClientNamenodeProtocolProtos.GetLastUpdatedContentSummaryResponseProto;
+import org.apache.hadoop.hdfs.protocol.proto.ClientNamenodeProtocolProtos.UpdateExcludeListResponseProto;
+import org.apache.hadoop.hdfs.protocol.proto.ClientNamenodeProtocolProtos.UpdateExcludeListRequestProto;
 import org.apache.hadoop.hdfs.protocol.proto.EncryptionZonesProtos.CreateEncryptionZoneResponseProto;
 import org.apache.hadoop.hdfs.protocol.proto.EncryptionZonesProtos.CreateEncryptionZoneRequestProto;
 import org.apache.hadoop.hdfs.protocol.proto.EncryptionZonesProtos.GetEZForPathResponseProto;
@@ -248,6 +250,9 @@ public class ClientNamenodeProtocolServerSideTranslatorPB
 
   private static final RefreshNodesResponseProto VOID_REFRESHNODES_RESPONSE =
       RefreshNodesResponseProto.newBuilder().build();
+
+  private static final UpdateExcludeListResponseProto VOID_UPDATE_EXCLUDE_LIST_RESPONSE =
+          UpdateExcludeListResponseProto.newBuilder().build();
 
   private static final GetFileInfoResponseProto VOID_GETFILEINFO_RESPONSE =
       GetFileInfoResponseProto.newBuilder().build();
@@ -846,6 +851,17 @@ public class ClientNamenodeProtocolServerSideTranslatorPB
       throw new ServiceException(e);
     }
 
+  }
+
+  @Override
+  public UpdateExcludeListResponseProto updateExcludeNodes(RpcController controller,
+           UpdateExcludeListRequestProto request) throws ServiceException {
+    try {
+      server.updateExcludeList(request.getNodes());
+      return VOID_UPDATE_EXCLUDE_LIST_RESPONSE;
+    } catch (IOException e) {
+      throw new ServiceException(e);
+    }
   }
 
   @Override

@@ -30,6 +30,8 @@ import org.apache.hadoop.yarn.api.records.ResourceOption;
 import org.apache.hadoop.yarn.exceptions.YarnException;
 import org.apache.hadoop.yarn.server.api.protocolrecords.AddToClusterNodeLabelsRequest;
 import org.apache.hadoop.yarn.server.api.protocolrecords.AddToClusterNodeLabelsResponse;
+import org.apache.hadoop.yarn.server.api.protocolrecords.UpdateExcludeListRequest;
+import org.apache.hadoop.yarn.server.api.protocolrecords.UpdateExcludeListResponse;
 import org.apache.hadoop.yarn.server.api.protocolrecords.NodesToAttributesMappingRequest;
 import org.apache.hadoop.yarn.server.api.protocolrecords.NodesToAttributesMappingResponse;
 import org.apache.hadoop.yarn.server.api.protocolrecords.CheckForDecommissioningNodesRequest;
@@ -54,6 +56,8 @@ import org.apache.hadoop.yarn.server.api.protocolrecords.RemoveFromClusterNodeLa
 import org.apache.hadoop.yarn.server.api.protocolrecords.RemoveFromClusterNodeLabelsResponse;
 import org.apache.hadoop.yarn.server.api.protocolrecords.ReplaceLabelsOnNodeRequest;
 import org.apache.hadoop.yarn.server.api.protocolrecords.ReplaceLabelsOnNodeResponse;
+import org.apache.hadoop.yarn.server.api.protocolrecords.UpdateIncludeListRequest;
+import org.apache.hadoop.yarn.server.api.protocolrecords.UpdateIncludeListResponse;
 import org.apache.hadoop.yarn.server.api.protocolrecords.UpdateNodeResourceRequest;
 import org.apache.hadoop.yarn.server.api.protocolrecords.UpdateNodeResourceResponse;
 
@@ -64,6 +68,16 @@ public interface ResourceManagerAdministrationProtocol extends GetUserMappingsPr
   @Idempotent
   public RefreshQueuesResponse refreshQueues(RefreshQueuesRequest request) 
   throws StandbyException, YarnException, IOException;
+
+  @Private
+  @Idempotent
+  public UpdateExcludeListResponse updateExcludeList(UpdateExcludeListRequest request)
+          throws StandbyException, YarnException, IOException;
+
+  @Private
+  @Idempotent
+  public UpdateIncludeListResponse updateIncludeList(UpdateIncludeListRequest request)
+          throws StandbyException, YarnException, IOException;
 
   @Private
   @Idempotent

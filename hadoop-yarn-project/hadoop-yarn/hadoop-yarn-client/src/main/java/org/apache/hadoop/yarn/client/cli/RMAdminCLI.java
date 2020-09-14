@@ -63,6 +63,7 @@ import org.apache.hadoop.yarn.factory.providers.RecordFactoryProvider;
 import org.apache.hadoop.yarn.nodelabels.CommonNodeLabelsManager;
 import org.apache.hadoop.yarn.server.api.ResourceManagerAdministrationProtocol;
 import org.apache.hadoop.yarn.server.api.protocolrecords.AddToClusterNodeLabelsRequest;
+import org.apache.hadoop.yarn.server.api.protocolrecords.UpdateExcludeListRequest;
 import org.apache.hadoop.yarn.server.api.protocolrecords.CheckForDecommissioningNodesRequest;
 import org.apache.hadoop.yarn.server.api.protocolrecords.CheckForDecommissioningNodesResponse;
 import org.apache.hadoop.yarn.server.api.protocolrecords.RefreshAdminAclsRequest;
@@ -75,6 +76,7 @@ import org.apache.hadoop.yarn.server.api.protocolrecords.RefreshSuperUserGroupsC
 import org.apache.hadoop.yarn.server.api.protocolrecords.RefreshUserToGroupsMappingsRequest;
 import org.apache.hadoop.yarn.server.api.protocolrecords.RemoveFromClusterNodeLabelsRequest;
 import org.apache.hadoop.yarn.server.api.protocolrecords.ReplaceLabelsOnNodeRequest;
+import org.apache.hadoop.yarn.server.api.protocolrecords.UpdateIncludeListRequest;
 import org.apache.hadoop.yarn.server.api.protocolrecords.UpdateNodeResourceRequest;
 import org.apache.hadoop.yarn.util.ConverterUtils;
 import org.apache.hadoop.yarn.util.UnitsConversionUtil;
@@ -106,6 +108,10 @@ public class RMAdminCLI extends HAAdmin {
               "Reload the queues' acls, states and scheduler specific " +
                   "properties. \n\t\tResourceManager will reload the " +
                   "mapred-queues configuration file."))
+          .put("-updateExcludeList", new UsageInfo("nodes",
+               "Write the nodes to excluded nodes file"))
+          .put("-updateIncludeList", new UsageInfo("nodes",
+                "Write the nodes to include nodes file"))
           .put("-refreshNodes",
               new UsageInfo("[-g|graceful [timeout in seconds] -client|server]",
               "Refresh the hosts information at the ResourceManager. Here "
@@ -270,6 +276,8 @@ public class RMAdminCLI extends HAAdmin {
     summary.append("The full syntax is: \n\n"
         + "yarn rmadmin"
         + " [-refreshQueues]"
+        + " [-updateExcludeList nodes]"
+        + " [-updateIncludeList nodes]"
         + " [-refreshNodes [-g|graceful [timeout in seconds] -client|server]]"
         + " [-refreshNodesResources]"
         + " [-refreshSuperUserGroupsConfiguration]"
@@ -754,6 +762,10 @@ public class RMAdminCLI extends HAAdmin {
     try {
       if ("-refreshQueues".equals(cmd)) {
         exitCode = refreshQueues();
+      } else if ("-updateExcludeList".equals(cmd)) {
+        exitCode = handleUpdateExcludeList(args, cmd, isHAEnabled);
+      } else if ("-updateIncludeList".equals(cmd)) {
+        exitCode = handleUpdateIncludeList(args, cmd, isHAEnabled);
       } else if ("-refreshNodes".equals(cmd)) {
         exitCode = handleRefreshNodes(args, cmd, isHAEnabled);
       } else if ("-refreshNodesResources".equals(cmd)) {
@@ -812,6 +824,42 @@ public class RMAdminCLI extends HAAdmin {
       localNodeLabelsManager.stop();
     }
     return exitCode;
+  }
+
+  private int handleUpdateIncludeList(String[] args, String cmd, boolean isHAEnabled)
+          throws IOException, YarnException, ParseException {
+    if (args.length <= 1) {
+      System.err.println("Please specify node(s) to include");
+      return -1;
+    }
+
+    ResourceManagerAdministrationProtocol adminProtocol = createAdminProtocol();
+    StringBuffer sb = new StringBuffer();
+    for(int i = 1; i < args.length; i++) {
+      sb.append(args[i]);
+    }
+    UpdateIncludeListRequest request = UpdateIncludeListRequest.newInstance(
+            sb.toString());
+    adminProtocol.updateIncludeList(request);
+    return 0;
+  }
+
+  private int handleUpdateExcludeList(String[] args, String cmd, boolean isHAEnabled)
+          throws IOException, YarnException, ParseException {
+    if (args.length <= 1) {
+      System.err.println("Please specify node(s) to decommission");
+      return -1;
+    }
+
+    ResourceManagerAdministrationProtocol adminProtocol = createAdminProtocol();
+    StringBuffer sb = new StringBuffer();
+    for (int i = 1; i < args.length; i++) {
+      sb.append(args[i]);
+    }
+    UpdateExcludeListRequest request = UpdateExcludeListRequest.newInstance(
+            sb.toString());
+    adminProtocol.updateExcludeList(request);
+    return 0;
   }
 
   // A helper method to reduce the number of lines of run()

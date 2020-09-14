@@ -402,6 +402,7 @@ public class DFSAdmin extends FsShell {
     "\t[-saveNamespace]\n" +
     "\t[-rollEdits]\n" +
     "\t[-restoreFailedStorage true|false|check]\n" +
+    "\t[-updateExcludeList nodes]\n" +
     "\t[-refreshNodes]\n" +
     "\t[" + SetQuotaCommand.USAGE + "]\n" +
     "\t[" + ClearQuotaCommand.USAGE +"]\n" +
@@ -594,7 +595,21 @@ public class DFSAdmin extends FsShell {
 
     System.out.println("Safe mode is " + (inSafeMode ? "ON" : "OFF"));
   }
-  
+
+  public int updateExcludeList(int index, String []argv) throws IOException {
+    int exitCode = -1;
+
+    DistributedFileSystem dfs = getDFS();
+    StringBuffer sb = new StringBuffer();
+    for(int i = index; i < argv.length; i++) {
+      sb.append(argv[i]);
+    }
+    dfs.updateExcludeList(sb.toString());
+    exitCode = 0;
+
+    return exitCode;
+  }
+
   /**
    * Command to ask the namenode to reread the hosts and excluded hosts
    * file.
@@ -698,6 +713,9 @@ public class DFSAdmin extends FsShell {
       "\t\tcondition.  Safe mode can also be entered manually, but then\n" +
       "\t\tit can only be turned off manually as well.\n";
 
+    String updateExcludeList = "-updateExcludeList nodes: \tOverwrites the 'nodes' to" +
+            "\t\tthe exclude nodes files.";
+
     String refreshNodes = "-refreshNodes: \tUpdates the namenode with the " +
         "set of datanodes allowed to connect to the namenode.\n\n" +
         "\t\tNamenode re-reads datanode hostnames from the file defined by \n" +
@@ -779,6 +797,8 @@ public class DFSAdmin extends FsShell {
       System.out.println(report);
     } else if ("safemode".equals(cmd)) {
       System.out.println(safemode);
+    } else if ("updateExcludeList".equals(cmd)) {
+      System.out.println(updateExcludeList);
     } else if ("refreshNodes".equals(cmd)) {
       System.out.println(refreshNodes);
     } else if (RollingUpgradeCommand.matches("-"+cmd)) {
@@ -819,6 +839,7 @@ public class DFSAdmin extends FsShell {
       System.out.println(summary);
       System.out.println(report);
       System.out.println(safemode);
+      System.out.println(updateExcludeList);
       System.out.println(refreshNodes);
       System.out.println(RollingUpgradeCommand.DESCRIPTION);
       System.out.println(SetQuotaCommand.DESCRIPTION);
@@ -1136,6 +1157,8 @@ public class DFSAdmin extends FsShell {
     } else if ("-safemode".equals(cmd)) {
       System.err.println(
           "Usage: hdfs DFSAdmin" + " [-safemode enter | leave | get | wait]");
+    } else if ("-updateExcludeList".equals(cmd)) {
+      System.err.println("Usage: hdfs dfsadmin" + " [-updateExcludeList nodes]");
     } else if ("-refreshNodes".equals(cmd)) {
       System.err.println("Usage: hdfs dfsadmin" + " [-refreshNodes]");
     } else if (RollingUpgradeCommand.matches(cmd)) {
@@ -1227,6 +1250,11 @@ public class DFSAdmin extends FsShell {
         printUsage(cmd);
         return exitCode;
       }
+    } else if ("-updateExcludeList".equals(cmd)) {
+      if (argv.length != 2) {
+        printUsage(cmd);
+        return exitCode;
+      }
     } else if ("-refreshNodes".equals(cmd)) {
       if (argv.length != 1) {
         printUsage(cmd);
@@ -1308,6 +1336,8 @@ public class DFSAdmin extends FsShell {
         report(argv, i);
       } else if ("-safemode".equals(cmd)) {
         setSafeMode(argv, i);
+      } else if ("-updateExcludeList".equals(cmd)) {
+        exitCode = updateExcludeList(i, argv);
       } else if ("-refreshNodes".equals(cmd)) {
         exitCode = refreshNodes();
       } else if (RollingUpgradeCommand.matches(cmd)) {

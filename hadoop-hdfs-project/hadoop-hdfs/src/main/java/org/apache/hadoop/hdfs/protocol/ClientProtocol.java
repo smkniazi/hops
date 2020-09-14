@@ -1018,6 +1018,13 @@ public interface ClientProtocol {
   public boolean setSafeMode(HdfsConstants.SafeModeAction action,
       boolean isChecked) throws IOException;
 
+  /**
+   * Tells the namenode to update the exclude list
+   *
+   * @throws IOException
+   */
+  @Idempotent
+  public void updateExcludeList(String nodes) throws IOException;
 
   /**
    * Tells the namenode to reread the hosts and exclude files.

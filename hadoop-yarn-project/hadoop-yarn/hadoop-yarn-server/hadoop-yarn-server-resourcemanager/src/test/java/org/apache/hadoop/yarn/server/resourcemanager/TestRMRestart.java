@@ -48,8 +48,6 @@ import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.CommonConfigurationKeysPublic;
-import org.apache.hadoop.fs.FileSystem;
-import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.io.DataOutputBuffer;
 import org.apache.hadoop.io.IOUtils;
 import org.apache.hadoop.io.Text;
@@ -102,7 +100,6 @@ import org.apache.hadoop.yarn.server.resourcemanager.amlauncher.AMLauncherEventT
 import org.apache.hadoop.yarn.server.resourcemanager.amlauncher.ApplicationMasterLauncher;
 import org.apache.hadoop.yarn.server.resourcemanager.metrics.SystemMetricsPublisher;
 import org.apache.hadoop.yarn.server.resourcemanager.nodelabels.RMNodeLabelsManager;
-import org.apache.hadoop.yarn.server.resourcemanager.recovery.FileSystemRMStateStore;
 import org.apache.hadoop.yarn.server.resourcemanager.recovery.MemoryRMStateStore;
 import org.apache.hadoop.yarn.server.resourcemanager.recovery.RMStateStore;
 import org.apache.hadoop.yarn.server.resourcemanager.recovery.RMStateStore.RMState;
@@ -165,6 +162,7 @@ public class TestRMRestart extends ParameterizedSchedulerTestBase {
   private final static File TEMP_DIR = new File(System.getProperty(
     "test.build.data", "/tmp"), "decommision");
   private File hostFile = new File(TEMP_DIR + File.separator + "hostFile.txt");
+  private File includeFile = new File(TEMP_DIR + File.separator + "includeFile.txt");
   private YarnConfiguration conf;
 
   // Fake rmAddr for token-renewal
@@ -2452,55 +2450,133 @@ public class TestRMRestart extends ParameterizedSchedulerTestBase {
   }
 
   @Test (timeout = 60000)
-  public void testDecomissionedNMsMetricsOnRMRestart() throws Exception {
+  public void testDecommissionUsingIncludeNodesFile() throws Exception {
     conf.set(YarnConfiguration.RM_NODES_EXCLUDE_FILE_PATH,
       hostFile.getAbsolutePath());
-    writeToHostsFile("");
+    conf.set(YarnConfiguration.RM_NODES_INCLUDE_FILE_PATH,
+      includeFile.getAbsolutePath());
+
+    if(hostFile.exists()){
+      hostFile.delete();
+    }
+    hostFile.getParentFile().mkdirs();
+    hostFile.createNewFile();
+
+    if(includeFile.exists()){
+      includeFile.delete();
+    }
+    hostFile.getParentFile().mkdirs();
+    includeFile.createNewFile();
+
     MockRM rm1 = null, rm2 = null;
     try {
       rm1 = new MockRM(conf);
       rm1.start();
-      MockNM nm1 = rm1.registerNode("localhost:1234", 8000);
-      MockNM nm2 = rm1.registerNode("host2:1234", 8000);
-      Resource expectedCapability =
-          Resource.newInstance(nm1.getMemory(), nm1.getvCores());
-      String expectedVersion = nm1.getVersion();
-      Assert
-          .assertEquals(0,
-              ClusterMetrics.getMetrics().getNumDecommisionedNMs());
-      String ip = NetUtils.normalizeHostName("localhost");
-      // Add 2 hosts to exclude list.
-      writeToHostsFile("host2", ip);
 
-      // refresh nodes
+      rm1.getNodesListManager().updateIncludeList(conf, "host1prime\nhost2prime");
+
+      //These nodes will be able to connet as we have not yet called the
+      //refresh command
+      MockNM nm1 = rm1.registerNode("host1:1234", 8080);
+      MockNM nm2 = rm1.registerNode("host2:1234", 9090);
+
+      Thread.sleep(3000);
+      Assert.assertEquals(0, ClusterMetrics.getMetrics().getNumDecommisionedNMs());
+      Assert.assertEquals(2, ClusterMetrics.getMetrics().getNumActiveNMs());
+      Assert.assertEquals(0, ClusterMetrics.getMetrics().getNumShutdownNMs());
+
+      //all the nodes that are not part of include list will be SHUTDOWN
       rm1.getNodesListManager().refreshNodes(conf);
-      NodeHeartbeatResponse nodeHeartbeat = nm1.nodeHeartbeat(true);
-      Assert
-          .assertTrue(
-              NodeAction.SHUTDOWN.equals(nodeHeartbeat.getNodeAction()));
-      nodeHeartbeat = nm2.nodeHeartbeat(true);
-      Assert.assertTrue("The decommisioned metrics are not updated",
-          NodeAction.SHUTDOWN.equals(nodeHeartbeat.getNodeAction()));
+      Thread.sleep(3000);
+      Assert.assertEquals(0, ClusterMetrics.getMetrics().getNumActiveNMs());
+      Assert.assertEquals(0, ClusterMetrics.getMetrics().getNumDecommisionedNMs());
+      Assert.assertEquals(2, ClusterMetrics.getMetrics().getNumShutdownNMs());
 
-      rm1.drainEvents();
-      Assert
-          .assertEquals(2,
-              ClusterMetrics.getMetrics().getNumDecommisionedNMs());
-      verifyNodesAfterDecom(rm1, 2, expectedCapability, expectedVersion);
-      rm1.stop();
-      rm1 = null;
-      Assert
-          .assertEquals(0,
-              ClusterMetrics.getMetrics().getNumDecommisionedNMs());
+      //restart the nodes
+      nm1.unRegisterNode();
+      nm2.unRegisterNode();
 
-      // restart RM.
-      rm2 = new MockRM(conf);
-      rm2.start();
-      rm2.drainEvents();
-      Assert
-          .assertEquals(2,
-              ClusterMetrics.getMetrics().getNumDecommisionedNMs());
-      verifyNodesAfterDecom(rm2, 2, Resource.newInstance(0, 0), "unknown");
+      //Thse nodes will not be able to connect as they are not part of include list
+      nm1 = rm1.registerNode("host1:1234", 8080);
+      nm2 = rm1.registerNode("host2:1234", 9090);
+      Thread.sleep(3000);
+      Assert.assertEquals(0, ClusterMetrics.getMetrics().getNumDecommisionedNMs());
+      Assert.assertEquals(0, ClusterMetrics.getMetrics().getNumActiveNMs());
+      Assert.assertEquals(2, ClusterMetrics.getMetrics().getNumShutdownNMs());
+
+    } finally {
+      if (rm1 != null) {
+        rm1.stop();
+      }
+      if (rm2 != null) {
+        rm2.stop();
+      }
+    }
+  }
+
+  @Test (timeout = 60000)
+  public void testDecomissionedNMsMetricsOnRMRestart() throws Exception {
+    conf.set(YarnConfiguration.RM_NODES_EXCLUDE_FILE_PATH,
+            hostFile.getAbsolutePath());
+    conf.set(YarnConfiguration.RM_NODES_INCLUDE_FILE_PATH,
+            includeFile.getAbsolutePath());
+
+    if(hostFile.exists()){
+      hostFile.delete();
+    }
+    hostFile.getParentFile().mkdirs();
+    hostFile.createNewFile();
+
+    if(includeFile.exists()){
+      includeFile.delete();
+    }
+    hostFile.getParentFile().mkdirs();
+    includeFile.createNewFile();
+
+    MockRM rm1 = null, rm2 = null;
+    try {
+      rm1 = new MockRM(conf);
+      rm1.start();
+
+      rm1.getNodesListManager().updateIncludeList(conf, "host1\nhost2");
+      rm1.getNodesListManager().refreshNodes(conf);
+
+      MockNM nm1 = rm1.registerNode("host1:1234", 8080); //can connect
+      MockNM nm2 = rm1.registerNode("host2:1234", 9090); //can connect
+      MockNM nm3 = rm1.registerNode("host3:1234", 9090); //can not connect
+
+      Assert.assertEquals(0, ClusterMetrics.getMetrics().getNumDecommisionedNMs());
+      Assert.assertEquals(2, ClusterMetrics.getMetrics().getNumActiveNMs());
+      Assert.assertEquals(0, ClusterMetrics.getMetrics().getNumShutdownNMs());
+
+      rm1.getNodesListManager().updateExcludeList(conf, "host1");
+      rm1.getNodesListManager().refreshNodes(conf);
+
+      Thread.sleep(3000);
+
+      Assert.assertEquals(1, ClusterMetrics.getMetrics().getNumDecommisionedNMs());
+      Assert.assertEquals(1, ClusterMetrics.getMetrics().getNumActiveNMs());
+      Assert.assertEquals(0, ClusterMetrics.getMetrics().getNumShutdownNMs());
+
+      //restart decomissioned node
+      nm1.unRegisterNode();
+      nm1 = rm1.registerNode("host1:1234", 8080); //can not connect
+      Thread.sleep(3000);
+      Assert.assertEquals(1, ClusterMetrics.getMetrics().getNumDecommisionedNMs());
+      Assert.assertEquals(1, ClusterMetrics.getMetrics().getNumActiveNMs());
+      Assert.assertEquals(0, ClusterMetrics.getMetrics().getNumShutdownNMs());
+
+      //restart decomissioned node after clearing the exclude list
+      rm1.getNodesListManager().updateExcludeList(conf, "");
+      rm1.getNodesListManager().refreshNodes(conf);
+
+      nm1.unRegisterNode();
+      nm1 = rm1.registerNode("host1:1234", 8080); //can connect again now
+      Thread.sleep(3000);
+      Assert.assertEquals(0, ClusterMetrics.getMetrics().getNumDecommisionedNMs());
+      Assert.assertEquals(2, ClusterMetrics.getMetrics().getNumActiveNMs());
+      Assert.assertEquals(0, ClusterMetrics.getMetrics().getNumShutdownNMs());
+
     } finally {
       if (rm1 != null) {
         rm1.stop();
@@ -3264,5 +3340,65 @@ public class TestRMRestart extends ParameterizedSchedulerTestBase {
     ByteBuffer tokenConf =
         ByteBuffer.wrap(dob.getData(), 0, dob.getLength());
     return tokenConf;
+  }
+
+  @Test (timeout = 60000)
+  public void testDecomissionAndRecommission() throws Exception {
+    conf.set(YarnConfiguration.RM_NODES_EXCLUDE_FILE_PATH,
+            hostFile.getAbsolutePath());
+    writeToHostsFile("");
+    MockRM rm1 = null, rm2 = null;
+    try {
+      rm1 = new MockRM(conf);
+      rm1.start();
+      MockNM nm1 = rm1.registerNode("localhost:1234", 8000);
+      MockNM nm2 = rm1.registerNode("host2:1234", 8000);
+      Resource expectedCapability =
+              Resource.newInstance(nm1.getMemory(), nm1.getvCores());
+      String expectedVersion = nm1.getVersion();
+      Assert
+              .assertEquals(0,
+                      ClusterMetrics.getMetrics().getNumDecommisionedNMs());
+      String ip = NetUtils.normalizeHostName("localhost");
+      // Add 2 hosts to exclude list.
+      writeToHostsFile("host2", ip);
+
+      // refresh nodes
+      rm1.getNodesListManager().refreshNodes(conf);
+      NodeHeartbeatResponse nodeHeartbeat = nm1.nodeHeartbeat(true);
+      Assert
+              .assertTrue(
+                      NodeAction.SHUTDOWN.equals(nodeHeartbeat.getNodeAction()));
+      nodeHeartbeat = nm2.nodeHeartbeat(true);
+      Assert.assertTrue("The decommisioned metrics are not updated",
+              NodeAction.SHUTDOWN.equals(nodeHeartbeat.getNodeAction()));
+
+      rm1.drainEvents();
+      Assert
+              .assertEquals(2,
+                      ClusterMetrics.getMetrics().getNumDecommisionedNMs());
+      verifyNodesAfterDecom(rm1, 2, expectedCapability, expectedVersion);
+      rm1.stop();
+      rm1 = null;
+      Assert
+              .assertEquals(0,
+                      ClusterMetrics.getMetrics().getNumDecommisionedNMs());
+
+      // restart RM.
+      rm2 = new MockRM(conf);
+      rm2.start();
+      rm2.drainEvents();
+      Assert
+              .assertEquals(2,
+                      ClusterMetrics.getMetrics().getNumDecommisionedNMs());
+      verifyNodesAfterDecom(rm2, 2, Resource.newInstance(0, 0), "unknown");
+    } finally {
+      if (rm1 != null) {
+        rm1.stop();
+      }
+      if (rm2 != null) {
+        rm2.stop();
+      }
+    }
   }
 }

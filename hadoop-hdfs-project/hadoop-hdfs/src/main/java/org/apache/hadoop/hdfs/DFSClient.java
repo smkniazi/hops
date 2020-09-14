@@ -2274,6 +2274,14 @@ public class DFSClient implements java.io.Closeable, RemotePeerFactory,
     return filesBeingWritten.get(fileId).getBlock();
   }
 
+  public void updateExcludeList(String nodes) throws IOException {
+    try (TraceScope ignored = tracer.newScope("updateExcludeList")) {
+      for(ClientProtocol nn : allNNs){
+        nn.updateExcludeList(nodes);
+      }
+    }
+  }
+
   /**
    * Refresh the hosts and exclude files.  (Rereads them.)
    * See {@link ClientProtocol#refreshNodes()}

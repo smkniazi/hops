@@ -1230,6 +1230,14 @@ public class DistributedFileSystem extends FileSystem {
   }
 
   /**
+   * Overwrites nodes to the exclude nodes file
+   * files.
+   */
+  public void updateExcludeList(String nodes) throws IOException {
+    dfs.updateExcludeList(nodes);
+  }
+
+  /**
    * Refreshes the list of hosts and excluded hosts from the configured
    * files.
    */
