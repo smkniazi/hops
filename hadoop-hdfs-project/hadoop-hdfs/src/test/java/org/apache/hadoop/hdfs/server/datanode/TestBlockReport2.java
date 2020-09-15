@@ -1529,4 +1529,50 @@ public class TestBlockReport2 {
       }
     }
   }
+
+  @Test
+  public void blockReport_17() throws IOException, InterruptedException {
+    DistributedFileSystem fs = null;
+    MiniDFSCluster cluster = null;
+    final int NUM_DATANODES = 5;
+    final short REPLICATION = 5;
+    String poolId = null;
+    final String baseName = "/dir";
+    final int numBuckets = 5;
+    try {
+      Configuration conf = new Configuration();
+      setConfiguration(conf, numBuckets, NUM_DATANODES);
+      conf.setInt(DFSConfigKeys.DFS_REPLICATION_KEY,REPLICATION);
+//      conf.setLong(DFSConfigKeys.DFS_DIR_DELETE_BATCH_SIZE, 2);
+
+      cluster = new MiniDFSCluster.Builder(conf).format
+              (true).numDataNodes(NUM_DATANODES).build();
+      fs = (DistributedFileSystem) cluster.getFileSystem();
+
+      cluster.waitActive();
+
+      final String METHOD_NAME = GenericTestUtils.getMethodName();
+      LOG.info("Running test " + METHOD_NAME);
+
+      // empty block reports should match
+      matchDNandNNState(0, NUM_DATANODES, cluster, 0, numBuckets);
+      sendAndCheckBR(0, NUM_DATANODES, cluster, poolId, 0, numBuckets);
+
+      for (int i = 0; i < 10; i++) {
+        int numBlocks = 2;
+        Path filePath = new Path(baseName + "/" + i + ".dat");
+        prepareForRide(cluster, filePath, REPLICATION, numBlocks);
+      }
+
+      fs.delete(new Path(baseName), true);
+
+    } catch (Exception e) {
+      LOG.info(e.toString(),e);
+      fail(e.toString());
+    } finally {
+      fs.close();
+      cluster.shutdownDataNodes();
+      cluster.shutdown();
+    }
+  }
 }

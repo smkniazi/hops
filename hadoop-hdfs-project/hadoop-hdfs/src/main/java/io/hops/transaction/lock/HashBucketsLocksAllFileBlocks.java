@@ -24,6 +24,7 @@ import org.apache.hadoop.hdfs.server.blockmanagement.HashBuckets;
 
 import java.io.IOException;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.List;
@@ -48,6 +49,8 @@ public class HashBucketsLocksAllFileBlocks extends LockWithType {
       }
       //sort blks for total order of locks
       Collections.sort(replicas);
+
+      LOG.info(("XXX "+ Arrays.toString(replicas.toArray())));
 
       for (Replica replica : replicas) {
         if (EntityManager.find(HashBucket.Finder.ByStorageIdAndBucketId,
