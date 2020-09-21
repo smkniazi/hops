@@ -140,6 +140,7 @@ import org.apache.hadoop.hdfs.protocol.proto.ClientNamenodeProtocolProtos.Trunca
 import org.apache.hadoop.hdfs.protocol.proto.ClientNamenodeProtocolProtos.UpdateBlockForPipelineRequestProto;
 import org.apache.hadoop.hdfs.protocol.proto.ClientNamenodeProtocolProtos.UpdatePipelineRequestProto;
 import org.apache.hadoop.hdfs.protocol.proto.ClientNamenodeProtocolProtos.UpdateExcludeListRequestProto;
+import org.apache.hadoop.hdfs.protocol.proto.ClientNamenodeProtocolProtos.RemoveAndWipeNodesRequestProto;
 import org.apache.hadoop.hdfs.protocol.proto.ClientNamenodeProtocolProtos.CheckAccessRequestProto;
 import org.apache.hadoop.hdfs.protocol.proto.ClientNamenodeProtocolProtos.GetLastUpdatedContentSummaryRequestProto;
 import org.apache.hadoop.hdfs.security.token.block.DataEncryptionKey;
@@ -778,6 +779,17 @@ public class ClientNamenodeProtocolTranslatorPB
     }
   }
 
+  @Override
+  public void removeAndWipeNodes(List<String> nodes, boolean async) throws IOException {
+    try {
+      RemoveAndWipeNodesRequestProto req =
+              RemoveAndWipeNodesRequestProto.newBuilder().setAsync(async).addAllNodes(nodes).build();
+      rpcProxy.removeAndWipeNodes(null, req);
+    } catch (ServiceException e) {
+      throw ProtobufHelper.getRemoteException(e);
+    }
+  }
+  
   @Override
   public void refreshNodes() throws IOException {
     try {

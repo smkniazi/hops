@@ -271,4 +271,16 @@ public abstract class NodeReport {
    * @return the set of node attributes.
    */
   public abstract Set<NodeAttribute> getNodeAttributes();
+  
+  /**
+   * Get the <em>number of allocated application master containers</em> on the node.
+   * @return <em>number of allocated application master containers</em> on the node
+   */
+  @Private
+  @Unstable
+  public abstract int getNumApplicationMasters();
+  
+  @Private
+  @Unstable
+  public abstract void setNumApplicationMasters(int numContainers);
 }

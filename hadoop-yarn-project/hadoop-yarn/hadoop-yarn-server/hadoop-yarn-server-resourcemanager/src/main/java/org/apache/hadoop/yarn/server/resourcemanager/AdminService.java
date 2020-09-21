@@ -110,6 +110,8 @@ import org.apache.hadoop.yarn.server.resourcemanager.security.authorize.RMPolicy
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.protobuf.BlockingService;
+import org.apache.hadoop.yarn.server.api.protocolrecords.RemoveNodesRequest;
+import org.apache.hadoop.yarn.server.api.protocolrecords.RemoveNodesResponse;
 
 public class AdminService extends CompositeService implements
     HAServiceProtocol, ResourceManagerAdministrationProtocol {
@@ -1118,5 +1120,19 @@ public class AdminService extends CompositeService implements
           .anyMatch(inactiveNode -> inactiveNode.getHost().equals(node));
     }
     return isKnown;
+  }
+  
+  @Override
+  public RemoveNodesResponse removeNodes(RemoveNodesRequest request) throws YarnException, StandbyException {
+    final String operation = "removeNodes";
+    final String msg = "remove nodes";
+    UserGroupInformation user = checkAcls("removeNodes");
+
+    checkRMStatus(user.getShortUserName(), operation, msg);
+
+    rm.getRMContext().getNodesListManager().removeNodes(request.getNodes());
+
+    RMAuditLogger.logSuccess(user.getShortUserName(), operation, "AdminService");
+    return recordFactory.newRecordInstance(RemoveNodesResponse.class);
   }
 }

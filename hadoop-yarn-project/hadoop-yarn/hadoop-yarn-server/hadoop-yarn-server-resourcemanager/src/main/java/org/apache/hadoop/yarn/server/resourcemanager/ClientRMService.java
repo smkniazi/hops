@@ -1052,6 +1052,17 @@ public class ClientRMService extends AbstractService implements
       numContainers = schedulerNodeReport.getNumContainers();
     }
 
+    int numAppMasters = 0;
+    for (ApplicationId appId : rmNode.getRunningApps()) {
+      RMApp app = this.rmContext.getRMApps().get(appId);
+      if (app != null) {
+        RMAppAttempt attempt = app.getCurrentAppAttempt();
+        if (attempt != null && attempt.getHost().equals(rmNode.getNodeID().getHost())) {
+          numAppMasters++;
+        }
+      }
+    }
+    
     Set<NodeAttribute> attrs = rmNode.getAllNodeAttributes();
     NodeReport report =
         BuilderUtils.newNodeReport(rmNode.getNodeID(), rmNode.getState(),
@@ -1060,7 +1071,7 @@ public class ClientRMService extends AbstractService implements
             rmNode.getHealthReport(), rmNode.getLastHealthReportTime(),
             rmNode.getNodeLabels(), rmNode.getAggregatedContainersUtilization(),
             rmNode.getNodeUtilization(), rmNode.getDecommissioningTimeout(),
-            null, attrs);
+            null, attrs, numAppMasters);
 
     return report;
   }

@@ -332,6 +332,10 @@ public class TestUsersGroupsMultiNamenode {
     }
 
     @Override
+    public void removeAndWipeNodes(List<String> nodes, boolean async) throws IOException {
+    }
+    
+    @Override
     public void refreshNodes() throws IOException {
 
     }

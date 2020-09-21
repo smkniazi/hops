@@ -109,6 +109,9 @@ import org.apache.hadoop.yarn.server.api.protocolrecords.impl.pb.UpdateNodeResou
 
 import com.google.protobuf.RpcController;
 import com.google.protobuf.ServiceException;
+import org.apache.hadoop.yarn.server.api.protocolrecords.RemoveNodesResponse;
+import org.apache.hadoop.yarn.server.api.protocolrecords.impl.pb.RemoveNodesRequestPBImpl;
+import org.apache.hadoop.yarn.server.api.protocolrecords.impl.pb.RemoveNodesResponsePBImpl;
 
 @Private
 public class ResourceManagerAdministrationProtocolPBServiceImpl implements ResourceManagerAdministrationProtocolPB {
@@ -394,6 +397,23 @@ public class ResourceManagerAdministrationProtocolPBServiceImpl implements Resou
       NodesToAttributesMappingResponse response =
           real.mapAttributesToNodes(request);
       return ((NodesToAttributesMappingResponsePBImpl) response).getProto();
+    } catch (YarnException e) {
+      throw new ServiceException(e);
+    } catch (IOException e) {
+      throw new ServiceException(e);
+    }
+  }
+  
+  @Override
+  public YarnServerResourceManagerServiceProtos.RemoveNodesResponseProto removeNodes(
+      RpcController controller,
+      YarnServerResourceManagerServiceProtos.RemoveNodesRequestProto proto) throws ServiceException {
+    RemoveNodesRequestPBImpl request =
+            new RemoveNodesRequestPBImpl(proto);
+    try {
+      RemoveNodesResponse response =
+              real.removeNodes(request);
+      return ((RemoveNodesResponsePBImpl)response).getProto();
     } catch (YarnException e) {
       throw new ServiceException(e);
     } catch (IOException e) {

@@ -76,6 +76,8 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import com.google.common.annotations.VisibleForTesting;
+import org.apache.hadoop.yarn.server.api.protocolrecords.RemoveNodesRequest;
+import org.apache.hadoop.yarn.server.api.protocolrecords.RemoveNodesResponse;
 
 /**
  * RouterRMAdminService is a service that runs on each router that can be used
@@ -445,5 +447,12 @@ public class RouterRMAdminService extends AbstractService
       throws YarnException, IOException {
     RequestInterceptorChainWrapper pipeline = getInterceptorChain();
     return pipeline.getRootInterceptor().mapAttributesToNodes(request);
+  }
+  
+  @Override
+  public RemoveNodesResponse removeNodes(RemoveNodesRequest request)
+      throws StandbyException, YarnException, IOException {
+    RequestInterceptorChainWrapper pipeline = getInterceptorChain();
+    return pipeline.getRootInterceptor().removeNodes(request);
   }
 }

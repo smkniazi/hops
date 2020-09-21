@@ -137,6 +137,13 @@ message NodeIdToLabelsNameProto {
   repeated string nodeLabels = 2;
 }
 
+message RemoveNodesRequestProto {
+  repeated string nodes = 1; 
+}
+
+message RemoveNodesResponseProto {
+}
+
 enum DecommissionTypeProto {
   NORMAL = 1;
   GRACEFUL = 2;

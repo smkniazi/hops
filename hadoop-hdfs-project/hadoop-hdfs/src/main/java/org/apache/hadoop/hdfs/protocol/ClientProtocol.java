@@ -1027,6 +1027,14 @@ public interface ClientProtocol {
   public void updateExcludeList(String nodes) throws IOException;
 
   /**
+   * Tells the namenode to remove the datanodes from the system
+   *
+   * @throws IOException
+   */
+  @Idempotent
+  public void removeAndWipeNodes(List<String> nodes, boolean async) throws IOException;
+  
+  /**
    * Tells the namenode to reread the hosts and exclude files.
    *
    * @throws IOException

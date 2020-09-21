@@ -229,6 +229,22 @@ public class NodeReportPBImpl extends NodeReport {
     this.used = used;
   }
 
+  @Override
+  public void setNumApplicationMasters(int numContainers) {
+    maybeInitBuilder();
+    if (numContainers == 0) {
+      builder.clearNumApplicationMasters();
+      return;
+    }
+    builder.setNumApplicationMasters(numContainers);
+  }
+  
+    @Override
+  public int getNumApplicationMasters() {
+    NodeReportProtoOrBuilder p = viaProto ? proto : builder;
+    return (p.hasNumApplicationMasters()) ? p.getNumApplicationMasters() : 0;
+  }
+  
   public NodeReportProto getProto() {
     mergeLocalToProto();
     proto = viaProto ? proto : builder.build();

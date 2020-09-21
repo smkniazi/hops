@@ -861,6 +861,12 @@ class NameNodeRpcServer implements NamenodeProtocols {
   }
 
   @Override // ClientProtocol
+  public void removeAndWipeNodes(List<String> nodes, boolean async) throws IOException {
+    checkNNStartup();
+    namesystem.removeAndWipeDataNodes(nodes, async);
+  }
+  
+  @Override // ClientProtocol
   public RollingUpgradeInfo rollingUpgrade(RollingUpgradeAction action) throws IOException {
     checkNNStartup();
     LOG.info("rollingUpgrade " + action);

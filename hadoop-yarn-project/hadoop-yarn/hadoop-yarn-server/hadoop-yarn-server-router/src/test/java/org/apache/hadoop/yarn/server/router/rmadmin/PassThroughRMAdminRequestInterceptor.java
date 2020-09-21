@@ -48,6 +48,8 @@ import org.apache.hadoop.yarn.server.api.protocolrecords.RefreshUserToGroupsMapp
 import org.apache.hadoop.yarn.server.api.protocolrecords.RefreshUserToGroupsMappingsResponse;
 import org.apache.hadoop.yarn.server.api.protocolrecords.RemoveFromClusterNodeLabelsRequest;
 import org.apache.hadoop.yarn.server.api.protocolrecords.RemoveFromClusterNodeLabelsResponse;
+import org.apache.hadoop.yarn.server.api.protocolrecords.RemoveNodesRequest;
+import org.apache.hadoop.yarn.server.api.protocolrecords.RemoveNodesResponse;
 import org.apache.hadoop.yarn.server.api.protocolrecords.ReplaceLabelsOnNodeRequest;
 import org.apache.hadoop.yarn.server.api.protocolrecords.ReplaceLabelsOnNodeResponse;
 import org.apache.hadoop.yarn.server.api.protocolrecords.UpdateIncludeListRequest;
@@ -170,4 +172,9 @@ public class PassThroughRMAdminRequestInterceptor
     return getNextInterceptor().mapAttributesToNodes(request);
   }
 
+  @Override
+  public RemoveNodesResponse removeNodes(RemoveNodesRequest request)
+      throws StandbyException, YarnException, IOException {
+    return getNextInterceptor().removeNodes(request);
+  }
 }

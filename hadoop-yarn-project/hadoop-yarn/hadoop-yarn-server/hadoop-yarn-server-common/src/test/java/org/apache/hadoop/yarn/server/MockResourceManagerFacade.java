@@ -178,6 +178,8 @@ import org.apache.hadoop.yarn.server.api.protocolrecords.NodesToAttributesMappin
 import org.apache.hadoop.yarn.server.api.protocolrecords.NodesToAttributesMappingResponse;
 
 import com.google.common.base.Strings;
+import org.apache.hadoop.yarn.server.api.protocolrecords.RemoveNodesRequest;
+import org.apache.hadoop.yarn.server.api.protocolrecords.RemoveNodesResponse;
 
 /**
  * Mock Resource Manager facade implementation that exposes all the methods
@@ -973,5 +975,14 @@ public class MockResourceManagerFacade implements ApplicationClientProtocol,
       NodesToAttributesMappingRequest request)
       throws YarnException, IOException {
     return null;
+  }
+  
+  @Override
+  public RemoveNodesResponse removeNodes(RemoveNodesRequest request)
+      throws StandbyException, YarnException, IOException {
+
+    validateRunning();
+
+    return RemoveNodesResponse.newInstance();
   }
 }

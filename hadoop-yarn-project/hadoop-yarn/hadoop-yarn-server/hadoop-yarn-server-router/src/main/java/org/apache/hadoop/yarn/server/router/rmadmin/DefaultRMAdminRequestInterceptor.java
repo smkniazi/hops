@@ -64,6 +64,8 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import com.google.common.annotations.VisibleForTesting;
+import org.apache.hadoop.yarn.server.api.protocolrecords.RemoveNodesRequest;
+import org.apache.hadoop.yarn.server.api.protocolrecords.RemoveNodesResponse;
 
 /**
  * Extends the {@link AbstractRMAdminRequestInterceptor} class and provides an
@@ -235,5 +237,11 @@ public class DefaultRMAdminRequestInterceptor
       NodesToAttributesMappingRequest request)
       throws YarnException, IOException {
     return rmAdminProxy.mapAttributesToNodes(request);
+  }
+  
+  @Override
+  public RemoveNodesResponse removeNodes(RemoveNodesRequest request)
+      throws StandbyException, YarnException, IOException {
+    return rmAdminProxy.removeNodes(request);
   }
 }

@@ -216,9 +216,13 @@ public class NodesListManager extends CompositeService implements
 
   public void updateIncludeList(Configuration yarnConf, String node)
           throws IOException, YarnException {
-    File hostFile = new File(conf.get(YarnConfiguration.RM_NODES_INCLUDE_FILE_PATH,
+    File hostFile = new File(yarnConf.get(YarnConfiguration.RM_NODES_INCLUDE_FILE_PATH,
             YarnConfiguration.DEFAULT_RM_NODES_INCLUDE_FILE_PATH));
 
+    if (hostFile.getName() == "") {
+      throw new IOException("include file path not configured");
+    }
+    
     if (!hostFile.exists()) {
       hostFile.getParentFile().mkdirs();
     }
@@ -237,9 +241,13 @@ public class NodesListManager extends CompositeService implements
 
   public void updateExcludeList(Configuration yarnConf, String node)
           throws IOException, YarnException {
-   File hostFile = new File(conf.get(YarnConfiguration.RM_NODES_EXCLUDE_FILE_PATH,
+   File hostFile = new File(yarnConf.get(YarnConfiguration.RM_NODES_EXCLUDE_FILE_PATH,
            YarnConfiguration.DEFAULT_RM_NODES_EXCLUDE_FILE_PATH));
 
+    if (hostFile.getName() == "") {
+      throw new IOException("exclude file path not configured");
+    }
+    
     if (!hostFile.exists()) {
       hostFile.getParentFile().mkdirs();
     }
@@ -692,6 +700,54 @@ public class NodesListManager extends CompositeService implements
     return defaultDecTimeoutSecs;
   }
 
+  public void removeNodes(List<String> nodes) {
+    Set<String> nodeSet = new HashSet<>(nodes);
+    List<NodeId> toRemove = new ArrayList<>();
+    for (NodeId node : rmContext.getRMNodes().keySet()) {
+      if (nodes.contains(node.getHost())) {
+        toRemove.add(node);
+      }
+    }
+    for (NodeId node : rmContext.getInactiveRMNodes().keySet()) {
+      if (nodes.contains(node.getHost())) {
+        toRemove.add(node);
+      }
+    }
+    for (NodeId node : toRemove) {
+      RMNode result = rmContext.getRMNodes().remove(node);
+      if (result!= null) {
+        decrActiveNMMetrics(result);
+        LOG.info("Removed " + result.getState().toString() + " node "
+            + result.getHostName() + " from active nodes list");
+      }
+      result = rmContext.getInactiveRMNodes().remove(node);
+      if (result != null) {
+        decrInactiveNMMetrics(result);
+        LOG.info("Removed " + result.getState().toString() + " node "
+            + result.getHostName() + " from inactive nodes list");
+      }
+    }
+  }
+  
+   private void decrActiveNMMetrics(RMNode rmNode) {
+    ClusterMetrics clusterMetrics = ClusterMetrics.getMetrics();
+    switch (rmNode.getState()) {
+      case DECOMMISSIONING:
+        clusterMetrics.decrDecommissioningNMs();
+        break;
+      case NEW:
+        break;
+      case RUNNING:
+        clusterMetrics.decrNumActiveNodes();
+        break;
+      case UNHEALTHY:
+        clusterMetrics.decrNumUnhealthyNMs();
+        break;
+      default:
+        LOG.debug("Unexpected node state");
+    }
+  }
+  
   /**
    * A NodeId instance needed upon startup for populating inactive nodes Map.
    * It only knows the hostname/ip and marks the port to -1 or invalid.

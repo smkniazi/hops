@@ -48,4 +48,5 @@ service ResourceManagerAdministrationProtocolService {
   rpc checkForDecommissioningNodes(CheckForDecommissioningNodesRequestProto) returns (CheckForDecommissioningNodesResponseProto);
   rpc refreshClusterMaxPriority(RefreshClusterMaxPriorityRequestProto) returns (RefreshClusterMaxPriorityResponseProto);
   rpc mapAttributesToNodes(NodesToAttributesMappingRequestProto) returns (NodesToAttributesMappingResponseProto);
+  rpc removeNodes(RemoveNodesRequestProto) returns (RemoveNodesResponseProto);
 }

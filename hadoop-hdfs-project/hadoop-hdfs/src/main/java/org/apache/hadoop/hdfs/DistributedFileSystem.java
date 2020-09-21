@@ -1236,6 +1236,13 @@ public class DistributedFileSystem extends FileSystem {
   public void updateExcludeList(String nodes) throws IOException {
     dfs.updateExcludeList(nodes);
   }
+  
+  /**
+   * remove datanode from the system.
+   */
+  public void removeAndWipeNodes(List<String> nodes, boolean async) throws IOException {
+    dfs.removeAndWipeNodes(nodes, async);
+  }
 
   /**
    * Refreshes the list of hosts and excluded hosts from the configured

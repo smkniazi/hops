@@ -2281,6 +2281,14 @@ public class DFSClient implements java.io.Closeable, RemotePeerFactory,
       }
     }
   }
+  
+  public void removeAndWipeNodes(List<String> nodes, boolean async) throws IOException {
+    try (TraceScope ignored = tracer.newScope("updateExcludeList")) {
+      for(ClientProtocol nn : allNNs){
+        nn.removeAndWipeNodes(nodes, async);
+      }
+    }
+  }
 
   /**
    * Refresh the hosts and exclude files.  (Rereads them.)

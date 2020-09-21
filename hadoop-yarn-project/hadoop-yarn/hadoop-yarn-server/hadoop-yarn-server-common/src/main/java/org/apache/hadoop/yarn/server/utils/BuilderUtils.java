@@ -200,7 +200,7 @@ public class BuilderUtils {
       NodeUpdateType nodeUpdateType) {
     return newNodeReport(nodeId, nodeState, httpAddress, rackName, used,
         capability, numContainers, healthReport, lastHealthReportTime,
-        nodeLabels, null, null, decommissioningTimeout, nodeUpdateType, null);
+        nodeLabels, null, null, decommissioningTimeout, nodeUpdateType, null, 0);
   }
 
   public static NodeReport newNodeReport(NodeId nodeId, NodeState nodeState,
@@ -208,7 +208,7 @@ public class BuilderUtils {
       int numContainers, String healthReport, long lastHealthReportTime,
       Set<String> nodeLabels, ResourceUtilization containersUtilization,
       ResourceUtilization nodeUtilization, Integer decommissioningTimeout,
-      NodeUpdateType nodeUpdateType, Set<NodeAttribute> attrs) {
+      NodeUpdateType nodeUpdateType, Set<NodeAttribute> attrs, int numAppMasters) {
     NodeReport nodeReport = recordFactory.newRecordInstance(NodeReport.class);
     nodeReport.setNodeId(nodeId);
     nodeReport.setNodeState(nodeState);
@@ -225,6 +225,7 @@ public class BuilderUtils {
     nodeReport.setDecommissioningTimeout(decommissioningTimeout);
     nodeReport.setNodeUpdateType(nodeUpdateType);
     nodeReport.setNodeAttributes(attrs);
+    nodeReport.setNumApplicationMasters(numAppMasters);
     return nodeReport;
   }
 

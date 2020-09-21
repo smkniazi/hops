@@ -38,13 +38,8 @@ import java.io.File;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.PrintStream;
-import java.nio.charset.StandardCharsets;
-import java.nio.file.Files;
-import java.nio.file.Paths;
-import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.Iterator;
-import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
@@ -55,19 +50,16 @@ import org.apache.hadoop.ha.HAServiceStatus;
 import org.apache.hadoop.ha.HAServiceTarget;
 import org.apache.hadoop.ha.HAServiceProtocol.HAServiceState;
 import org.apache.hadoop.service.Service.STATE;
-import org.apache.hadoop.util.ToolRunner;
 import org.apache.hadoop.yarn.api.records.DecommissionType;
 import org.apache.hadoop.yarn.api.records.NodeId;
 import org.apache.hadoop.yarn.api.records.Resource;
 import org.apache.hadoop.yarn.api.records.ResourceInformation;
 import org.apache.hadoop.yarn.api.records.ResourceOption;
-import org.apache.hadoop.yarn.client.api.YarnClient;
 import org.apache.hadoop.yarn.conf.HAUtil;
 import org.apache.hadoop.yarn.conf.YarnConfiguration;
 import org.apache.hadoop.yarn.exceptions.YarnException;
 import org.apache.hadoop.yarn.nodelabels.CommonNodeLabelsManager;
 import org.apache.hadoop.yarn.nodelabels.DummyCommonNodeLabelsManager;
-import org.apache.hadoop.yarn.server.MiniYARNCluster;
 import org.apache.hadoop.yarn.server.api.ResourceManagerAdministrationProtocol;
 import org.apache.hadoop.yarn.server.api.protocolrecords.AddToClusterNodeLabelsRequest;
 import org.apache.hadoop.yarn.server.api.protocolrecords.AddToClusterNodeLabelsResponse;
@@ -1149,85 +1141,6 @@ public class TestRMAdminCLI {
       assertTrue(errOut.contains("Usage: rmadmin"));
     } finally {
       rmAdminCLIWithHAEnabled.setErrOut(System.err);
-    }
-  }
-
-  @Test
-  public void testUpdateExcludeListUsingToolRunner() throws IOException {
-    MiniYARNCluster cluster = new MiniYARNCluster("testMRAMTokens", 1, 1, 1);
-    YarnClient rmClient = null;
-    try {
-
-      Configuration conf = new Configuration();
-
-      File TEMP_DIR = new File(System.getProperty("test.build.data", "/tmp"), "decommision");
-      File excludeFile = new File(TEMP_DIR + File.separator + "exclude-hosts.txt");
-
-      if(excludeFile.exists()){
-        excludeFile.delete();
-      }
-      excludeFile.getParentFile().mkdirs();
-      excludeFile.createNewFile();
-
-      conf.set(YarnConfiguration.RM_NODES_EXCLUDE_FILE_PATH,
-              excludeFile.getAbsolutePath());
-      File includeFile = new File(TEMP_DIR + File.separator + "include-hosts.txt");
-
-      if(includeFile.exists()){
-        includeFile.delete();
-      }
-      includeFile.getParentFile().mkdirs();
-      includeFile.createNewFile();
-
-      conf.set(YarnConfiguration.RM_NODES_INCLUDE_FILE_PATH,
-              includeFile.getAbsolutePath());
-
-      List<String> nodes = new ArrayList<>();
-      nodes.add("somenode1");
-      nodes.add("somenode2");
-
-      conf.setClass(
-              CapacitySchedulerConfiguration.RESOURCE_CALCULATOR_CLASS,
-              DominantResourceCalculator.class, ResourceCalculator.class);
-
-      cluster.init(conf);
-      cluster.start();
-
-      int result = ToolRunner.run(new RMAdminCLI(cluster.getConfig()), new String[]{
-              "-updateExcludeList",
-              String.join(System.getProperty("line.separator"), nodes)});
-
-      assert result == 0;
-
-      List<String> linesRead = Files.readAllLines(Paths.get(excludeFile.getAbsolutePath()),
-              StandardCharsets.UTF_8);
-
-      assert linesRead.size() == nodes.size();
-      for(int i = 0; i < linesRead.size(); i++){
-        assertTrue(linesRead.get(i).compareTo(nodes.get(i)) == 0);
-      }
-
-      result = ToolRunner.run(new RMAdminCLI(cluster.getConfig()), new String[]{
-              "-updateIncludeList",
-              String.join(System.getProperty("line.separator"), nodes)});
-
-      assert result == 0;
-
-      linesRead = Files.readAllLines(Paths.get(includeFile.getAbsolutePath()),
-              StandardCharsets.UTF_8);
-
-      assert linesRead.size() == nodes.size();
-      for(int i = 0; i < linesRead.size(); i++){
-        assertTrue(linesRead.get(i).compareTo(nodes.get(i)) == 0);
-      }
-
-    } catch (Exception e) {
-      Assert.fail();
-    } finally {
-      if (rmClient != null) {
-        rmClient.stop();
-      }
-      cluster.stop();
     }
   }
 

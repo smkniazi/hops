@@ -163,6 +163,8 @@ import org.apache.hadoop.hdfs.protocol.proto.ClientNamenodeProtocolProtos.GetLas
 import org.apache.hadoop.hdfs.protocol.proto.ClientNamenodeProtocolProtos.GetLastUpdatedContentSummaryResponseProto;
 import org.apache.hadoop.hdfs.protocol.proto.ClientNamenodeProtocolProtos.UpdateExcludeListResponseProto;
 import org.apache.hadoop.hdfs.protocol.proto.ClientNamenodeProtocolProtos.UpdateExcludeListRequestProto;
+import org.apache.hadoop.hdfs.protocol.proto.ClientNamenodeProtocolProtos.RemoveAndWipeNodesResponseProto;
+import org.apache.hadoop.hdfs.protocol.proto.ClientNamenodeProtocolProtos.RemoveAndWipeNodesRequestProto;
 import org.apache.hadoop.hdfs.protocol.proto.EncryptionZonesProtos.CreateEncryptionZoneResponseProto;
 import org.apache.hadoop.hdfs.protocol.proto.EncryptionZonesProtos.CreateEncryptionZoneRequestProto;
 import org.apache.hadoop.hdfs.protocol.proto.EncryptionZonesProtos.GetEZForPathResponseProto;
@@ -253,6 +255,9 @@ public class ClientNamenodeProtocolServerSideTranslatorPB
 
   private static final UpdateExcludeListResponseProto VOID_UPDATE_EXCLUDE_LIST_RESPONSE =
           UpdateExcludeListResponseProto.newBuilder().build();
+  
+  private static final RemoveAndWipeNodesResponseProto VOID_REMOVE_AND_WIPE_NODES_RESPONSE =
+          RemoveAndWipeNodesResponseProto.newBuilder().build();
 
   private static final GetFileInfoResponseProto VOID_GETFILEINFO_RESPONSE =
       GetFileInfoResponseProto.newBuilder().build();
@@ -864,6 +869,17 @@ public class ClientNamenodeProtocolServerSideTranslatorPB
     }
   }
 
+  @Override
+  public RemoveAndWipeNodesResponseProto removeAndWipeNodes(RpcController controller,
+           RemoveAndWipeNodesRequestProto request) throws ServiceException {
+    try {
+      server.removeAndWipeNodes(request.getNodesList(), request.getAsync());
+      return VOID_REMOVE_AND_WIPE_NODES_RESPONSE;
+    } catch (IOException e) {
+      throw new ServiceException(e);
+    }
+  }
+  
   @Override
   public RollingUpgradeResponseProto rollingUpgrade(RpcController controller,
       RollingUpgradeRequestProto req) throws ServiceException {

@@ -1133,9 +1133,8 @@ public class TestDecommission {
     nodes.add("somenode1");
     nodes.add("somenode2");
 
-    ToolRunner.run(new DFSAdmin(conf), new String[]{"-updateExcludeList",
-            String.join(System.getProperty("line.separator"), nodes)});
-
+    
+    cluster.getNamesystem().updateExcludeList(String.join(System.getProperty("line.separator"), nodes), conf);
     List<String> linesRead = Files.readAllLines(Paths.get(ef.getAbsolutePath()),
             StandardCharsets.UTF_8);
 

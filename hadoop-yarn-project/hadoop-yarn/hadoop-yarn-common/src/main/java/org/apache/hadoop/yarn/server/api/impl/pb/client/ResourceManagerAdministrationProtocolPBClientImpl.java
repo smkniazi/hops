@@ -115,6 +115,10 @@ import org.apache.hadoop.yarn.server.api.protocolrecords.impl.pb.UpdateNodeResou
 import org.apache.hadoop.yarn.server.api.protocolrecords.impl.pb.UpdateNodeResourceResponsePBImpl;
 
 import com.google.protobuf.ServiceException;
+import org.apache.hadoop.yarn.server.api.protocolrecords.RemoveNodesRequest;
+import org.apache.hadoop.yarn.server.api.protocolrecords.RemoveNodesResponse;
+import org.apache.hadoop.yarn.server.api.protocolrecords.impl.pb.RemoveNodesRequestPBImpl;
+import org.apache.hadoop.yarn.server.api.protocolrecords.impl.pb.RemoveNodesResponsePBImpl;
 
 @Private
 public class ResourceManagerAdministrationProtocolPBClientImpl implements ResourceManagerAdministrationProtocol, Closeable {
@@ -376,6 +380,20 @@ public class ResourceManagerAdministrationProtocolPBClientImpl implements Resour
     try {
       return new NodesToAttributesMappingResponsePBImpl(
           proxy.mapAttributesToNodes(null, requestProto));
+    } catch (ServiceException e) {
+      RPCUtil.unwrapAndThrowException(e);
+      return null;
+    }
+  }
+  
+  @Override
+  public RemoveNodesResponse removeNodes(RemoveNodesRequest request)
+      throws StandbyException, YarnException, IOException {
+    YarnServerResourceManagerServiceProtos.RemoveNodesRequestProto requestProto
+        = ((RemoveNodesRequestPBImpl) request).getProto();
+    try {
+      return new RemoveNodesResponsePBImpl(
+          proxy.removeNodes(null, requestProto));
     } catch (ServiceException e) {
       RPCUtil.unwrapAndThrowException(e);
       return null;

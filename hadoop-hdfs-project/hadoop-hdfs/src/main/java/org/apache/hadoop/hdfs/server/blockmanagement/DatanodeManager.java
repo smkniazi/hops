@@ -464,6 +464,14 @@ public class DatanodeManager {
   public DatanodeDescriptor getDatanodeByHost(final String host) {
     return host2DatanodeMap.getDatanodeByHost(host);
   }
+  
+  
+  /**
+   * @return the datanode descriptor for the hostname.
+   */
+  public DatanodeDescriptor getDatanodeByHostName(final String hostname) {
+    return host2DatanodeMap.getDataNodeByHostName(hostname);
+  }
 
   /**
    * Get a datanode descriptor given corresponding datanode uuid
@@ -532,6 +540,7 @@ public class DatanodeManager {
     return storages;
   }
 
+
   /**
    * Remove a datanode descriptor.
    *
@@ -563,7 +572,7 @@ public class DatanodeManager {
    *
    * @throws UnregisteredNodeException
    */
-  public void removeDatanode(final DatanodeID node, //Called my NameNodeRpcServer
+  public void removeDatanode(final DatanodeID node, //Called by NameNodeRpcServer
     boolean async) throws UnregisteredNodeException, IOException {
     final DatanodeDescriptor descriptor = getDatanode(node);
     if (descriptor != null) {
@@ -573,7 +582,20 @@ public class DatanodeManager {
           .warn("BLOCK* removeDatanode: " + node + " does not exist");
     }
   }
-
+  
+    public void removeAndWipeDataNode(final DatanodeID node, //Called by NameNodeRpcServer
+    boolean async) throws IOException {
+      
+    final DatanodeDescriptor descriptor = getDatanode(node);
+    if (descriptor != null) {
+      removeDatanode(descriptor, async);
+      wipeDatanode(node);
+    } else {
+      NameNode.stateChangeLog
+          .warn("removeAndWipeDataNode: " + node + " does not exist");
+    }
+  }
+  
   /**
    * Remove a dead datanode.
    */
@@ -598,7 +620,7 @@ public class DatanodeManager {
       removeDatanode(d, true);
     }
   }
-
+  
   /**
    * Is the datanode dead?
    */

@@ -357,6 +357,7 @@ message NodeReportProto {
   optional uint32 decommissioning_timeout = 13;
   optional NodeUpdateTypeProto node_update_type = 14;
   repeated NodeAttributeProto node_attributes = 15;
+  optional int32 numApplicationMasters = 16;
 }
 
 message NodeIdToLabelsProto {

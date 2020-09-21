@@ -143,6 +143,9 @@ import java.util.concurrent.atomic.AtomicInteger;
 
 import static io.hops.transaction.lock.LockFactory.BLK;
 import static io.hops.transaction.lock.LockFactory.getInstance;
+import java.net.InetSocketAddress;
+import java.net.URI;
+import java.net.URISyntaxException;
 import static org.apache.hadoop.crypto.key.KeyProviderCryptoExtension.EncryptedKeyVersion;
 import static org.apache.hadoop.fs.CommonConfigurationKeysPublic.*;
 import static org.apache.hadoop.hdfs.DFSConfigKeys.*;
@@ -4745,6 +4748,32 @@ public class FSNamesystem implements Namesystem, FSNamesystemMBean,
         .refreshNodes(new HdfsConfiguration());
   }
 
+  void removeAndWipeDataNodes(List<String> datanodeHosts, boolean async) throws IOException {
+    checkSuperuserPrivilege();
+    DatanodeManager dnm = getBlockManager().getDatanodeManager();
+    for(String datanodeHost: datanodeHosts){
+      InetSocketAddress addr = parseEntry(datanodeHost);
+      DatanodeDescriptor dn = dnm.getDatanodeByHostName(addr.getHostName());
+      dnm.removeAndWipeDataNode(dn, async);
+    }    
+  }
+  
+  static InetSocketAddress parseEntry(String line) {
+    try {
+      URI uri = new URI("dummy", line, null, null, null);
+      int port = uri.getPort() == -1 ? 0 : uri.getPort();
+      InetSocketAddress addr = new InetSocketAddress(uri.getHost(), port);
+      if (addr.isUnresolved()) {
+        LOG.warn(String.format("Failed to resolve address `%s`", line));
+        return null;
+      }
+      return addr;
+    } catch (URISyntaxException e) {
+      LOG.warn(String.format("Failed to parse `%s`", line));
+    }
+    return null;
+  }
+  
   void setBalancerBandwidth(long bandwidth) throws IOException {
     checkSuperuserPrivilege();
     getBlockManager().getDatanodeManager().setBalancerBandwidth(bandwidth);
@@ -9154,7 +9183,16 @@ public class FSNamesystem implements Namesystem, FSNamesystemMBean,
   }
 
   void updateExcludeList(String nodes) throws IOException {
-    File hostFile = new File(conf.get(DFSConfigKeys.DFS_HOSTS_EXCLUDE, ""));
+    updateExcludeList(nodes, new HdfsConfiguration());
+  }
+  
+  @VisibleForTesting
+  public void updateExcludeList(String nodes, Configuration hdfsConf) throws IOException {
+    File hostFile = new File(hdfsConf.get(DFSConfigKeys.DFS_HOSTS_EXCLUDE, ""));
+
+    if (hostFile.getName() == "") {
+      throw new IOException("exclude file path not configured");
+    }
 
     if (!hostFile.exists()) {
       hostFile.getParentFile().mkdirs();

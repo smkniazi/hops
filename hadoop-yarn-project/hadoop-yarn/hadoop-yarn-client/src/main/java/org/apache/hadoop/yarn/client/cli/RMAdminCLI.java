@@ -87,6 +87,7 @@ import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableMap;
 
 import static org.apache.hadoop.yarn.client.util.YarnClientUtils.NO_LABEL_ERR_MSG;
+import org.apache.hadoop.yarn.server.api.protocolrecords.RemoveNodesRequest;
 
 @Private
 @Unstable
@@ -172,6 +173,8 @@ public class RMAdminCLI extends HAAdmin {
                   + " \n\t\tor\n\t\t[NodeID] [resourcetypes] "
                   + "([OvercommitTimeout]). ",
                   "Update resource on specific node."))
+          .put("-removeNodes", new UsageInfo("nodes",
+               "remove the nodes from the system"))
           .build();
 
   public RMAdminCLI() {
@@ -295,7 +298,8 @@ public class RMAdminCLI extends HAAdmin {
         + " [-refreshClusterMaxPriority]"
         + " [-updateNodeResource [NodeID] [MemSize] [vCores]"
         + " ([OvercommitTimeout]) or -updateNodeResource [NodeID] "
-        + "[ResourceTypes] ([OvercommitTimeout])]");
+        + "[ResourceTypes] ([OvercommitTimeout])]"
+        + " [-removeNodes nodes]");
     if (isHAEnabled) {
       appendHAUsage(summary);
     }
@@ -791,6 +795,8 @@ public class RMAdminCLI extends HAAdmin {
         exitCode = handleRemoveFromClusterNodeLabels(args, cmd, isHAEnabled);
       } else if ("-replaceLabelsOnNode".equals(cmd)) {
         exitCode = handleReplaceLabelsOnNodes(args, cmd, isHAEnabled);
+      } else if ("-removeNodes".equals(cmd)) {
+        exitCode = handleRemoveNodes(args, cmd, isHAEnabled);
       } else {
         exitCode = -1;
         System.err.println(cmd.substring(1) + ": Unknown command");
@@ -965,6 +971,24 @@ public class RMAdminCLI extends HAAdmin {
     return updateNodeResource(nodeID, resource, overCommitTimeout);
   }
 
+  private int handleRemoveNodes(String[] args, String cmd, boolean isHAEnabled)
+          throws IOException, YarnException, ParseException {
+    if (args.length <= 1) {
+      System.err.println("Please specify node(s) to remove");
+      return -1;
+    }
+
+    ResourceManagerAdministrationProtocol adminProtocol = createAdminProtocol();
+    StringBuffer sb = new StringBuffer();
+    for (int i = 1; i < args.length; i++) {
+      sb.append(args[i]);
+    }
+    RemoveNodesRequest request = RemoveNodesRequest.newInstance(
+            Arrays.asList(sb.toString().split(",")));
+    adminProtocol.removeNodes(request);
+    return 0;
+  }
+  
   private Resource parseCommandAndCreateResource(String resourceTypes) {
     Resource resource = Resource.newInstance(0, 0);
     Map<String, ResourceInformation> resourceTypesFromRM =

@@ -395,11 +395,19 @@ message RefreshNodesRequestProto { // no parameters
 message RefreshNodesResponseProto { // void response
 }
 
-message UpdateExcludeListRequestProto { // no parameters
+message UpdateExcludeListRequestProto { 
   required string nodes = 1;
 }
 
 message UpdateExcludeListResponseProto { // void response
+}
+
+message RemoveAndWipeNodesRequestProto {
+  repeated string nodes = 1;
+  required bool async = 2;
+}
+
+message RemoveAndWipeNodesResponseProto { // void response
 }
 
 enum RollingUpgradeActionProto {
@@ -864,6 +872,7 @@ service ClientNamenodeProtocol {
   rpc setSafeMode (SetSafeModeRequestProto) returns (SetSafeModeResponseProto);
   rpc refreshNodes (RefreshNodesRequestProto) returns (RefreshNodesResponseProto);
   rpc updateExcludeNodes (UpdateExcludeListRequestProto) returns (UpdateExcludeListResponseProto);
+  rpc removeAndWipeNodes (RemoveAndWipeNodesRequestProto) returns (RemoveAndWipeNodesResponseProto);
   rpc rollingUpgrade(RollingUpgradeRequestProto)
       returns(RollingUpgradeResponseProto);
   rpc listCorruptFileBlocks (ListCorruptFileBlocksRequestProto) returns (ListCorruptFileBlocksResponseProto);
