@@ -3963,6 +3963,19 @@ public class FSNamesystem implements Namesystem, FSNamesystemMBean,
               + "Removed empty last block and closed file.");
           return true;
         }
+
+        // HopsFS-Cloud
+        // We can remove the last block if
+        //    The client is dead AND The last block size is zero.
+        if (uc.isProvidedBlock() && uc.getNumBytes() == 0) {
+            //delete block
+            getBlockManager().removeBlock(lastBlock);
+            finalizeINodeFileUnderConstruction(src, pendingFile);
+            NameNode.stateChangeLog.warn("BLOCK* internalReleaseLease: "
+                    + "Removed empty last block and closed file.");
+            return true;
+        }
+
         // start recovery of the last block for this file
         long blockRecoveryId = pendingFile.nextGenerationStamp();
         lease = reassignLease(lease, src, recoveryLeaseHolder, pendingFile);
@@ -4314,7 +4327,7 @@ public class FSNamesystem implements Namesystem, FSNamesystemMBean,
     }
 
     if (storedState != BlockUCState.COMPLETE) {
-      throw new NotReplicatedYetException("Unable to syn block. Waiting for incremental blcok " +
+      throw new NotReplicatedYetException("Unable to syn block. Waiting for incremental block " +
               "report");
     }
 

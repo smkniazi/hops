@@ -19,6 +19,7 @@ import org.apache.commons.logging.Log;
 import org.apache.commons.logging.impl.Log4JLogger;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.CloudProvider;
+import org.apache.hadoop.fs.FSDataOutputStream;
 import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.fs.StorageType;
 import org.apache.hadoop.hdfs.MiniDFSCluster.DataNodeProperties;
@@ -26,8 +27,10 @@ import org.apache.hadoop.hdfs.client.HdfsDataInputStream;
 import org.apache.hadoop.hdfs.client.HdfsDataOutputStream;
 import org.apache.hadoop.hdfs.server.blockmanagement.ProvidedBlocksChecker;
 import org.apache.hadoop.hdfs.server.datanode.DataNode;
+import org.apache.hadoop.hdfs.server.datanode.fsdataset.impl.ProvidedBlocksCacheCleaner;
 import org.apache.hadoop.hdfs.server.datanode.fsdataset.impl.cloud.CloudPersistenceProviderAzureImpl;
 import org.apache.hadoop.hdfs.server.datanode.fsdataset.impl.cloud.CloudPersistenceProviderS3Impl;
+import org.apache.hadoop.hdfs.server.namenode.CloudBlockReportTestHelper;
 import org.apache.hadoop.hdfs.server.protocol.BlockReport;
 import org.apache.hadoop.hdfs.server.protocol.DatanodeStorage;
 import org.apache.hadoop.io.IOUtils;
@@ -397,6 +400,7 @@ public class TestCloudDNFailure {
     private final DistributedFileSystem fs;
     private int fileSize;
     private long maxDataToWrite = Long.MAX_VALUE;
+    private boolean closeStram = true;
 
     SlowWriter(DistributedFileSystem fs, Path filepath, final long sleepms,
                final int writeSize) {
@@ -410,8 +414,14 @@ public class TestCloudDNFailure {
     public Object call() throws Exception {
       running = true;
       slowWrite();
-      IOUtils.closeStream(out);
+      if(closeStram){
+        IOUtils.closeStream(out);
+      }
       return null;
+    }
+
+    public void setCloseStram(boolean closeStram){
+      this.closeStram = closeStram;
     }
 
     public void setMaxDataToWrite(long maxDataToWrite) {
@@ -524,6 +534,122 @@ public class TestCloudDNFailure {
     cluster.startDataNodes(conf, num, styps, true, null, null,
             null, null, null, false, false, false, null);
     cluster.waitActive();
+  }
+
+  /**
+   * If the clients and datanodes all die while writing
+   *
+   * @throws IOException
+   */
+  @Test
+  public void TestDNFailures() throws IOException {
+    CloudTestHelper.purgeCloudData(defaultCloudProvider, testBucketPrefix);
+    Logger.getLogger(ProvidedBlocksCacheCleaner.class).setLevel(Level.WARN);
+    MiniDFSCluster cluster = null;
+    final int BLKSIZE = 64 * 1024 * 1024;
+    final int NUM_DN = 3;
+
+    try {
+      // Set Configuration
+      Configuration conf = new HdfsConfiguration();
+      conf.setBoolean(DFSConfigKeys.DFS_ENABLE_CLOUD_PERSISTENCE, true);
+      conf.set(DFSConfigKeys.DFS_CLOUD_PROVIDER, defaultCloudProvider.name());
+      conf.setLong(DFSConfigKeys.DFS_BLOCK_SIZE_KEY, BLKSIZE);
+      conf.setLong(DFSConfigKeys.DFS_CLOUD_BLOCK_REPORT_THREAD_SLEEP_INTERVAL_KEY, 1000);
+      conf.setLong(DFSConfigKeys.DFS_CLOUD_PREFIX_SIZE_KEY, 10);
+      conf.setLong(DFSConfigKeys.DFS_CLOUD_BLOCK_REPORT_DELAY_KEY,
+              DFSConfigKeys.DFS_CLOUD_BLOCK_REPORT_DELAY_DEFAULT);
+      conf.setLong(DFSConfigKeys.DFS_NAMENODE_BLOCKID_BATCH_SIZE, 10);
+      conf.setInt(DFSConfigKeys.DFS_BR_LB_MAX_CONCURRENT_BR_PER_NN, NUM_DN);
+      conf.setLong(DFSConfigKeys.DFS_CLOUD_MARK_PARTIALLY_LISTED_BLOCKS_CORRUPT_AFTER_KEY, 1000 );
+      // dead datanodes
+      conf.setInt(DFSConfigKeys.DFS_NAMENODE_HEARTBEAT_RECHECK_INTERVAL_KEY, 1000);
+      conf.setLong(DFSConfigKeys.DFS_HEARTBEAT_INTERVAL_KEY, 2L);
+      conf.setInt(DFSConfigKeys.DFS_NAMENODE_REPLICATION_PENDING_TIMEOUT_SEC_KEY, 2);
+      conf.setInt(DFSConfigKeys.DFS_CLIENT_SOCKET_TIMEOUT_KEY, 5000);
+
+      CloudTestHelper.setRandomBucketPrefix(conf, testBucketPrefix, testname);
+
+      // Start Cluster
+      cluster = new MiniDFSCluster.Builder(conf).numDataNodes(NUM_DN)
+              .storageTypes(CloudTestHelper.genStorageTypes(NUM_DN)).format(true).build();
+      cluster.waitActive();
+      cluster.setLeasePeriod(3 * 1000, 5 * 1000);
+
+      // DFS
+      DistributedFileSystem dfs = cluster.getFileSystem();
+      dfs.mkdirs(new Path("/dir"));
+      dfs.setStoragePolicy(new Path("/dir"), "CLOUD");
+
+      // Save Datanode properties. Need this for DN restart
+      Object dnProps[] = cluster.getDataNodeProperties().toArray();
+
+      int numWorker = 3;
+      final Future[] futures = new Future[numWorker];
+      final SlowWriter[] slowWriters = new SlowWriter[numWorker];
+      ExecutorService es = Executors.newFixedThreadPool(numWorker);
+      for (int i = 0; i < numWorker; i++) {
+        slowWriters[i] = new SlowWriter(dfs, new Path("/dir", "file" + i), 1000L,
+                1 * 1024 * 1024);
+        slowWriters[i].setMaxDataToWrite(2*BLKSIZE);
+        slowWriters[i].setCloseStram(false);
+        futures[i] = es.submit(slowWriters[i]);
+      }
+
+      Thread.sleep(5000);
+
+      dfs.getClient().getLeaseRenewer().interruptAndJoin();
+      dfs.getClient().abort();
+
+      //stopping all datanodes
+      for (int i = 0; i < NUM_DN; i++) {
+        cluster.stopDataNode(0);
+        LOG.info("Stopped a DN at port " + ((DataNodeProperties)dnProps[i]).ipcPort);
+      }
+
+      waitDNCount(cluster, 0);
+
+      try{
+        for (Future f : futures) {
+          f.get();
+        }
+      } catch (Exception e){
+      }
+
+      Thread.sleep(10000);
+      ProvidedBlocksChecker pbc = cluster.getNamesystem().getBlockManager().getProvidedBlocksChecker();
+
+      long brCount = pbc.getProvidedBlockReportsCount();
+      pbc.scheduleBlockReportNow();
+
+      long expected = brCount+1;
+      long ret = CloudBlockReportTestHelper.waitForBRCompletion(pbc, expected);
+      assertTrue("Exptected "+expected+". Got: " + ret, expected == ret);
+
+      assert  cluster.getNamesystem().getNumDeadDataNodes() == NUM_DN;
+      assert cluster.getNamesystem().getMissingBlocksCount() == 0;
+
+      CloudTestHelper.matchMetadata(conf);
+
+      LOG.info("Restarting DN");
+      // now restart the datanode
+      for(Object dn : dnProps){
+        cluster.restartDataNode((DataNodeProperties)dn);
+      }
+      waitDNCount(cluster, NUM_DN);
+
+      cluster.triggerBlockReports();
+
+      Thread.sleep(10000);
+
+    } catch (Exception e) {
+      e.printStackTrace();
+      fail(e.getMessage());
+    } finally {
+      if (cluster != null) {
+        cluster.shutdown();
+      }
+    }
   }
 
   @AfterClass

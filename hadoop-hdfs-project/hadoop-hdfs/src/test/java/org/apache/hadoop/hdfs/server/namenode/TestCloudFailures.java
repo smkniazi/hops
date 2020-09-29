@@ -143,6 +143,7 @@ public class TestCloudFailures {
       assertTrue("The NN should have recoverd the lease for the file ",
               cluster.getNamesystem().getLeaseManager().countLease() == 0 );
 
+      Thread.sleep(5000);
       //this will check that the number of blocks in the cloud and DB are same
       CloudTestHelper.matchMetadata(conf);
 

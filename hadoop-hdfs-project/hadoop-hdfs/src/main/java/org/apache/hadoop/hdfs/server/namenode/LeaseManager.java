@@ -573,7 +573,8 @@ public class LeaseManager {
                 .add(lf.getLeaseLockAllPaths(LockType.WRITE, holder,
                         fsnamesystem.getLeaseCreationLockRows()))
                 .add(lf.getLeasePathLock(LockType.WRITE, leasePaths.size()))
-                .add(lf.getBlockLock()).add(lf.getBlockRelated(BLK.RE, BLK.CR, BLK.ER, BLK.UC, BLK.UR));
+                .add(lf.getBlockLock()).add(lf.getBlockRelated(BLK.RE, BLK.CR, BLK.IV, BLK.ER,
+                    BLK.UC, BLK.PE, BLK.UR));
           }
 
           @Override
