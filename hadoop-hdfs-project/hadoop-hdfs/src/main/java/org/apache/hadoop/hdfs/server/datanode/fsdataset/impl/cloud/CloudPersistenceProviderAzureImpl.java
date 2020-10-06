@@ -27,6 +27,7 @@ import com.azure.storage.common.policy.RetryPolicyType;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.hash.HashCode;
 import com.google.common.hash.Hashing;
+import org.apache.commons.io.FileUtils;
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
 import org.apache.hadoop.conf.Configuration;
@@ -188,26 +189,24 @@ public class CloudPersistenceProviderAzureImpl implements CloudPersistenceProvid
         } else {
           //check the container is writable
           UUID uuid = UUID.randomUUID();
+          File file1 = new File("/tmp/" + uuid);
+          File file2 = new File("/tmp/" + uuid + ".downloaded");
           try {
             BlobClient bc = bcc.getBlobClient(uuid.toString()/*key*/);
             String message = "hello! hello! testing! testing! testing 1 2  3!";
-            File file1 = new File("/tmp/" + uuid);
-            File file2 = new File("/tmp/" + uuid + ".downloaded");
             FileWriter fw = new FileWriter(file1);
             fw.write(message);
             fw.close();
             bc.uploadFromFile(file1.getAbsolutePath());
             bc.downloadToFile(file2.getAbsolutePath());
-            MessageDigest md = MessageDigest.getInstance("MD5");
-            byte[] hash1 = com.google.common.io.Files.getDigest(file1, md);
-            byte[] hash2 = com.google.common.io.Files.getDigest(file2, md);
-            file1.delete();
-            file2.delete();
             bc.delete();
-            assert Arrays.equals(hash1, hash2) == true;
+            assert FileUtils.contentEquals(file1,file2) == true;
           } catch (Exception e) {
             throw new IllegalStateException("Write test for Azure container: " + contStr +
                     " failed. " + e);
+          } finally {
+            file1.delete();
+            file2.delete();
           }
         }
       }
