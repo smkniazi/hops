@@ -5536,13 +5536,23 @@ public class BlockManager {
 
   private BlockInfoContiguous getBlockInfo(Block b)
       throws StorageException, TransactionContextException {
+
+    if(b instanceof  BlockInfoContiguous){
+      return (BlockInfoContiguous)b;
+    }
+
     BlockInfoContiguous binfo = blocksMap.getStoredBlock(b);
     if (binfo == null) {
       LOG.error("ERROR: Dangling Block. bid=" + b.getBlockId() +
           " setting inodeId to be " + BlockInfoContiguous.NON_EXISTING_ID);
-      binfo = new BlockInfoContiguous(b, BlockInfoContiguous.NON_EXISTING_ID);
+      return new BlockInfoContiguous(b, BlockInfoContiguous.NON_EXISTING_ID);
     }
-    return binfo;
+
+    // The reason why we dont return binfo is that 'binfo' might have
+    // different values for generations stamp
+    // We would like to preserve all the information passed in 'b'
+    BlockInfoContiguous newBinfo = new BlockInfoContiguous(b, binfo.getInodeId()) ;
+    return newBinfo;
   }
 
   private void addStoredBlockTx(final List<BlockInfoContiguous> blocks, final List<Long> blockIds, final List<Long> inodeIds,
