@@ -397,10 +397,15 @@ public class HdfsVariables {
   public static RollingUpgradeInfo getRollingUpgradeInfo() throws TransactionContextException, StorageException,
       InvalidProtocolBufferException {
     ByteArrayVariable var = (ByteArrayVariable) Variables.getVariable(Variable.Finder.RollingUpgradeInfo);
-    if (var == null || var.getLength() <= 0) {
+    if (var == null) {
       return null;
     }
-    byte[] array = var.getBytes();
+
+    byte[] value = (byte[]) var.getValue();
+    if (value.length == 0) {
+      return null;
+    }
+
     ClientNamenodeProtocolProtos.RollingUpgradeInfoProto proto = ClientNamenodeProtocolProtos.RollingUpgradeInfoProto.
         parseFrom((byte[]) var.getValue());
     return PBHelper.convert(proto);
